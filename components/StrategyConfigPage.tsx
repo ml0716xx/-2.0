@@ -24,7 +24,7 @@ interface ScheduleBlock {
   subPeriods: SubPeriod[];
   isCollapsed: boolean;
   chargeOffset?: string;
-  chargeThreshold?: string;
+  dischargeOffset?: string;
 }
 
 interface StrategyTemplate {
@@ -35,159 +35,12 @@ interface StrategyTemplate {
   blocks: ScheduleBlock[];
 }
 
-const mockPath = "M0,180 C50,175 100,190 150,160 200,175 250,150 300,168 350,140 400,160 450,130 500,150 550,120 600,140 650,110 700,130 750,105 800,135";
 
-const ThresholdChart: React.FC<{
-  value: number;
-  max: number;
-  isEdit: boolean;
-  onChange: (val: number) => void;
-}> = ({ value, max, isEdit, onChange }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dates] = useState(['2月7日', '2月9日']);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (isEdit) {
-      setIsDragging(true);
-      e.preventDefault();
-    }
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
-    const newVal = Math.round(((rect.height - y) / rect.height) * max);
-    onChange(newVal);
-  };
-
-  useEffect(() => {
-    const handleMouseUp = () => setIsDragging(false);
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging]);
-
-  const chartHeight = 240;
-  const yPos = chartHeight - (value / max) * chartHeight;
-
-  return (
-    <div className="space-y-6 mt-8 animate-in fade-in duration-500 w-full">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-1">
-        <div className="flex items-center gap-6">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">历史辅助日期</span>
-          <div className="flex items-center gap-2 border border-slate-200 rounded-xl p-1 px-3 bg-white shadow-sm min-w-[320px]">
-            {dates.map((d, i) => (
-              <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-600">
-                {d} <X className="w-3.5 h-3.5 text-slate-300 cursor-pointer hover:text-rose-500 transition-colors" />
-              </div>
-            ))}
-            <div className="flex-1"></div>
-            <Calendar className="w-4 h-4 text-slate-300 mr-1" />
-          </div>
-        </div>
-        {isEdit && (
-          <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-500 animate-pulse">
-            <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 rounded-lg border border-emerald-100">
-              <Info className="w-3.5 h-3.5" />
-              拖拽绿色阈值线进行快速调节
-            </span>
-          </div>
-        )}
-      </div>
-
-      <div className="relative flex gap-6 md:gap-10">
-        <div className="flex flex-col justify-between py-1 text-[10px] text-slate-400 font-black h-[240px] shrink-0 w-12 text-right">
-          <span>(kW)</span>
-          <span>75 —</span>
-          <span>50 —</span>
-          <span>25 —</span>
-          <span>0 —</span>
-        </div>
-
-        <div 
-          ref={containerRef}
-          className={`flex-1 h-[240px] border-b border-l border-slate-200 relative bg-slate-50/50 rounded-br-lg overflow-hidden transition-all shadow-inner ${isEdit ? 'cursor-ns-resize ring-1 ring-emerald-100 ring-inset' : ''}`}
-        >
-          <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-40">
-             {[0, 1, 2, 3, 4].map(i => <div key={i} className="w-full border-t border-slate-200 border-dashed"></div>)}
-          </div>
-
-          <svg viewBox="0 0 800 240" className="w-full h-full overflow-visible" preserveAspectRatio="none">
-            <path d={mockPath} fill="none" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            <line x1="0" y1="50" x2="800" y2="50" stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="8 4" className="opacity-70" />
-            <line x1="0" y1="190" x2="800" y2="190" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="8 4" className="opacity-70" />
-
-            <g className="transition-all duration-75">
-              {isEdit && (
-                <line 
-                  x1="0" y1={yPos} x2="800" y2={yPos} 
-                  stroke="transparent" 
-                  strokeWidth="20" 
-                  onMouseDown={handleMouseDown}
-                  className="cursor-ns-resize"
-                />
-              )}
-              <line 
-                x1="0" y1={yPos} x2="800" y2={yPos} 
-                stroke="#10b981" 
-                strokeWidth={isEdit ? "3" : "2"} 
-                onMouseDown={handleMouseDown}
-                className={isEdit ? "cursor-ns-resize" : ""}
-                strokeLinecap="round"
-              />
-              <g transform={`translate(752, ${yPos - 8})`}>
-                <rect 
-                  width="38" height="16" 
-                  rx="3" fill="#10b981" 
-                  className={`drop-shadow-md ${isEdit ? 'cursor-ns-resize' : ''}`}
-                  onMouseDown={handleMouseDown}
-                />
-                <text 
-                  x="19" y="11.5" 
-                  textAnchor="middle" 
-                  fill="white" 
-                  className="text-[9px] font-black pointer-events-none tracking-tighter"
-                >
-                  {value} kW
-                </text>
-              </g>
-            </g>
-          </svg>
-
-          <div className="absolute top-[50px] right-4 -translate-y-1/2 flex items-center gap-2">
-            <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest bg-white/90 px-2 py-0.5 rounded-lg shadow-sm border border-rose-100">站点超容报警阈值</span>
-          </div>
-          <div className="absolute right-24 -translate-y-1/2 flex items-center gap-2 pointer-events-none transition-all duration-75" style={{ top: `${yPos}px` }}>
-            <span className="text-[9px] font-black text-emerald-600 bg-emerald-50/90 px-2 py-0.5 rounded-full shadow-sm border border-emerald-100 italic">储能允许放电阈值设置</span>
-          </div>
-          <div className="absolute top-[190px] right-4 -translate-y-1/2 flex items-center gap-2">
-            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest bg-white/90 px-2 py-0.5 rounded-lg shadow-sm border border-slate-100">允许逆流底线</span>
-          </div>
-          <div className="absolute top-1/2 left-6 -translate-y-1/2 text-[11px] font-bold text-slate-300 pointer-events-none italic tracking-wide">站点历史同期负荷预览</div>
-        </div>
-      </div>
-
-      <div className="flex justify-between pl-[72px] pr-2 text-[10px] font-black text-slate-400 tracking-[0.4em]">
-        <span>00:00</span>
-        <span>06:00</span>
-        <span>12:00</span>
-        <span>18:00</span>
-        <span>24:00</span>
-      </div>
-    </div>
-  );
-};
 
 const StrategyConfigPage: React.FC = () => {
   const [selectedId, setSelectedId] = useState('01');
   const [isEditing, setIsEditing] = useState(false);
+  const [focusedThresholdBlockId, setFocusedThresholdBlockId] = useState<string | null>(null);
 
   const [templates, setTemplates] = useState<StrategyTemplate[]>([
     {
@@ -205,6 +58,8 @@ const StrategyConfigPage: React.FC = () => {
           reserveDischarge: '30',
           strategyType: '峰谷套利',
           dischargeThreshold: '42',
+          chargeOffset: '10',
+          dischargeOffset: '15',
           isCollapsed: false,
           subPeriods: [
             { start: '00:00', end: '01:00', type: '充电', power: 1.5 },
@@ -228,6 +83,8 @@ const StrategyConfigPage: React.FC = () => {
           reserveDischarge: '15',
           strategyType: '全额消纳（自发自用）',
           dischargeThreshold: '58',
+          chargeOffset: '5',
+          dischargeOffset: '12',
           isCollapsed: false,
           subPeriods: []
         }
@@ -377,7 +234,7 @@ const StrategyConfigPage: React.FC = () => {
       )}
 
       <div className="flex-1 flex flex-col gap-8 transition-all duration-300 min-w-0">
-        <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-50 flex-1 relative overflow-hidden">
+        <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-50 flex-1 relative">
           
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-10 pb-6 border-b border-slate-50">
             <div className="flex items-center gap-4">
@@ -427,9 +284,9 @@ const StrategyConfigPage: React.FC = () => {
 
           <div className="space-y-8">
             {currentTemplate.blocks.map((block) => (
-              <div key={block.id} className="bg-slate-50/50 rounded-[2rem] border border-slate-100 p-0 relative overflow-hidden transition-all duration-300">
+              <div key={block.id} className={`bg-slate-50/50 rounded-[2rem] border border-slate-100 p-0 relative transition-all duration-300 ${focusedThresholdBlockId === block.id ? 'z-[100]' : 'z-10'}`}>
                 <div 
-                  className={`flex items-center justify-between p-8 cursor-pointer hover:bg-slate-100/50 transition-colors ${!block.isCollapsed ? 'border-b border-slate-100' : ''}`}
+                  className={`flex items-center justify-between p-8 cursor-pointer hover:bg-slate-100/50 transition-colors ${!block.isCollapsed ? 'border-b border-slate-100' : ''} ${block.isCollapsed ? 'rounded-[2rem]' : 'rounded-t-[2rem]'}`}
                   onClick={() => toggleBlockCollapse(block.id)}
                 >
                   <div className="flex items-center gap-8 flex-1 min-w-0">
@@ -585,34 +442,168 @@ const StrategyConfigPage: React.FC = () => {
                         ) : <div className="inline-flex px-4 py-2 rounded-xl text-xs font-black bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm">{block.strategyType}</div>}
                       </div>
 
-                      {(block.strategyType === '全额消纳（自发自用）' || block.strategyType === '余电上网（自发自用）') && (
+                      {(block.strategyType === '全额消纳（自发自用）' || block.strategyType === '余电上网（自发自用）' || block.strategyType === '动态增容' || block.strategyType === '需量控制') && (
                         <div className="col-span-12 mt-6">
-                          <div className="flex items-center justify-between mb-6 px-1">
-                             <div className="flex items-center gap-3">
+                          <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                             <div className="flex items-center gap-3 mb-6">
                                 <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
-                                <span className="text-sm font-black text-slate-800 tracking-tight uppercase">储能允许放电阈值设置</span>
+                                <span className="text-sm font-black text-slate-800 tracking-tight">允许充放电偏移量设置</span>
                              </div>
-                             {isEditing && (
-                               <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">精确控制</span>
-                                  <div className="relative">
-                                     <input 
-                                       type="number" 
-                                       value={block.dischargeThreshold} 
-                                       onChange={(e) => updateBlockValue(block.id, 'dischargeThreshold', e.target.value)} 
-                                       className="w-24 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-black focus:ring-2 ring-emerald-100 outline-none pr-8" 
-                                     />
-                                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">kW</span>
-                                  </div>
-                               </div>
-                             )}
+
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                               {(block.strategyType === '全额消纳（自发自用）' || block.strategyType === '余电上网（自发自用）') && (
+                                 <div>
+                                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">允许充电偏移量</label>
+                                   <div className="relative">
+                                      <input 
+                                        type="number" 
+                                        value={block.chargeOffset || ''} 
+                                        onChange={(e) => updateBlockValue(block.id, 'chargeOffset', e.target.value)} 
+                                        onFocus={() => isEditing && setFocusedThresholdBlockId(block.id)}
+                                        onBlur={() => setFocusedThresholdBlockId(null)}
+                                        disabled={!isEditing}
+                                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 ring-emerald-100 outline-none transition-all shadow-sm disabled:bg-slate-100 disabled:text-slate-500" 
+                                      />
+                                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">kW</span>
+                                   </div>
+                                 </div>
+                               )}
+
+                               {(block.strategyType === '动态增容' || block.strategyType === '需量控制') && (
+                                 <div>
+                                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">允许放电偏移量</label>
+                                   <div className="relative">
+                                      <input 
+                                        type="number" 
+                                        value={block.dischargeOffset || ''} 
+                                        onChange={(e) => updateBlockValue(block.id, 'dischargeOffset', e.target.value)} 
+                                        onFocus={() => isEditing && setFocusedThresholdBlockId(block.id)}
+                                        onBlur={() => setFocusedThresholdBlockId(null)}
+                                        disabled={!isEditing}
+                                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 ring-emerald-100 outline-none transition-all shadow-sm disabled:bg-slate-100 disabled:text-slate-500" 
+                                      />
+                                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">kW</span>
+                                   </div>
+                                 </div>
+                               )}
+
+                               {focusedThresholdBlockId === block.id && (
+                                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 z-50 w-[640px] bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 animate-in fade-in slide-in-from-top-2">
+                                   <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-t border-l border-slate-100 rotate-45"></div>
+                                   <div className="font-black text-slate-800 text-sm mb-4 text-center tracking-tight">电网功率边界与调控偏移量图解</div>
+                                   
+                                   <svg viewBox="0 0 600 440" className="w-full h-auto bg-slate-50/50 rounded-2xl border border-slate-100">
+                                      <defs>
+                                        <marker id="arrowDown" markerWidth="10" markerHeight="10" refX="5" refY="8" orient="auto-start-reverse">
+                                          <path d="M 0 0 L 5 8 L 10 0 z" fill="#10b981" />
+                                        </marker>
+                                        <marker id="arrowUp" markerWidth="10" markerHeight="10" refX="5" refY="2" orient="auto">
+                                          <path d="M 0 10 L 5 2 L 10 10 z" fill="#10b981" />
+                                        </marker>
+                                        <marker id="arrowDownBlue" markerWidth="10" markerHeight="10" refX="5" refY="8" orient="auto-start-reverse">
+                                          <path d="M 0 0 L 5 8 L 10 0 z" fill="#3b82f6" />
+                                        </marker>
+                                        <marker id="arrowUpBlue" markerWidth="10" markerHeight="10" refX="5" refY="2" orient="auto">
+                                          <path d="M 0 10 L 5 2 L 10 10 z" fill="#3b82f6" />
+                                        </marker>
+                                      </defs>
+
+                                      {/* Axis Bar */}
+                                      <rect x="30" y="30" width="12" height="380" rx="6" fill="#e2e8f0" />
+                                      {/* Zones coloring on the axis */}
+                                      <rect x="30" y="30" width="12" height="70" rx="6" fill="#ef4444" /> {/* Top Red */}
+                                      <rect x="30" y="100" width="12" height="70" fill="#f59e0b" /> {/* Top Yellow */}
+                                      <rect x="30" y="170" width="12" height="100" fill="#10b981" /> {/* Middle Green */}
+                                      <rect x="30" y="270" width="12" height="70" fill="#f59e0b" /> {/* Bottom Yellow */}
+                                      <rect x="30" y="340" width="12" height="70" rx="6" fill="#ef4444" /> {/* Bottom Red */}
+
+                                      {/* Highlight Zone Background */}
+                                      <rect x="42" y="170" width="378" height="100" fill="#3b82f6" fillOpacity="0.05" />
+
+                                      {/* Lines from the axis to the right */}
+                                      <line x1="42" y1="40" x2="580" y2="40" stroke="#ef4444" strokeWidth="2" strokeDasharray="4 4"/>
+                                      <line x1="42" y1="100" x2="580" y2="100" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 4"/>
+                                      <line x1="42" y1="170" x2="420" y2="170" stroke="#10b981" strokeWidth="2" strokeDasharray="2 2"/>
+                                      <line x1="42" y1="270" x2="420" y2="270" stroke="#10b981" strokeWidth="2" strokeDasharray="2 2"/>
+                                      <line x1="42" y1="340" x2="580" y2="340" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 4"/>
+                                      <line x1="42" y1="400" x2="580" y2="400" stroke="#ef4444" strokeWidth="2" strokeDasharray="4 4"/>
+
+                                      {/* Texts */}
+                                      <foreignObject x="50" y="26" width="530" height="40">
+                                        <div xmlns="http://www.w3.org/1999/xhtml" className="flex flex-col">
+                                          <span className="text-[13px] font-black text-rose-600">【红色禁区】变压器额定容量</span>
+                                          <span className="text-[11px] text-slate-500 mt-0.5">物理极限，绝对不能碰，碰了就停电。</span>
+                                        </div>
+                                      </foreignObject>
+
+                                      <foreignObject x="50" y="86" width="530" height="40">
+                                        <div xmlns="http://www.w3.org/1999/xhtml" className="flex flex-col">
+                                          <span className="text-[13px] font-black text-amber-600">【黄色警戒】超容阈值 (P<sub className="text-[9px]">cap</sub> &lt; S<sub className="text-[9px]">trafo</sub>)</span>
+                                          <span className="text-[11px] text-slate-500 mt-0.5">调控触发点。一旦功率达到这里，储能系统立即开始“干活”（削峰）。</span>
+                                        </div>
+                                      </foreignObject>
+
+                                      <foreignObject x="50" y="156" width="370" height="60">
+                                        <div xmlns="http://www.w3.org/1999/xhtml" className="flex flex-col">
+                                          <span className="text-[13px] font-black text-emerald-600">【绿色安全】允许充电偏移量</span>
+                                          <span className="text-[11px] text-slate-500 mt-0.5 leading-snug">策略缓冲带。储能充电时，目标是停在“超容阈值 - 偏移量”的位置，给突然增加的负荷留出空间。</span>
+                                        </div>
+                                      </foreignObject>
+
+                                      <foreignObject x="50" y="256" width="370" height="60">
+                                        <div xmlns="http://www.w3.org/1999/xhtml" className="flex flex-col">
+                                          <span className="text-[13px] font-black text-emerald-600">【绿色安全】允许放电偏移量</span>
+                                          <span className="text-[11px] text-slate-500 mt-0.5 leading-snug">策略缓冲带。储能放电时，目标是停在“逆流阈值 + 偏移量”的位置，给突然增加的光伏留出空间。</span>
+                                        </div>
+                                      </foreignObject>
+
+                                      <foreignObject x="50" y="326" width="530" height="40">
+                                        <div xmlns="http://www.w3.org/1999/xhtml" className="flex flex-col">
+                                          <span className="text-[13px] font-black text-amber-600">【黄色警戒】逆流阈值 (P<sub className="text-[9px]">rev</sub> &gt; 0)</span>
+                                          <span className="text-[11px] text-slate-500 mt-0.5">调控触发点。一旦功率跌到这里，系统立即开始“干活”（限制放电或反向充电）。</span>
+                                        </div>
+                                      </foreignObject>
+
+                                      <foreignObject x="50" y="386" width="530" height="40">
+                                        <div xmlns="http://www.w3.org/1999/xhtml" className="flex flex-col">
+                                          <span className="text-[13px] font-black text-rose-600">【红色禁区】0kW 刻度线</span>
+                                          <span className="text-[11px] text-slate-500 mt-0.5">防逆流极限，绝对不能掉下去（漏电上网）。</span>
+                                        </div>
+                                      </foreignObject>
+
+                                      {/* Arrows */}
+                                      <g>
+                                        <line x1="440" y1="100" x2="440" y2="162" stroke="#10b981" strokeWidth="2" strokeDasharray="3 3"/>
+                                        <line x1="440" y1="162" x2="440" y2="168" stroke="#10b981" strokeWidth="2" markerEnd="url(#arrowDown)"/>
+                                        <foreignObject x="450" y="125" width="140" height="30">
+                                          <div xmlns="http://www.w3.org/1999/xhtml" className="text-[12px] font-black text-emerald-600 drop-shadow-sm">
+                                            允许充电偏移量
+                                          </div>
+                                        </foreignObject>
+
+                                        {/* Storage operating zone */}
+                                        <line x1="440" y1="178" x2="440" y2="262" stroke="#3b82f6" strokeWidth="2" strokeDasharray="3 3"/>
+                                        <line x1="440" y1="178" x2="440" y2="172" stroke="#3b82f6" strokeWidth="2" markerEnd="url(#arrowUpBlue)"/>
+                                        <line x1="440" y1="262" x2="440" y2="268" stroke="#3b82f6" strokeWidth="2" markerEnd="url(#arrowDownBlue)"/>
+                                        <foreignObject x="450" y="208" width="140" height="30">
+                                          <div xmlns="http://www.w3.org/1999/xhtml" className="text-[12px] font-black text-blue-500 drop-shadow-sm bg-white/60 px-1 rounded inline-block">
+                                            储能充放运行区间
+                                          </div>
+                                        </foreignObject>
+
+                                        <line x1="440" y1="340" x2="440" y2="278" stroke="#10b981" strokeWidth="2" strokeDasharray="3 3"/>
+                                        <line x1="440" y1="278" x2="440" y2="272" stroke="#10b981" strokeWidth="2" markerEnd="url(#arrowUp)"/>
+                                        <foreignObject x="450" y="295" width="140" height="30">
+                                          <div xmlns="http://www.w3.org/1999/xhtml" className="text-[12px] font-black text-emerald-600 drop-shadow-sm">
+                                            允许放电偏移量
+                                          </div>
+                                        </foreignObject>
+                                      </g>
+                                   </svg>
+                                 </div>
+                               )}
+                             </div>
                           </div>
-                          <ThresholdChart 
-                            value={parseInt(block.dischargeThreshold) || 0}
-                            max={75}
-                            isEdit={isEditing}
-                            onChange={(val) => updateBlockValue(block.id, 'dischargeThreshold', val.toString())}
-                          />
                         </div>
                       )}
 

@@ -47,9 +47,6 @@ const EnergyRevenueSection: React.FC = () => {
               <button key={t} className={`px-5 py-1.5 text-xs font-bold rounded-lg transition-all ${t === '30天' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>{t}</button>
             ))}
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">
-            <FileText className="w-4 h-4" /> 下载详细报表
-          </button>
         </div>
       </div>
 

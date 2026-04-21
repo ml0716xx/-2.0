@@ -61,10 +61,6 @@ const RevenueCard: React.FC<RevenueCardProps> = ({ revenue, activeTab, onTabChan
           </span>
           <span className="text-xs text-slate-400 font-medium">收益额</span>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-emerald-500 font-medium mt-1">
-          <ArrowUpRight className="w-4 h-4" />
-          <span>+{revenue.trend}% vs {activeTab === 'total' ? '同期' : '上期'}</span>
-        </div>
       </div>
 
       <div className="space-y-4 flex-1">
@@ -81,12 +77,6 @@ const RevenueCard: React.FC<RevenueCardProps> = ({ revenue, activeTab, onTabChan
             <span className="text-sm font-black text-slate-800 font-mono">¥{item.value}</span>
           </div>
         ))}
-      </div>
-
-      <div className="mt-8 pt-4 border-t border-slate-50 text-center">
-        <button className="text-[10px] text-slate-400 font-black tracking-widest uppercase hover:text-emerald-500 transition-colors">
-          VIEW DETAILED REVENUE REPORT &gt;
-        </button>
       </div>
     </div>
   );

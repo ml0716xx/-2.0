@@ -44,26 +44,6 @@ const Header: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-6 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100/50">
-          <div className="flex items-center gap-2 border-r border-slate-200 pr-4">
-            <CloudSun className="w-5 h-5 text-amber-500" />
-            <span className="text-sm font-medium">晴转多云</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Thermometer className="w-5 h-5 text-emerald-500" />
-            <span className="text-sm font-medium">24.5°C</span>
-          </div>
-        </div>
-
-        <div className="text-right border-l border-slate-200 pl-6 hidden md:block">
-          <div className="text-lg font-mono font-bold text-slate-800 leading-none">
-            {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
-          </div>
-          <div className="text-[11px] text-slate-400 mt-1">
-            {time.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}
-          </div>
-        </div>
-
         <div className="flex items-center gap-1">
           <button className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500 relative">
             <Bell className="w-5 h-5" />

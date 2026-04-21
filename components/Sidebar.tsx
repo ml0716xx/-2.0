@@ -29,7 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
       name: '监控中心', 
       icon: <Activity className="w-5 h-5" />,
       hasSub: true,
-      subItems: ['监控概览', '策略监控', '主接线图', '储能监控']
+      subItems: ['监控概览', '策略监控', '主接线图', '储能监控', '算法预测监控']
     },
     { 
       name: '策略管理', 
@@ -39,7 +39,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
     },
     { name: '运营中心', icon: <Share2 className="w-5 h-5" /> },
     { name: '多站概览', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { name: '智能报告', icon: <FileText className="w-5 h-5" /> },
+    { 
+      name: '智能报告', 
+      icon: <FileText className="w-5 h-5" />,
+      hasSub: true,
+      subItems: ['策略运行报告']
+    },
     { name: '报警管理', icon: <Bell className="w-5 h-5" /> },
     { name: '统计报表', icon: <Database className="w-5 h-5" /> },
     { name: '微网管理', icon: <Settings className="w-5 h-5" /> },

@@ -90,10 +90,6 @@ const StatsCard: React.FC<StatsCardProps> = ({ stats, activeTab, onTabChange }) 
                 <div className="text-lg font-bold text-slate-800">
                   {getValueByTab(stat)} <span className="text-xs font-normal text-slate-400">{stat.unit}</span>
                 </div>
-                <div className={`text-[10px] flex items-center justify-end gap-0.5 ${stat.trend >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                  {stat.trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                  {Math.abs(stat.trend)}%
-                </div>
               </div>
             </div>
 
@@ -147,19 +143,6 @@ const StatsCard: React.FC<StatsCardProps> = ({ stats, activeTab, onTabChange }) 
             </div>
           </div>
         )}
-      </div>
-
-      <div className="mt-8 pt-5 border-t border-slate-50">
-        <div className="flex justify-between items-center text-xs">
-          <div className="flex flex-col gap-1">
-            <span className="text-slate-400">总用电负荷</span>
-            <span className="text-slate-700 font-bold">1289 kWh</span>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-slate-400">自发自用率</span>
-            <span className="text-emerald-600 font-bold">82.4%</span>
-          </div>
-        </div>
       </div>
     </div>
   );
