@@ -9,7 +9,8 @@ import {
   BarChart3,
   PieChart as PieChartIcon,
   Clock,
-  Activity
+  Activity,
+  Sun
 } from 'lucide-react';
 import {
   PieChart,
@@ -31,13 +32,19 @@ import {
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-const strategyData = [
-  { name: '峰谷套利', value: 45, revenue: 56430, hours: 320, details: { chargeEnergy: 15200, dischargeEnergy: 13800, chargeHours: 180, dischargeHours: 140 } },
-  { name: '余电上网', value: 15, revenue: 18810, hours: 150, details: { consumedEnergy: 8500, exportEnergy: 4200 } },
-  { name: '全额消纳', value: 20, revenue: 25080, hours: 210, details: { consumedEnergy: 12500 } },
-  { name: '需量控制', value: 12, revenue: 15048, hours: 85, details: { controlCount: 24 } },
-  { name: '动态增容', value: 8, revenue: 10032, hours: 45, details: { controlCount: 15 } },
-];
+const dailyPvData = Array.from({ length: 31 }, (_, i) => {
+  const traditional = Math.round(70 + Math.random() * 15);
+  const aiBoost = Math.min(100 - traditional, Math.round(5 + Math.random() * 10));
+  return { day: `${i + 1}日`, traditional, aiBoost, actual: traditional + aiBoost };
+});
+
+const dailyBessData = Array.from({ length: 31 }, (_, i) => {
+  const traditionalCharge = Math.round(200 + Math.random() * 50);
+  const traditionalDischarge = Math.round(traditionalCharge * 0.9);
+  const aiCharge = Math.round(traditionalCharge * 1.3 + Math.random() * 40);
+  const aiDischarge = Math.round(aiCharge * 0.95);
+  return { day: `${i + 1}日`, traditionalCharge, traditionalDischarge, aiCharge, aiDischarge };
+});
 
 const dailyRevenueData = Array.from({ length: 31 }, (_, i) => {
   const base = Math.round(3000 + Math.random() * 1000);
@@ -145,7 +152,7 @@ const CustomDailyTooltip = ({ active, payload, label }: any) => {
 
 const StrategyReportPage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState('2026-04');
-  const [selectedDay, setSelectedDay] = useState<string | null>('1日');
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const getDailyLogs = (day: string) => {
     const dayNum = parseInt(day.replace('日', ''), 10) || 1;
@@ -234,7 +241,7 @@ const StrategyReportPage: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <TrendingUp className="w-16 h-16 text-blue-600" />
@@ -271,101 +278,167 @@ const StrategyReportPage: React.FC = () => {
             与传统一充一放模式进行对比。
           </p>
         </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <Sun className="w-16 h-16 text-indigo-600" />
+          </div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center">
+              <Sun className="w-5 h-5 text-indigo-600" />
+            </div>
+            <h3 className="font-bold text-slate-600">绿电自发自用率提升</h3>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-black text-slate-800">+15.4%</span>
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            精准调度余电上网，减少弃光，转化为内部价值。
+          </p>
+        </div>
       </div>
 
       {/* Main Content Grid */}
       <div className="flex flex-col gap-6">
 
-        {/* AI Revenue Simulation & Daily Details Row */}
-        <div className="flex flex-col gap-6">
-          {/* AI Revenue Simulation */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-emerald-500" />
-                <h2 className="text-lg font-bold text-slate-800">AI 策略收益提升分析</h2>
-              </div>
+        {/* AI Revenue Simulation */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-emerald-500" />
+              <h3 className="text-lg font-bold text-slate-800">本月 AI 策略收益统计</h3>
             </div>
-            
-            <div className="flex flex-wrap items-center gap-4 text-sm mb-4">
-              <span className="text-xs text-slate-400 mr-2">点击柱状图查看每日详情</span>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-blue-500"></div>
-                <span className="text-slate-600 font-medium text-xs">传统模式收益</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-emerald-500"></div>
-                <span className="text-slate-600 font-medium text-xs">AI 提升收益</span>
-              </div>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-4 text-sm mb-4">
+            <span className="text-xs text-slate-400 mr-2">点击柱状图查看每日详情</span>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-blue-500"></div>
+              <span className="text-slate-600 font-medium text-xs">传统模式收益</span>
             </div>
-
-            <div className="h-[300px] w-full mt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={dailyRevenueData}
-                  margin={{ top: 20, right: 10, left: 0, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis 
-                    dataKey="day" 
-                    axisLine={{ stroke: '#94a3b8' }}
-                    tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 10 }}
-                    dy={10}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis 
-                    axisLine={{ stroke: '#94a3b8' }}
-                    tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 10 }}
-                    tickFormatter={(val) => `¥${val}`}
-                    width={50}
-                  />
-                  <Tooltip
-                    cursor={{ fill: '#f8fafc' }}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number, name: string) => {
-                      const displayNames: Record<string, string> = {
-                        traditional: '传统模式收益',
-                        aiBoost: 'AI 提升收益',
-                        actual: '实际总收益'
-                      };
-                      return [`¥${value.toLocaleString()}`, displayNames[name] || name];
-                    }}
-                  />
-                  <Bar 
-                    dataKey="traditional" 
-                    stackId="a"
-                    fill="#3b82f6" 
-                    onClick={(data) => setSelectedDay(data.day)}
-                    cursor="pointer"
-                  />
-                  <Bar 
-                    dataKey="aiBoost" 
-                    stackId="a"
-                    fill="#10b981" 
-                    radius={[4, 4, 0, 0]} 
-                    onClick={(data) => setSelectedDay(data.day)}
-                    cursor="pointer"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-4">
-              <div className="bg-blue-100 p-2 rounded-lg mt-1 shrink-0">
-                <BrainCircuit className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <h4 className="font-bold text-blue-900 mb-1 text-sm">AI 策略价值洞察</h4>
-                <p className="text-xs text-blue-800 leading-relaxed">
-                  本月 AI 策略主要在<strong>峰谷套利</strong>和<strong>需量控制</strong>场景中发挥作用。通过精准预测次日负荷与光伏发电曲线，AI 算法成功规避了 12 次潜在的超容风险，并在电价波谷期增加了 15% 的储能充电深度，相较于传统的固定充放控制，整体经济效益得到显著提升。
-                </p>
-              </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-emerald-500"></div>
+              <span className="text-slate-600 font-medium text-xs">AI 提升收益</span>
             </div>
           </div>
 
-          {/* Daily Strategy Details */}
+          <div className="h-[250px] w-full mt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={dailyRevenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="day" axisLine={{ stroke: '#94a3b8' }} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} dy={10} interval="preserveStartEnd" />
+                <YAxis axisLine={{ stroke: '#94a3b8' }} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={(val) => `¥${val}`} />
+                <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
+                  formatter={(value: number, name: string) => {
+                    const displayNames: Record<string, string> = { traditional: '传统模式收益', aiBoost: 'AI 提升收益', actual: '实际总收益' };
+                    return [`¥${value.toLocaleString()}`, displayNames[name] || name];
+                  }}
+                />
+                <Bar dataKey="traditional" stackId="a" fill="#3b82f6" onClick={(data) => setSelectedDay(data.day)} cursor="pointer" />
+                <Bar dataKey="aiBoost" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} onClick={(data) => setSelectedDay(data.day)} cursor="pointer" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-start gap-3">
+            <div className="bg-blue-100 p-1.5 rounded-lg mt-0.5 shrink-0">
+              <BrainCircuit className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <h4 className="font-bold text-blue-900 mb-0.5 text-xs">AI 策略价值验证</h4>
+              <p className="text-[11px] text-blue-800 leading-relaxed">
+                本月依靠高精度的曲线预测，AI 算法成功规避了 12 次潜在的超容风险，并在电价波谷期增加了 15% 的储能充电深度，相较于传统的固定充放控制，整体经济效益得到极大跃升。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-6">
+          {/* Monthly PV Absorption */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sun className="w-5 h-5 text-indigo-500" />
+                <h3 className="text-lg font-bold text-slate-800">本月 AI 策略光伏消纳率统计</h3>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4 text-xs mb-4">
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-blue-400"></div><span className="text-slate-600">传统模式消纳率</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-indigo-500"></div><span className="text-slate-600">AI策略提升率</span></div>
+            </div>
+
+            <div className="h-[250px] w-full mt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dailyPvData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barGap={0}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="day" axisLine={{ stroke: '#94a3b8' }} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} dy={10} interval="preserveStartEnd" />
+                  <YAxis axisLine={{ stroke: '#94a3b8' }} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={(val) => `${val}%`} domain={[0, 100]} />
+                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
+                    formatter={(value: number, name: string) => {
+                      const displayNames: Record<string, string> = { traditional: '传统模式消纳率', aiBoost: 'AI策略提升率', actual: '实际总消纳率' };
+                      return [`${value}%`, displayNames[name] || name];
+                    }}
+                  />
+                  <Bar dataKey="traditional" stackId="a" fill="#60a5fa" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="aiBoost" stackId="a" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            
+            <div className="mt-4 text-[11px] text-slate-500 px-2 border-l-2 border-indigo-200">
+              通过 AI 储能协同光伏放电特征，本月厂区光伏实际消纳率达 98%，相较于传统定时器策略额外提升了 14% 的绿电自我利用率。
+            </div>
+          </div>
+
+          {/* Monthly BESS Charging/Discharging */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-amber-500" />
+                <h3 className="text-lg font-bold text-slate-800">本月 AI 策略储能充放电量统计</h3>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4 text-xs mb-4">
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-blue-300"></div><span className="text-slate-600">传统模式-充电</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-blue-500"></div><span className="text-slate-600">传统模式-放电</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-emerald-300"></div><span className="text-slate-600">AI策略-充电</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-emerald-500"></div><span className="text-slate-600">AI策略-放电</span></div>
+            </div>
+
+            <div className="h-[250px] w-full mt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dailyBessData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="day" axisLine={{ stroke: '#94a3b8' }} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} dy={10} interval="preserveStartEnd" />
+                  <YAxis axisLine={{ stroke: '#94a3b8' }} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={(val) => `${val}`} />
+                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
+                    formatter={(value: number, name: string) => {
+                      const displayNames: Record<string, string> = { 
+                        traditionalCharge: '传统模式充电', 
+                        traditionalDischarge: '传统模式放电',
+                        aiCharge: 'AI策略充电',
+                        aiDischarge: 'AI策略放电'
+                      };
+                      return [`${value.toLocaleString()} kWh`, displayNames[name] || name];
+                    }}
+                  />
+                  <Bar dataKey="traditionalCharge" stackId="traditional" fill="#93c5fd" />
+                  <Bar dataKey="traditionalDischarge" stackId="traditional" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="aiCharge" stackId="ai" fill="#6ee7b7" />
+                  <Bar dataKey="aiDischarge" stackId="ai" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            
+            <div className="mt-4 text-[11px] text-slate-500 px-2 border-l-2 border-amber-200">
+              得益于 AI 预测技术对需量超限与逆流的智能规避及多循化套利，本月累计处理充放电量 21,000 kWh，资产利用率显著爬升。
+            </div>
+          </div>
+        </div>
+
+        {/* Daily Strategy Details Row */}
           {selectedDay && (
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 animate-in fade-in slide-in-from-top-4 duration-500 flex flex-col">
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
@@ -529,89 +602,8 @@ const StrategyReportPage: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
 
-        {/* Monthly Strategy Breakdown (Moved to Bottom) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col mt-2">
-          <div className="flex items-center gap-2 mb-6">
-            <PieChartIcon className="w-5 h-5 text-blue-500" />
-            <h2 className="text-lg font-bold text-slate-800">月度策略运行概况</h2>
-          </div>
-          
-          <div className="flex flex-col xl:flex-row gap-8 items-center">
-            <div className="h-[250px] w-full xl:w-1/3">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={strategyData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {strategyData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value: number) => `${value}%`}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
-              {strategyData.map((strategy, index) => (
-                <div key={strategy.name} className="flex flex-col p-4 rounded-xl bg-slate-50 border border-slate-100">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="w-3 h-3 rounded-full mt-1" style={{ backgroundColor: COLORS[index] }}></div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start">
-                        <div className="font-bold text-slate-700 text-sm">{strategy.name}</div>
-                        <div className="text-right">
-                          <div className="font-bold text-blue-600 text-sm">占比 {strategy.value}%</div>
-                        </div>
-                      </div>
-                      <div className="text-xs text-slate-500 mt-1">运行时长: {strategy.hours}h</div>
-                    </div>
-                  </div>
-                  
-                  {strategy.name === '峰谷套利' && strategy.details && (
-                    <div className="text-[11px] text-slate-500 mt-auto space-y-1 bg-white p-2.5 rounded border border-slate-100">
-                      <div className="flex justify-between gap-4"><span>充电电量:</span> <span className="font-medium text-slate-700">{strategy.details.chargeEnergy} kWh</span></div>
-                      <div className="flex justify-between gap-4"><span>充电时长:</span> <span className="font-medium text-slate-700">{strategy.details.chargeHours} h</span></div>
-                      <div className="flex justify-between gap-4"><span>放电电量:</span> <span className="font-medium text-slate-700">{strategy.details.dischargeEnergy} kWh</span></div>
-                      <div className="flex justify-between gap-4"><span>放电时长:</span> <span className="font-medium text-slate-700">{strategy.details.dischargeHours} h</span></div>
-                    </div>
-                  )}
-
-                  {strategy.name === '全额消纳' && strategy.details && (
-                    <div className="text-[11px] text-slate-500 mt-auto bg-white p-2.5 rounded border border-slate-100">
-                      <div className="flex justify-between gap-4"><span>消纳电量:</span> <span className="font-medium text-slate-700">{strategy.details.consumedEnergy} kWh</span></div>
-                    </div>
-                  )}
-
-                  {strategy.name === '余电上网' && strategy.details && (
-                    <div className="text-[11px] text-slate-500 mt-auto space-y-1 bg-white p-2.5 rounded border border-slate-100">
-                      <div className="flex justify-between gap-4"><span>消纳电量:</span> <span className="font-medium text-slate-700">{strategy.details.consumedEnergy} kWh</span></div>
-                      <div className="flex justify-between gap-4"><span>上网电量:</span> <span className="font-medium text-slate-700">{strategy.details.exportEnergy} kWh</span></div>
-                    </div>
-                  )}
-
-                  {(strategy.name === '需量控制' || strategy.name === '动态增容') && strategy.details && (
-                    <div className="text-[11px] text-slate-500 mt-auto bg-white p-2.5 rounded border border-slate-100">
-                      调控次数: <span className="font-bold text-slate-700">{strategy.details.controlCount} 次</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
+        {/* END of Daily Strategy Details */}
       </div>
     </div>
   );
