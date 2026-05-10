@@ -357,17 +357,18 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
       const displayedGrid = visibleSeries.bess ? finalNetLoad - bessAdjusted : finalNetLoad;
 
       const gridWithBaseBess = finalNetLoad - bessBase;
-      const riskDemand = gridWithBaseBess > 1200;
-      const riskReverse = gridWithBaseBess < 10;
+      const originalGrid = visibleSeries.bess ? gridWithBaseBess : finalNetLoad;
+      const riskDemand = originalGrid > 1200;
+      const riskReverse = originalGrid < 10;
 
       const bessEffect = visibleSeries.bess ? 
-        [Math.min(displayedGrid, finalNetLoad), Math.max(displayedGrid, finalNetLoad)] : null;
+        [Math.min(displayedGrid, originalGrid), Math.max(displayedGrid, originalGrid)] : null;
         
       const pvEffect = visibleSeries.pv ? 
         [Math.min(d.load, finalNetLoad), Math.max(d.load, finalNetLoad)] : null;
         
-      const overDemand = gridWithBaseBess > 1200 ? [1200, gridWithBaseBess] : null;
-      const reverseFlow = gridWithBaseBess < 10 ? [gridWithBaseBess, 10] : null;
+      const overDemand = originalGrid > 1200 ? [1200, originalGrid] : null;
+      const reverseFlow = originalGrid < 10 ? [originalGrid, 10] : null;
 
       return {
         ...d,
@@ -375,7 +376,7 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
         pvOriginal: pvOriginal !== pvAdjusted ? pvOriginal : null,
         bess: bessAdjusted,
         bessPriceOnly: bessBase,
-        gridWithoutBess: finalNetLoad,
+        gridWithoutBess: originalGrid,
         displayedGrid,
         bessEffect,
         pvEffect,
@@ -383,8 +384,8 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
         reverseFlow,
         reason,
         diff: bessAdjusted - bessBase,
-        riskPointOverDemand: riskDemand ? gridWithBaseBess : null,
-        riskPointReverseFlow: riskReverse ? gridWithBaseBess : null
+        riskPointOverDemand: riskDemand ? displayedGrid : null,
+        riskPointReverseFlow: riskReverse ? displayedGrid : null
       };
     });
   }, [visibleSeries.bess, visibleSeries.pv, chartData, activeScenario]);
@@ -570,6 +571,11 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
           <div className="flex items-center gap-8">
             {/* Legend */}
             <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 cursor-pointer transition-opacity opacity-100">
+                <div className="w-4 h-1 bg-violet-500"></div>
+                <span className="text-xs font-bold text-slate-800">负荷</span>
+              </div>
+              
               <div 
                 className={`flex items-center gap-2 cursor-pointer transition-opacity ${visibleSeries.grid ? 'opacity-100' : 'opacity-40'}`}
                 onClick={() => toggleSeries('grid')}
@@ -578,7 +584,7 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
                 <span className="text-xs font-bold text-slate-800">电网功率</span>
               </div>
               
-              {(visibleSeries.bess || visibleSeries.pv) && (
+              {visibleSeries.bess && (
                 <div className="flex items-center gap-2 opacity-60">
                   <div className="w-4 h-0 border-t-2 border-dashed border-slate-500"></div>
                   <span className="text-xs font-bold text-slate-500">调整前电网功率</span>
@@ -670,10 +676,7 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
               {/* Removed here, moved up */}
 
               {/* Lines */}
-              {visibleSeries.pv && <Line yAxisId="left" type="linear" dataKey="pv" name="光伏发电" stroke="#f97316" strokeWidth={3} dot={false} />}
-              {(visibleSeries.pv && visibleSeries.bess && activeScenario === 'negativePrice') && (
-                <Line yAxisId="left" type="linear" dataKey="pvOriginal" name="调整前光伏发电" stroke="#fbd38d" strokeWidth={3} strokeDasharray="5 5" dot={false} connectNulls={false} />
-              )}
+              <Line yAxisId="left" type="linear" dataKey="load" name="负荷" stroke="#8b5cf6" strokeWidth={2} dot={false} />
               
               {/* Effect fill area */}
               {visibleSeries.bess && visibleSeries.grid && (
@@ -721,11 +724,9 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
                 </>
               )}
               
-              {visibleSeries.bess && <Line yAxisId="left" type="linear" dataKey="bess" name="储能" stroke="#10b981" strokeWidth={3} strokeDasharray="5 5" dot={false} />}
-              
-              {/* Dashed original grid when PV or BESS is overlaid */}
-              {(visibleSeries.bess || visibleSeries.pv) && visibleSeries.grid && (
-                <Line yAxisId="left" type="linear" dataKey={visibleSeries.pv && !visibleSeries.bess ? "load" : "gridWithoutBess"} name="调整前电网功率" stroke="#64748b" strokeWidth={3} strokeDasharray="5 5" dot={false} />
+              {/* Dashed original grid when BESS is overlaid */}
+              {visibleSeries.bess && visibleSeries.grid && (
+                <Line yAxisId="left" type="linear" dataKey="gridWithoutBess" name="调整前电网功率" stroke="#64748b" strokeWidth={3} strokeDasharray="5 5" dot={false} />
               )}
               
               {/* Main displayed grid line */}
@@ -734,9 +735,9 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
                   yAxisId="left" 
                   type="linear" 
                   dataKey="displayedGrid" 
-                  name={(visibleSeries.bess || visibleSeries.pv) ? "调整后电网功率" : "电网功率"} 
-                  stroke={(visibleSeries.bess || visibleSeries.pv) ? "#020617" : "#64748b"} 
-                  strokeWidth={(visibleSeries.bess || visibleSeries.pv) ? 3 : 2} 
+                  name={visibleSeries.bess ? "调整后电网功率" : "电网功率"} 
+                  stroke={visibleSeries.bess ? "#020617" : "#64748b"} 
+                  strokeWidth={visibleSeries.bess ? 3 : 2} 
                   dot={false} 
                 />
               )}
