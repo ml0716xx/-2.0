@@ -407,7 +407,7 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
       let merge = false;
       
       if (!visibleSeries.bess) {
-         merge = d.bessPriceOnly === currentBlock.bessPriceOnly;
+         merge = true; // All blocks merged into one 待机 block
       } else {
          const dCat = d.bess > 0 ? '放电' : (d.bess < 0 ? '充电' : '待机');
          const currentCat = currentBlock.besses[0] > 0 ? '放电' : (currentBlock.besses[0] < 0 ? '充电' : '待机');
@@ -471,18 +471,22 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
         else { action = '充放电切换'; }
         isVariable = minBess !== maxBess;
       } else {
-        if (b.bessPriceOnly < 0) { action = '充电'; absMin = Math.abs(b.bessPriceOnly); absMax = absMin; }
-        else if (b.bessPriceOnly > 0) { action = '放电'; absMin = b.bessPriceOnly; absMax = absMin; }
+        action = '待机';
       }
 
       let type = '平段待机';
-      if (b.bessPriceOnly < 0) type = '低价谷时段';
-      else if (b.bessPriceOnly > 0) type = '高价峰时段';
-      if (visibleSeries.bess && b.reason) type = b.reason;
-      
       let baseActionStr = '待机';
-      if (b.bessPriceOnly < 0) baseActionStr = `充电 (${Math.abs(b.bessPriceOnly).toFixed(0)}kW)`;
-      else if (b.bessPriceOnly > 0) baseActionStr = `放电 (${b.bessPriceOnly.toFixed(0)}kW)`;
+      
+      if (visibleSeries.bess) {
+        if (b.bessPriceOnly < 0) type = '低价谷时段';
+        else if (b.bessPriceOnly > 0) type = '高价峰时段';
+        if (b.reason) type = b.reason;
+        
+        if (b.bessPriceOnly < 0) baseActionStr = `充电 (${Math.abs(b.bessPriceOnly).toFixed(0)}kW)`;
+        else if (b.bessPriceOnly > 0) baseActionStr = `放电 (${b.bessPriceOnly.toFixed(0)}kW)`;
+      } else {
+        type = '待机';
+      }
 
       let finalAction = action;
       if (action !== '待机' && action !== '充放电切换') {
@@ -492,8 +496,10 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
       }
 
       let baseActionCat = '待机';
-      if (b.bessPriceOnly < 0) baseActionCat = '充电';
-      else if (b.bessPriceOnly > 0) baseActionCat = '放电';
+      if (visibleSeries.bess) {
+        if (b.bessPriceOnly < 0) baseActionCat = '充电';
+        else if (b.bessPriceOnly > 0) baseActionCat = '放电';
+      }
 
       let tooltipAction = finalAction;
 
@@ -516,14 +522,18 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
 
 
       let desc = '';
-      if (b.bessPriceOnly < 0) desc = '因电价处于谷段，触发基础充电。';
-      else if (b.bessPriceOnly > 0) desc = '因电价处于峰段，触发基础放电以套利。';
-      else desc = '电价平段且无违约风险，保持待机。';
+      if (visibleSeries.bess) {
+        if (b.bessPriceOnly < 0) desc = '因电价处于谷段，触发基础充电。';
+        else if (b.bessPriceOnly > 0) desc = '因电价处于峰段，触发基础放电以套利。';
+        else desc = '电价平段且无违约风险，保持待机。';
 
-      if (visibleSeries.bess && b.reason === '超容化解') {
-         desc = `预测该时段存在超负荷风险，进行额外放电调度化解风险。`;
-      } else if (visibleSeries.bess && b.reason === '逆流化解') {
-         desc = `预测该时段存在逆流风险，进行额外充电或降功化解风险。`;
+        if (b.reason === '超容化解') {
+           desc = `预测该时段存在超负荷风险，进行额外放电调度化解风险。`;
+        } else if (b.reason === '逆流化解') {
+           desc = `预测该时段存在逆流风险，进行额外充电或降功化解风险。`;
+        }
+      } else {
+        desc = 'AI 控制未开启，储能处于待机状态。';
       }
 
       return {
