@@ -14,6 +14,7 @@ import EnergyRevenueSection from './components/EnergyRevenueSection';
 import SocialContributionSection from './components/SocialContributionSection';
 import StrategyConfigPage from './components/StrategyConfigPage';
 import StrategySchedulePage from './components/StrategySchedulePage';
+import StrategySchedulePage2 from './components/StrategySchedulePage2';
 import MainWiringDiagramPage from './components/MainWiringDiagramPage';
 import StorageMonitoringPage from './components/StorageMonitoringPage';
 import AlarmManagementPage from './components/AlarmManagementPage';
@@ -90,6 +91,9 @@ const App: React.FC = () => {
     }
     if (currentPage === '策略运行') {
       return <StrategySchedulePage />;
+    }
+    if (currentPage === '策略运行2') {
+      return <StrategySchedulePage2 />;
     }
     if (currentPage === '主接线图') {
       return <MainWiringDiagramPage />;

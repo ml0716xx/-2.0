@@ -1,6 +1,17 @@
-import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { Info, Calendar, Sun, Moon, CloudSun, CloudRain, Eye, EyeOff, BrainCircuit, Clock } from 'lucide-react';
+import React, { useState } from "react";
+import { motion } from "motion/react";
+import {
+  Info,
+  Calendar,
+  Sun,
+  Moon,
+  CloudSun,
+  CloudRain,
+  Eye,
+  EyeOff,
+  BrainCircuit,
+  Clock,
+} from "lucide-react";
 import {
   ComposedChart,
   Line,
@@ -13,25 +24,26 @@ import {
   ReferenceLine,
   ReferenceDot,
   ReferenceArea,
-} from 'recharts';
+} from "recharts";
 
 interface AlgorithmPredictionPageProps {
   onNavigate?: (page: string) => void;
 }
 
-const generateChartData = (scenario: 'standard' | 'negativePrice') => {
+const generateChartData = (scenario: "standard" | "negativePrice") => {
   const data = [];
   for (let h = 0; h < 24; h++) {
     for (let m = 0; m < 60; m += 15) {
-      const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-      
+      const timeStr = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+
       const isPeak = (h >= 8 && h <= 11) || (h >= 17 && h <= 20);
-      const isValley = (h >= 0 && h <= 5) || (h >= 21 && h <= 23) || (h === 24 && m === 0);
-      
+      const isValley =
+        (h >= 0 && h <= 5) || (h >= 21 && h <= 23) || (h === 24 && m === 0);
+
       let baseLoad = 400 + Math.random() * 50;
       if (isPeak) baseLoad += 800 + Math.random() * 200;
       else if (!isValley) baseLoad += 400 + Math.random() * 100;
-      
+
       // B. 在原本储能低价充电区间（如 03:00 - 04:00），出现超容，需要储能放电进行修复。
       if (h === 3) {
         baseLoad += 1000;
@@ -39,7 +51,9 @@ const generateChartData = (scenario: 'standard' | 'negativePrice') => {
 
       let pv = 0;
       if (h >= 6 && h <= 18) {
-        pv = Math.sin((h - 6) / 12 * Math.PI) * 1400 + (Math.random() - 0.5) * 100;
+        pv =
+          Math.sin(((h - 6) / 12) * Math.PI) * 1400 +
+          (Math.random() - 0.5) * 100;
         if (h === 10 || h === 11) {
           pv += 600;
           baseLoad -= 400;
@@ -54,12 +68,12 @@ const generateChartData = (scenario: 'standard' | 'negativePrice') => {
       let price = 0.6;
       if (isValley) price = 0.3;
       if (isPeak) price = 1.2;
-      
+
       let dayAheadPrice = price + (Math.random() - 0.5) * 0.05;
       let realTimePrice = price + (Math.random() - 0.5) * 0.1;
 
       // 新增：模拟负电价场景
-      if (scenario === 'negativePrice') {
+      if (scenario === "negativePrice") {
         if (h >= 8 && h < 14) {
           dayAheadPrice = -0.05 + (Math.random() - 0.5) * 0.05;
           realTimePrice = -0.15 + (Math.random() - 0.5) * 0.08;
@@ -69,12 +83,14 @@ const generateChartData = (scenario: 'standard' | 'negativePrice') => {
         }
       }
 
-      const forecastDayAheadPrice = dayAheadPrice + (Math.random() - 0.5) * 0.02;
-      const forecastRealTimePrice = realTimePrice + (Math.random() - 0.5) * 0.08;
+      const forecastDayAheadPrice =
+        dayAheadPrice + (Math.random() - 0.5) * 0.02;
+      const forecastRealTimePrice =
+        realTimePrice + (Math.random() - 0.5) * 0.08;
 
-      let weatherType = 'sun';
-      if (h < 6 || h > 18) weatherType = 'moon';
-      else if (pv < 500 && h > 8 && h < 16) weatherType = 'cloud-sun';
+      let weatherType = "sun";
+      if (h < 6 || h > 18) weatherType = "moon";
+      else if (pv < 500 && h > 8 && h < 16) weatherType = "cloud-sun";
 
       data.push({
         time: timeStr,
@@ -84,7 +100,11 @@ const generateChartData = (scenario: 'standard' | 'negativePrice') => {
         realTimePrice: parseFloat(realTimePrice.toFixed(2)),
         forecastDayAheadPrice: parseFloat(forecastDayAheadPrice.toFixed(2)),
         forecastRealTimePrice: parseFloat(forecastRealTimePrice.toFixed(2)),
-        weather: { type: weatherType, temp: `${Math.round(20 + h/2)}°C`, desc: weatherType === 'sun' ? '晴朗' : '多云' },
+        weather: {
+          type: weatherType,
+          temp: `${Math.round(20 + h / 2)}°C`,
+          desc: weatherType === "sun" ? "晴朗" : "多云",
+        },
         isPeak,
         isValley,
       });
@@ -95,11 +115,16 @@ const generateChartData = (scenario: 'standard' | 'negativePrice') => {
 
 const getWeatherIcon = (type: string) => {
   switch (type) {
-    case 'sun': return Sun;
-    case 'moon': return Moon;
-    case 'cloud-sun': return CloudSun;
-    case 'rain': return CloudRain;
-    default: return Sun;
+    case "sun":
+      return Sun;
+    case "moon":
+      return Moon;
+    case "cloud-sun":
+      return CloudSun;
+    case "rain":
+      return CloudRain;
+    default:
+      return Sun;
   }
 };
 
@@ -107,10 +132,17 @@ const CustomXAxisTick = ({ x, y, payload, chartData }: any) => {
   const dataPoint = chartData.find((d: any) => d.time === payload.value);
   if (!dataPoint || !dataPoint.weather) return null;
   const WeatherIcon = getWeatherIcon(dataPoint.weather.type);
-  
+
   return (
     <g transform={`translate(${x},${y})`}>
-      <text x={0} y={15} textAnchor="middle" fill="#334155" fontSize={12} fontWeight="bold">
+      <text
+        x={0}
+        y={15}
+        textAnchor="middle"
+        fill="#334155"
+        fontSize={12}
+        fontWeight="bold"
+      >
         {payload.value}
       </text>
       <g transform="translate(-8, 22)">
@@ -123,11 +155,17 @@ const CustomXAxisTick = ({ x, y, payload, chartData }: any) => {
   );
 };
 
-const CustomTooltip = ({ active, payload, label, hideAnnotations, scenario }: any) => {
+const CustomTooltip = ({
+  active,
+  payload,
+  label,
+  hideAnnotations,
+  scenario,
+}: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     const WeatherIcon = getWeatherIcon(data.weather?.type);
-    
+
     return (
       <div className="bg-white p-4 rounded-xl shadow-lg border border-slate-200 text-sm min-w-[200px]">
         <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
@@ -135,46 +173,85 @@ const CustomTooltip = ({ active, payload, label, hideAnnotations, scenario }: an
           {data.weather && (
             <div className="flex items-center gap-1.5 text-slate-500">
               <WeatherIcon className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-medium">{data.weather.desc} {data.weather.temp}</span>
+              <span className="text-xs font-medium">
+                {data.weather.desc} {data.weather.temp}
+              </span>
             </div>
           )}
         </div>
 
         {!hideAnnotations && data.annotation && (
-          <div className={`mb-3 p-2 rounded-lg border ${data.annotation.bg} ${data.annotation.border}`}>
-            <div className={`text-xs font-bold mb-1 ${data.annotation.color}`}>{data.annotation.title}</div>
-            <div className="text-xs font-medium text-slate-700">{data.annotation.value}</div>
+          <div
+            className={`mb-3 p-2 rounded-lg border ${data.annotation.bg} ${data.annotation.border}`}
+          >
+            <div className={`text-xs font-bold mb-1 ${data.annotation.color}`}>
+              {data.annotation.title}
+            </div>
+            <div className="text-xs font-medium text-slate-700">
+              {data.annotation.value}
+            </div>
           </div>
         )}
 
-          {payload.map((entry: any, index: number) => {
-          if (['bessEffect', 'pvEffect', 'overDemand', 'reverseFlow', 'originalIndex', 'top5Price', 'bottom5Price', 'riskPointOverDemand', 'riskPointReverseFlow'].includes(entry.dataKey)) return null;
-          
-          if (scenario === 'negativePrice' && ['dayAheadPrice', 'realTimePrice', 'forecastDayAheadPrice'].includes(entry.dataKey)) return null;
+        {payload.map((entry: any, index: number) => {
+          if (
+            [
+              "bessEffect",
+              "pvEffect",
+              "overDemand",
+              "reverseFlow",
+              "originalIndex",
+              "top5Price",
+              "bottom5Price",
+              "riskPointOverDemand",
+              "riskPointReverseFlow",
+            ].includes(entry.dataKey)
+          )
+            return null;
+
+          if (
+            scenario === "negativePrice" &&
+            [
+              "dayAheadPrice",
+              "realTimePrice",
+              "forecastDayAheadPrice",
+            ].includes(entry.dataKey)
+          )
+            return null;
 
           let name = entry.name;
-          if (scenario === 'negativePrice') {
-             if (entry.dataKey === 'dayAheadPrice') name = '光伏日前电价';
-             else if (entry.dataKey === 'realTimePrice') name = '光伏实时电价';
-             else if (entry.dataKey === 'forecastDayAheadPrice') name = '预测光伏日前电价';
-             else if (entry.dataKey === 'forecastRealTimePrice') name = '预测上网电价';
+          if (scenario === "negativePrice") {
+            if (entry.dataKey === "dayAheadPrice") name = "光伏日前电价";
+            else if (entry.dataKey === "realTimePrice") name = "光伏实时电价";
+            else if (entry.dataKey === "forecastDayAheadPrice")
+              name = "预测光伏日前电价";
+            else if (entry.dataKey === "forecastRealTimePrice")
+              name = "预测上网电价";
           } else {
-             if (entry.dataKey === 'dayAheadPrice') name = '日前电价';
-             else if (entry.dataKey === 'realTimePrice') name = '实时电价';
-             else if (entry.dataKey === 'forecastDayAheadPrice') name = '预测日前电价';
-             else if (entry.dataKey === 'forecastRealTimePrice') name = '预测实时电价';
+            if (entry.dataKey === "dayAheadPrice") name = "日前电价";
+            else if (entry.dataKey === "realTimePrice") name = "实时电价";
+            else if (entry.dataKey === "forecastDayAheadPrice")
+              name = "预测日前电价";
+            else if (entry.dataKey === "forecastRealTimePrice")
+              name = "预测实时电价";
           }
 
-          const isPrice = name.includes('电价');
+          const isPrice = name.includes("电价");
 
           return (
-            <div key={index} className="flex items-center justify-between gap-4 mb-1">
+            <div
+              key={index}
+              className="flex items-center justify-between gap-4 mb-1"
+            >
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                <div
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: entry.color }}
+                />
                 <span className="text-slate-600">{name}</span>
               </div>
               <span className="font-bold text-slate-800">
-                {entry.value} {isPrice ? '元/kWh' : 'kW'}
+                {entry.value} {isPrice ? "元/kWh" : "kW"}
               </span>
             </div>
           );
@@ -185,41 +262,98 @@ const CustomTooltip = ({ active, payload, label, hideAnnotations, scenario }: an
   return null;
 };
 
-const AnnotationLabel = ({ cx, cy, title, value, color, borderColor, offsetX = 0, offsetY = 0 }: any) => {
-  if (typeof cx !== 'number' || typeof cy !== 'number' || isNaN(cx) || isNaN(cy)) return null;
-  
+const AnnotationLabel = ({
+  cx,
+  cy,
+  title,
+  value,
+  color,
+  borderColor,
+  offsetX = 0,
+  offsetY = 0,
+}: any) => {
+  if (
+    typeof cx !== "number" ||
+    typeof cy !== "number" ||
+    isNaN(cx) ||
+    isNaN(cy)
+  )
+    return null;
+
   const boxX = cx - 60 + offsetX;
   const boxY = cy - 80 + offsetY;
 
   return (
     <g>
       {/* Connector Line */}
-      <line x1={cx} y1={cy} x2={boxX + 60} y2={boxY + 20} stroke={borderColor} strokeWidth={2} />
-      
+      <line
+        x1={cx}
+        y1={cy}
+        x2={boxX + 60}
+        y2={boxY + 20}
+        stroke={borderColor}
+        strokeWidth={2}
+      />
+
       {/* Box */}
-      <rect x={boxX} y={boxY} width={120} height={40} rx={4} fill="white" stroke={borderColor} strokeWidth={2} />
-      
+      <rect
+        x={boxX}
+        y={boxY}
+        width={120}
+        height={40}
+        rx={4}
+        fill="white"
+        stroke={borderColor}
+        strokeWidth={2}
+      />
+
       {/* Title */}
-      <text x={boxX + 60} y={boxY + 16} textAnchor="middle" fill={color} fontSize={10} fontWeight="bold">
+      <text
+        x={boxX + 60}
+        y={boxY + 16}
+        textAnchor="middle"
+        fill={color}
+        fontSize={10}
+        fontWeight="bold"
+      >
         {title}
       </text>
-      
+
       {/* Value */}
-      <text x={boxX + 60} y={boxY + 32} textAnchor="middle" fill="#1e293b" fontSize={12} fontWeight="bold">
+      <text
+        x={boxX + 60}
+        y={boxY + 32}
+        textAnchor="middle"
+        fill="#1e293b"
+        fontSize={12}
+        fontWeight="bold"
+      >
         {value}
       </text>
-      
+
       {/* Dot */}
-      <circle cx={cx} cy={cy} r={6} fill={color} stroke="white" strokeWidth={2} />
+      <circle
+        cx={cx}
+        cy={cy}
+        r={6}
+        fill={color}
+        stroke="white"
+        strokeWidth={2}
+      />
     </g>
   );
 };
 
-
-
-const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNavigate }) => {
-  const [activeScenario, setActiveScenario] = useState<'standard' | 'negativePrice'>('standard');
-  const chartData = React.useMemo(() => generateChartData(activeScenario), [activeScenario]);
+const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({
+  onNavigate,
+}) => {
+  const [activeScenario, setActiveScenario] = useState<
+    "standard" | "negativePrice"
+  >("standard");
+  const chartData = React.useMemo(
+    () => generateChartData(activeScenario),
+    [activeScenario],
+  );
 
   const [visiblePriceSeries, setVisiblePriceSeries] = useState({
     dayAheadPrice: true,
@@ -244,17 +378,19 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
   };
 
   const showAnnotations = true; // Annotations are always shown now
-  const [hoveredTimeRange, setHoveredTimeRange] = useState<[string, string] | null>(null);
+  const [hoveredTimeRange, setHoveredTimeRange] = useState<
+    [string, string] | null
+  >(null);
 
   const priceDataWithExtremes = React.useMemo(() => {
     // 1-hour granularity
-    const hourlyData = chartData.filter(d => d.time.endsWith(':00'));
-    
+    const hourlyData = chartData.filter((d) => d.time.endsWith(":00"));
+
     const peakIndices = new Set();
     const valleyIndices = new Set();
-    
+
     hourlyData.forEach((d, index) => {
-      const h = parseInt(d.time.split(':')[0], 10);
+      const h = parseInt(d.time.split(":")[0], 10);
       // Matching the original isPeak and isValley logic
       if ((h >= 8 && h <= 11) || (h >= 17 && h <= 20)) peakIndices.add(index);
       if ((h >= 0 && h <= 5) || (h >= 21 && h <= 23)) valleyIndices.add(index);
@@ -270,20 +406,24 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
   const priceStats = React.useMemo(() => {
     let maxPrice = -Infinity;
     let minPrice = Infinity;
-    chartData.forEach(d => {
-      if (d.forecastRealTimePrice > maxPrice) maxPrice = d.forecastRealTimePrice;
-      if (d.forecastRealTimePrice < minPrice) minPrice = d.forecastRealTimePrice;
+    chartData.forEach((d) => {
+      if (d.forecastRealTimePrice > maxPrice)
+        maxPrice = d.forecastRealTimePrice;
+      if (d.forecastRealTimePrice < minPrice)
+        minPrice = d.forecastRealTimePrice;
     });
     return { maxPrice, minPrice };
   }, [chartData]);
 
   const processedData = React.useMemo(() => {
-    return chartData.map(d => {
+    return chartData.map((d) => {
       let pvOriginal = d.pv;
       let pvAdjusted = pvOriginal;
-      
+
+      let originalNetLoadBase = visibleSeries.pv ? d.load - pvOriginal : d.load;
+
       let bessBase = 0;
-      if (activeScenario === 'negativePrice') {
+      if (activeScenario === "negativePrice") {
         bessBase = 0;
       } else if (d.isValley) {
         bessBase = -300;
@@ -292,83 +432,101 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
       }
 
       let bessAdjusted = bessBase;
-      let reason = '';
-      
-      let netLoadBase = visibleSeries.pv ? d.load - pvAdjusted : d.load;
+      let reason = "";
 
-      if (activeScenario === 'negativePrice') {
-         if (visibleSeries.bess) {
-            const h = parseInt(d.time.split(':')[0]);
-            
-            if (h >= 0 && h < 3) {
-               bessAdjusted = -300;
-               reason = '低价充电';
-            } else if (h === 3) {
-               bessAdjusted = 0; // Will be handled by riskDemandCheck below
-            } else if (h >= 4 && h < 6) {
-               bessAdjusted = -300;
-               reason = '低价充电';
-            } else if (h >= 6 && h < 8) {
-               bessAdjusted = 0;
-               reason = '待机';
-            } else if (h >= 8 && h < 11) {
-               bessAdjusted = Math.min(-300, netLoadBase - 15);
-               bessAdjusted = Math.max(bessAdjusted, -2500);
-               reason = '上网负电价储能充电';
-            } else if (h >= 11 && h < 14) {
-               bessAdjusted = 0; // 储能充满
-               if (netLoadBase < 10 && visibleSeries.pv) {
-                  pvAdjusted = Math.max(0, d.load - 10);
-                  netLoadBase = visibleSeries.pv ? d.load - pvAdjusted : d.load; // recalculate with adjusted PV
-                  reason = '抑制光伏发电';
-               } else {
-                  reason = '待机';
-               }
-            } else if (h >= 14 && h < 17) {
-               bessAdjusted = 0;
-               reason = '待机';
-            } else if (h >= 17 && h < 21) {
-               bessAdjusted = 300;
-               reason = '高价放电';
-            } else if (h >= 21) {
-               bessAdjusted = -300;
-               reason = '低价充电';
+      let netLoadBase = originalNetLoadBase;
+
+      if (activeScenario === "negativePrice") {
+        if (visibleSeries.bess) {
+          const h = parseInt(d.time.split(":")[0]);
+
+          if (h >= 0 && h < 3) {
+            bessAdjusted = -300;
+            reason = "低价充电";
+          } else if (h === 3) {
+            bessAdjusted = 0; // Will be handled by riskDemandCheck below
+          } else if (h >= 4 && h < 6) {
+            bessAdjusted = -300;
+            reason = "低价充电";
+          } else if (h >= 6 && h < 8) {
+            bessAdjusted = 0;
+            reason = "待机";
+          } else if (h >= 8 && h < 11) {
+            bessAdjusted = Math.min(-300, netLoadBase - 15);
+            bessAdjusted = Math.max(bessAdjusted, -2500);
+            reason = "上网负电价储能充电";
+          } else if (h >= 11 && h < 14) {
+            bessAdjusted = 0; // 储能充满
+            if (netLoadBase < 10 && visibleSeries.pv) {
+              pvAdjusted = Math.max(0, d.load - 10);
+              netLoadBase = visibleSeries.pv ? d.load - pvAdjusted : d.load; // recalculate with adjusted PV
+              reason = "抑制光伏发电";
+            } else {
+              reason = "待机";
             }
-         }
+          } else if (h >= 14 && h < 17) {
+            bessAdjusted = 0;
+            reason = "待机";
+          } else if (h >= 17 && h < 21) {
+            bessAdjusted = 300;
+            reason = "高价放电";
+          } else if (h >= 21) {
+            bessAdjusted = -300;
+            reason = "低价充电";
+          }
+        }
       } else {
-         const riskReverse = netLoadBase - bessBase < 10;
-         if (riskReverse) {
-           bessAdjusted = netLoadBase - 10;
-           bessAdjusted = Math.max(bessAdjusted, -2500);
-           reason = '逆流化解';
-         }
+        const riskReverse = netLoadBase - bessBase < 10;
+        if (riskReverse && visibleSeries.bess) {
+          bessAdjusted = netLoadBase - 10;
+          bessAdjusted = Math.max(bessAdjusted, -2500);
+          reason = "逆流化解";
+        } else if (!visibleSeries.bess) {
+          bessAdjusted = 0;
+        }
       }
 
       // 无论什么场景，必须保证不超容 (不管电价多少，也不能超过电网允许的上限)
-      // 计算加入之前的储能调整后，是否超容 
+      // 计算加入之前的储能调整后，是否超容
       const riskDemandCheck = netLoadBase - bessAdjusted > 1200;
       if (riskDemandCheck && visibleSeries.bess) {
-         bessAdjusted = netLoadBase - 1200;
-         bessAdjusted = Math.min(bessAdjusted, 2500); 
-         reason = activeScenario === 'negativePrice' ? '防超容放电' : '超容化解';
+        bessAdjusted = netLoadBase - 1200;
+        bessAdjusted = Math.min(bessAdjusted, 2500);
+        reason = activeScenario === "negativePrice" ? "防超容放电" : "超容化解";
+      }
+
+      // 若未开启储能，强制修正
+      if (!visibleSeries.bess) {
+        bessAdjusted = 0;
+        pvAdjusted = pvOriginal;
       }
 
       const finalNetLoad = visibleSeries.pv ? d.load - pvAdjusted : d.load;
-      const displayedGrid = visibleSeries.bess ? finalNetLoad - bessAdjusted : finalNetLoad;
+      const displayedGrid = finalNetLoad - bessAdjusted;
 
-      const gridWithBaseBess = finalNetLoad - bessBase;
-      const originalGrid = visibleSeries.bess ? gridWithBaseBess : finalNetLoad;
+      const originalGrid = originalNetLoadBase;
       const riskDemand = originalGrid > 1200;
       const riskReverse = originalGrid < 10;
 
-      const bessEffect = visibleSeries.bess ? 
-        [Math.min(displayedGrid, originalGrid), Math.max(displayedGrid, originalGrid)] : null;
-        
-      const pvEffect = visibleSeries.pv ? 
-        [Math.min(d.load, finalNetLoad), Math.max(d.load, finalNetLoad)] : null;
-        
+      const bessEffect =
+        visibleSeries.bess && displayedGrid !== originalGrid
+          ? [
+              Math.min(displayedGrid, originalGrid),
+              Math.max(displayedGrid, originalGrid),
+            ]
+          : null;
+
+      const pvEffect =
+        visibleSeries.pv && d.load !== originalNetLoadBase
+          ? [
+              Math.min(d.load, originalNetLoadBase),
+              Math.max(d.load, originalNetLoadBase),
+            ]
+          : null;
+
       const overDemand = originalGrid > 1200 ? [1200, originalGrid] : null;
-      const reverseFlow = originalGrid < 10 ? [originalGrid, 10] : null;
+      const reverseFlow =
+        originalGrid < 10 && visibleSeries.pv ? [originalGrid, 10] : null;
 
       return {
         ...d,
@@ -384,8 +542,9 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
         reverseFlow,
         reason,
         diff: bessAdjusted - bessBase,
-        riskPointOverDemand: riskDemand ? displayedGrid : null,
-        riskPointReverseFlow: riskReverse ? displayedGrid : null
+        riskPointOverDemand: riskDemand ? originalGrid : null,
+        riskPointReverseFlow:
+          riskReverse && visibleSeries.pv ? originalGrid : null,
       };
     });
   }, [visibleSeries.bess, visibleSeries.pv, chartData, activeScenario]);
@@ -399,19 +558,27 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
       bessPriceOnly: processedData[0].bessPriceOnly,
       reason: processedData[0].reason,
       diffs: [processedData[0].diff],
-      besses: [processedData[0].bess]
+      besses: [processedData[0].bess],
     };
-    
+
     for (let i = 1; i < processedData.length; i++) {
       const d = processedData[i];
       let merge = false;
-      
+
       if (!visibleSeries.bess) {
-         merge = true; // All blocks merged into one 待机 block
+        merge = true; // All blocks merged into one 待机 block
       } else {
-         const dCat = d.bess > 0 ? '放电' : (d.bess < 0 ? '充电' : '待机');
-         const currentCat = currentBlock.besses[0] > 0 ? '放电' : (currentBlock.besses[0] < 0 ? '充电' : '待机');
-         merge = d.bessPriceOnly === currentBlock.bessPriceOnly && dCat === currentCat && d.reason === currentBlock.reason;
+        const dCat = d.bess > 0 ? "放电" : d.bess < 0 ? "充电" : "待机";
+        const currentCat =
+          currentBlock.besses[0] > 0
+            ? "放电"
+            : currentBlock.besses[0] < 0
+              ? "充电"
+              : "待机";
+        merge =
+          d.bessPriceOnly === currentBlock.bessPriceOnly &&
+          dCat === currentCat &&
+          d.reason === currentBlock.reason;
       }
 
       if (merge) {
@@ -426,114 +593,171 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
           bessPriceOnly: d.bessPriceOnly,
           reason: d.reason,
           diffs: [d.diff],
-          besses: [d.bess]
+          besses: [d.bess],
         };
       }
     }
     blocks.push(currentBlock);
 
     const add15Min = (timeStr: string) => {
-       if (!timeStr) return "24:00";
-       const [h, m] = timeStr.split(':').map(Number);
-       let newM = m + 15;
-       let newH = h;
-       if (newM >= 60) {
-          newM -= 60;
-          newH += 1;
-       }
-       if (newH >= 24) return "24:00";
-       return `${newH.toString().padStart(2, '0')}:${newM.toString().padStart(2, '0')}`;
+      if (!timeStr) return "24:00";
+      const [h, m] = timeStr.split(":").map(Number);
+      let newM = m + 15;
+      let newH = h;
+      if (newM >= 60) {
+        newM -= 60;
+        newH += 1;
+      }
+      if (newH >= 24) return "24:00";
+      return `${newH.toString().padStart(2, "0")}:${newM.toString().padStart(2, "0")}`;
     };
-    
-    return blocks.map(b => {
+
+    return blocks.map((b) => {
       const end = add15Min(b.endTime);
-      
+
       // Calculate max absolute diff to see if there is any adjustment
       const absDiffs = b.diffs.map((diff: number) => Math.abs(diff));
       const maxAbsDiff = Math.max(...absDiffs);
-      
+
       let baseBess = 0;
       if (b.besses.length > 0) baseBess = b.besses[0];
-      
+
       const minBess = Math.min(...b.besses);
       const maxBess = Math.max(...b.besses);
-      
-      let action = '待机';
+
+      let action = "待机";
       let displayBessPower = 0;
       let isVariable = false;
       let absMin = 0;
       let absMax = 0;
 
       if (visibleSeries.bess) {
-        if (minBess >= 0 && maxBess > 0) { action = '放电'; absMin = minBess; absMax = maxBess; }
-        else if (maxBess <= 0 && minBess < 0) { action = '充电'; absMin = Math.abs(maxBess); absMax = Math.abs(minBess); }
-        else if (minBess === 0 && maxBess === 0) { action = '待机'; }
-        else { action = '充放电切换'; }
+        if (minBess >= 0 && maxBess > 0) {
+          action = "放电";
+          absMin = minBess;
+          absMax = maxBess;
+        } else if (maxBess <= 0 && minBess < 0) {
+          action = "充电";
+          absMin = Math.abs(maxBess);
+          absMax = Math.abs(minBess);
+        } else if (minBess === 0 && maxBess === 0) {
+          action = "待机";
+        } else {
+          action = "充放电切换";
+        }
         isVariable = minBess !== maxBess;
       } else {
-        action = '待机';
+        action = "待机";
       }
 
-      let type = '平段待机';
-      let baseActionStr = '待机';
-      
+      let type = "平段待机";
+      let baseActionStr = "待机";
+
       if (visibleSeries.bess) {
-        if (b.bessPriceOnly < 0) type = '低价谷时段';
-        else if (b.bessPriceOnly > 0) type = '高价峰时段';
+        if (b.bessPriceOnly < 0) type = "低价谷时段";
+        else if (b.bessPriceOnly > 0) type = "高价峰时段";
         if (b.reason) type = b.reason;
-        
-        if (b.bessPriceOnly < 0) baseActionStr = `充电 (${Math.abs(b.bessPriceOnly).toFixed(0)}kW)`;
-        else if (b.bessPriceOnly > 0) baseActionStr = `放电 (${b.bessPriceOnly.toFixed(0)}kW)`;
+
+        if (b.bessPriceOnly < 0)
+          baseActionStr = `充电 (${Math.abs(b.bessPriceOnly).toFixed(0)}kW)`;
+        else if (b.bessPriceOnly > 0)
+          baseActionStr = `放电 (${b.bessPriceOnly.toFixed(0)}kW)`;
       } else {
-        type = '待机';
+        type = "待机";
       }
 
       let finalAction = action;
-      if (action !== '待机' && action !== '充放电切换') {
-         finalAction = isVariable ? `${action} (${absMin.toFixed(0)}~${absMax.toFixed(0)}kW)` : `${action} (${absMin.toFixed(0)}kW)`;
-      } else if (action === '充放电切换') {
-         finalAction = `动态切换`;
+      if (action !== "待机" && action !== "充放电切换") {
+        finalAction = isVariable
+          ? `${action} (${absMin.toFixed(0)}~${absMax.toFixed(0)}kW)`
+          : `${action} (${absMin.toFixed(0)}kW)`;
+      } else if (action === "充放电切换") {
+        finalAction = `动态切换`;
       }
 
-      let baseActionCat = '待机';
+      let baseActionCat = "待机";
       if (visibleSeries.bess) {
-        if (b.bessPriceOnly < 0) baseActionCat = '充电';
-        else if (b.bessPriceOnly > 0) baseActionCat = '放电';
+        if (b.bessPriceOnly < 0) baseActionCat = "充电";
+        else if (b.bessPriceOnly > 0) baseActionCat = "放电";
       }
 
       let tooltipAction = finalAction;
 
       let isReversed = false;
-      if (baseActionCat === '充电' && action === '放电') isReversed = true;
-      if (baseActionCat === '放电' && action === '充电') isReversed = true;
+      if (baseActionCat === "充电" && action === "放电") isReversed = true;
+      if (baseActionCat === "放电" && action === "充电") isReversed = true;
 
       // Use a smaller text format for the changed action to fit potentially tight blocks
       let displayAction = finalAction;
-      if (activeScenario === 'negativePrice' && visibleSeries.bess && b.reason) {
-         displayAction = b.reason;
+      if (
+        activeScenario === "negativePrice" &&
+        visibleSeries.bess &&
+        b.reason
+      ) {
+        displayAction = b.reason;
       }
 
       if (visibleSeries.bess && maxAbsDiff > 0) {
-         tooltipAction = `${baseActionStr} ➔ ${finalAction}`;
+        tooltipAction = `${baseActionStr} ➔ ${finalAction}`;
       }
-      if (activeScenario === 'negativePrice' && visibleSeries.bess && b.reason) {
-         tooltipAction = b.reason;
+      if (
+        activeScenario === "negativePrice" &&
+        visibleSeries.bess &&
+        b.reason
+      ) {
+        tooltipAction = b.reason;
       }
 
-
-      let desc = '';
+      let desc = "";
       if (visibleSeries.bess) {
-        if (b.bessPriceOnly < 0) desc = '因电价处于谷段，触发基础充电。';
-        else if (b.bessPriceOnly > 0) desc = '因电价处于峰段，触发基础放电以套利。';
-        else desc = '电价平段且无违约风险，保持待机。';
+        if (b.bessPriceOnly < 0) {
+          if (
+            b.startTime === "00:00" ||
+            parseInt(b.startTime.split(":")[0]) < 6
+          ) {
+            desc =
+              "处于电价谷时段，且预测后续无大功率放电需求，执行满充以备白天高峰使用。";
+          } else if (parseInt(b.startTime.split(":")[0]) >= 21) {
+            desc = "进入夜间电价谷时段，开始新一轮储能充电循环。";
+          } else {
+            desc =
+              "处于电价谷时段，且预测后续无大功率放电需求，执行满充以备白天高峰使用。";
+          }
+        } else if (b.bessPriceOnly > 0) {
+          desc =
+            "处于电价峰时段，且已度过需量风险期，执行放电以获取最大化峰谷套利收益。";
+        } else {
+          if (
+            parseInt(b.startTime.split(":")[0]) >= 15 &&
+            parseInt(b.startTime.split(":")[0]) <= 17
+          ) {
+            desc = "电价平段，负荷与光伏处于平衡状态，无违约风险，保持待机。";
+          } else {
+            desc =
+              "电价平段，且预测负荷平稳，无超需或逆流风险，保持待机以减少循环损耗。";
+          }
+        }
 
-        if (b.reason === '超容化解') {
-           desc = `预测该时段存在超负荷风险，进行额外放电调度化解风险。`;
-        } else if (b.reason === '逆流化解') {
-           desc = `预测该时段存在逆流风险，进行额外充电或降功化解风险。`;
+        if (b.reason === "超容化解" || b.reason === "防超容放电") {
+          if (parseInt(b.startTime.split(":")[0]) >= 17) {
+            desc =
+              "预测傍晚出现第二次负荷高峰，电网功率再次超过超限阈值，触发需量控制放电。";
+          } else {
+            desc =
+              "预测该时段厂区负荷突增，电网功率将超过 1200kW 的超限阈值，触发需量防超限放电。";
+          }
+        } else if (b.reason === "逆流化解") {
+          desc =
+            "预测光伏大发且厂区负荷较低，电网功率将低于 10kW 的逆流阈值，触发防逆流充电或降低光伏出力。";
+        } else if (b.reason === "上网负电价储能充电") {
+          desc =
+            "电网进入上网负电价时段，触发防逆流充电以减少负电价损失并准备放电。";
+        } else if (b.reason === "抑制光伏发电") {
+          desc =
+            "电网发生严重逆流，且储能电量已满，为防止逆流安全风险及亏损，主动抑制光伏出力。";
         }
       } else {
-        desc = 'AI 控制未开启，储能处于待机状态。';
+        desc = "AI 控制未开启，储能处于待机状态。";
       }
 
       return {
@@ -548,11 +772,70 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
         finalActionCat: action,
         isChanged: visibleSeries.bess ? maxAbsDiff > 0 : false,
         isReversed: visibleSeries.bess ? isReversed : false,
-        isBase: visibleSeries.bess ? b.reason === '' : true,
-        desc
+        isBase: visibleSeries.bess ? b.reason === "" : true,
+        desc,
       };
     });
   }, [processedData, visibleSeries.bess, visibleSeries.pv]);
+
+  const baseStrategies = React.useMemo(() => {
+    if (!processedData.length) return [];
+
+    // Group periods strictly by bessPriceOnly (Charge/Discharge/Standby)
+    const blocks: any[] = [];
+    let currentBlock = {
+      startTime: processedData[0].time,
+      endTime: processedData[0].time,
+      bessPriceOnly: processedData[0].bessPriceOnly,
+    };
+
+    for (let i = 1; i < processedData.length; i++) {
+      const d = processedData[i];
+      const categoryMatch =
+        (d.bessPriceOnly > 0 && currentBlock.bessPriceOnly > 0) ||
+        (d.bessPriceOnly < 0 && currentBlock.bessPriceOnly < 0) ||
+        (d.bessPriceOnly === 0 && currentBlock.bessPriceOnly === 0);
+
+      if (categoryMatch) {
+        currentBlock.endTime = d.time;
+      } else {
+        blocks.push({ ...currentBlock });
+        currentBlock = {
+          startTime: d.time,
+          endTime: d.time,
+          bessPriceOnly: d.bessPriceOnly,
+        };
+      }
+    }
+    blocks.push(currentBlock);
+
+    const add15Min = (timeStr: string) => {
+      if (!timeStr) return "24:00";
+      const [h, m] = timeStr.split(":").map(Number);
+      let newM = m + 15;
+      let newH = h;
+      if (newM >= 60) {
+        newH++;
+        newM -= 60;
+      }
+      if (newH === 24) return "24:00";
+      return `${newH.toString().padStart(2, "0")}:${newM.toString().padStart(2, "0")}`;
+    };
+
+    return blocks.map((b) => {
+      const end = add15Min(b.endTime);
+      let action = "待机";
+      if (b.bessPriceOnly > 0) action = "放电";
+      if (b.bessPriceOnly < 0) action = "充电";
+
+      return {
+        time: `${b.startTime} - ${end}`,
+        startTime: b.startTime,
+        endTime: end,
+        action,
+      };
+    });
+  }, [processedData]);
 
   return (
     <div className="p-6 h-full overflow-y-auto bg-slate-50">
@@ -560,18 +843,22 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight mb-2">AI算法推理预测</h1>
-            <p className="text-sm text-slate-500 mb-4">基于历史负荷和气象数据的实时24小时预测（15分钟粒度）</p>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight mb-2">
+              AI算法推理预测
+            </h1>
+            <p className="text-sm text-slate-500 mb-4">
+              基于历史负荷和气象数据的实时24小时预测（15分钟粒度）
+            </p>
             <div className="flex gap-2">
               <button
-                onClick={() => setActiveScenario('standard')}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeScenario === 'standard' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                onClick={() => setActiveScenario("standard")}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeScenario === "standard" ? "bg-indigo-600 text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
               >
                 标准运营场景
               </button>
               <button
-                onClick={() => setActiveScenario('negativePrice')}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeScenario === 'negativePrice' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                onClick={() => setActiveScenario("negativePrice")}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeScenario === "negativePrice" ? "bg-indigo-600 text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
               >
                 负电价场景
               </button>
@@ -579,416 +866,848 @@ const AlgorithmPredictionPage: React.FC<AlgorithmPredictionPageProps> = ({ onNav
           </div>
 
           <div className="flex items-center gap-8">
-            {/* Legend */}
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2 cursor-pointer transition-opacity opacity-100">
-                <div className="w-4 h-1 bg-violet-500"></div>
-                <span className="text-xs font-bold text-slate-800">负荷</span>
-              </div>
-              
-              <div 
-                className={`flex items-center gap-2 cursor-pointer transition-opacity ${visibleSeries.grid ? 'opacity-100' : 'opacity-40'}`}
-                onClick={() => toggleSeries('grid')}
-              >
-                <div className="w-4 h-1 bg-slate-900 border-b border-slate-400"></div>
-                <span className="text-xs font-bold text-slate-800">电网功率</span>
-              </div>
-              
-              {visibleSeries.bess && (
-                <div className="flex items-center gap-2 opacity-60">
-                  <div className="w-4 h-0 border-t-2 border-dashed border-slate-500"></div>
-                  <span className="text-xs font-bold text-slate-500">调整前电网功率</span>
-                </div>
-              )}
-            </div>
-
-            <div className="w-px h-6 bg-slate-200 mx-2"></div>
-
             <button
-              onClick={() => {
-                setVisibleSeries({ load: false, pv: false, bess: false, grid: true });
-                setVisiblePriceSeries({ dayAheadPrice: true, realTimePrice: true, forecastDayAheadPrice: true, forecastRealTimePrice: true });
-              }}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors text-sm font-bold shadow-sm"
-            >
-              重置
-            </button>
-
-            {/* PV Toggle Button */}
-            <button
-              onClick={() => toggleSeries('pv')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors text-sm font-bold shadow-sm ${
-                visibleSeries.pv 
-                  ? 'bg-orange-50 border-orange-200 text-orange-600' 
-                  : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              <Sun className="w-4 h-4" />
-              配光伏效果
-            </button>
-
-            {/* BESS Toggle Button */}
-            <button
-              onClick={() => toggleSeries('bess')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors text-sm font-bold shadow-sm ${
-                visibleSeries.bess 
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-600' 
-                  : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              <BrainCircuit className="w-4 h-4" />
-              AI 调度效果
-            </button>
-
-            <button
-              onClick={() => onNavigate?.('策略运行报告')}
+              onClick={() => onNavigate?.("策略运行报告")}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-bold shadow-sm"
             >
               查看运行报告
             </button>
           </div>
         </div>
+        <div className="relative">
+          {/* Linked Background Regions for 0-24h (Span both charts) */}
+          <div className="absolute top-[30px] bottom-[10px] left-[65px] right-[20px] pointer-events-none z-0 overflow-hidden rounded-md">
+            {baseStrategies.map((strategy, idx) => {
+              if (strategy.action === "待机") return null;
 
-        {/* Chart Area */}
-        <div className="h-[400px] w-full mt-8">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart
-              data={processedData}
-              margin={{ top: 45, right: 20, left: 20, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" />
-              
-              <XAxis 
-                dataKey="time" 
-                axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                tick={<CustomXAxisTick chartData={chartData} />} 
-                ticks={['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:45']}
-                height={60}
-              />
-              
-              <YAxis 
-                yAxisId="left" 
-                axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                tick={{ fill: '#334155', fontSize: 12, fontWeight: 'bold' }}
-                domain={[-1000, 2000]}
-                ticks={[-1000, -500, 0, 500, 1000, 1500, 2000]}
-                label={{ value: '功率：kW', position: 'top', offset: 25, fill: '#334155', fontSize: 12, fontWeight: 'bold' }}
-                dx={-10}
-              />
-              
-              {/* Removed YAxis right */}
-
-              <Tooltip content={<CustomTooltip scenario={activeScenario} />} />
-
-              {/* Risk Areas */}
-              {/* Removed here, moved up */}
-
-              {/* Lines */}
-              <Line yAxisId="left" type="linear" dataKey="load" name="负荷" stroke="#8b5cf6" strokeWidth={2} dot={false} />
-              
-              {/* Effect fill area */}
-              {visibleSeries.bess && visibleSeries.grid && (
-                <Area 
-                  yAxisId="left" 
-                  type="linear" 
-                  dataKey="bessEffect" 
-                  fill="#10b981" 
-                  fillOpacity={0.25} 
-                  stroke="none" 
-                />
-              )}
-              {visibleSeries.pv && visibleSeries.grid && (
-                <Area 
-                  yAxisId="left" 
-                  type="linear" 
-                  dataKey="pvEffect" 
-                  fill="#f97316" 
-                  fillOpacity={0.15} 
-                  stroke="none" 
-                />
-              )}
-
-              {/* Risk Areas (Uses Original Grid to show risk) */}
-              {showAnnotations && visibleSeries.grid && (
-                <>
-                  <Area
-                    yAxisId="left"
-                    type="linear"
-                    dataKey="overDemand"
-                    fill="#fda4af"
-                    fillOpacity={visibleSeries.bess ? 0.3 : 0.6}
-                    stroke="none"
-                    connectNulls={false}
-                  />
-                  <Area
-                    yAxisId="left"
-                    type="linear"
-                    dataKey="reverseFlow"
-                    fill="#fdba74"
-                    fillOpacity={visibleSeries.bess ? 0.3 : 0.6}
-                    stroke="none"
-                    connectNulls={false}
-                  />
-                </>
-              )}
-              
-              {/* Dashed original grid when BESS is overlaid */}
-              {visibleSeries.bess && visibleSeries.grid && (
-                <Line yAxisId="left" type="linear" dataKey="gridWithoutBess" name="调整前电网功率" stroke="#64748b" strokeWidth={3} strokeDasharray="5 5" dot={false} />
-              )}
-              
-              {/* Main displayed grid line */}
-              {visibleSeries.grid && (
-                <Line 
-                  yAxisId="left" 
-                  type="linear" 
-                  dataKey="displayedGrid" 
-                  name={visibleSeries.bess ? "调整后电网功率" : "电网功率"} 
-                  stroke={visibleSeries.bess ? "#020617" : "#64748b"} 
-                  strokeWidth={visibleSeries.bess ? 3 : 2} 
-                  dot={false} 
-                />
-              )}
-              
-              {/* Risk Points Marks */}
-              {visibleSeries.grid && showAnnotations && (
-                <Line yAxisId="left" type="linear" dataKey="riskPointOverDemand" name="超容风险" stroke="none" dot={{ r: 5, fill: "#ef4444", stroke: "#fff", strokeWidth: 1.5 }} activeDot={{ r: 7, fill: "#ef4444", stroke: "#fff", strokeWidth: 2 }} connectNulls={false} />
-              )}
-              {visibleSeries.grid && showAnnotations && (
-                <Line yAxisId="left" type="linear" dataKey="riskPointReverseFlow" name="逆流风险" stroke="none" dot={{ r: 5, fill: "#f97316", stroke: "#fff", strokeWidth: 1.5 }} activeDot={{ r: 7, fill: "#f97316", stroke: "#fff", strokeWidth: 2 }} connectNulls={false} />
-              )}
-
-              {/* Threshold Lines */}
-              <ReferenceLine yAxisId="left" y={1200} stroke="#94a3b8" strokeWidth={1} strokeDasharray="5 5" label={{ position: 'insideTopLeft', value: '超容阈值 1200kW', fill: '#64748b', fontSize: 10 }} />
-              <ReferenceLine yAxisId="left" y={10} stroke="#94a3b8" strokeWidth={1} strokeDasharray="5 5" label={{ position: 'insideBottomLeft', value: '逆流阈值 10kW', fill: '#64748b', fontSize: 10 }} />
-
-              {/* Hover Highlight Area */}
-              {hoveredTimeRange && (
-                <ReferenceArea 
-                  yAxisId="left" 
-                  x1={hoveredTimeRange[0]} 
-                  x2={hoveredTimeRange[1]} 
-                  fill="#8b5cf6" 
-                  fillOpacity={0.15} 
-                />
-              )}
-
-              {/* Negative Price Area */}
-              {activeScenario === 'negativePrice' && (
-                <ReferenceArea yAxisId="left" x1="08:00" x2="14:00" fill="#0ea5e9" fillOpacity={0.05} />
-              )}
-
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Charge/Discharge Schedule Bar based on Price Forecast */}
-        <div className="my-2" style={{ paddingLeft: '65px', paddingRight: '20px' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-xs font-bold text-slate-800">建议策略</h3>
-          </div>
-          <div className="h-10 w-full flex rounded-lg overflow-hidden border border-slate-200 shadow-sm relative">
-            {generatedStrategies.map((strategy, idx) => {
-              const [startStr, endStr] = strategy.time.split(' - ');
-              
+              const [startStr, endStr] = strategy.time.split(" - ");
               const getMins = (str: string) => {
-                if (str === '24:00') return 24 * 60;
-                const [h, m] = str.split(':').map(Number);
+                if (str === "24:00") return 24 * 60;
+                const [h, m] = str.split(":").map(Number);
                 return h * 60 + m;
               };
 
               const startMins = getMins(startStr);
               const endMins = getMins(endStr);
               const durationMins = endMins - startMins;
-              const widthRatio = (durationMins / (24 * 60)) * 100;
-              
-              let bgColor = 'bg-slate-100 hover:bg-slate-200';
-              let textColor = 'text-slate-600';
-              let borderClass = 'border-r border-white/30 last:border-0';
-              
-              const isCharge = strategy.finalActionCat && strategy.finalActionCat.includes('充电');
-              const isDischarge = strategy.finalActionCat && strategy.finalActionCat.includes('放电');
-              const isSuppressPV = strategy.action && strategy.action.includes('抑制光伏发电');
 
-              if (isCharge) {
-                bgColor = 'bg-emerald-400 hover:bg-emerald-500';
-                textColor = 'text-white';
-              } else if (isDischarge) {
-                bgColor = 'bg-rose-400 hover:bg-rose-500';
-                textColor = 'text-white';
-              } else if (isSuppressPV) {
-                bgColor = 'bg-orange-400 hover:bg-orange-500';
-                textColor = 'text-white';
-              }
+              const leftPercent = (startMins / (24 * 60)) * 100;
+              const widthPercent = (durationMins / (24 * 60)) * 100;
 
-              if (strategy.isChanged) {
-                if (strategy.baseActionCat === '待机') {
-                  borderClass = `outline outline-2 outline-dashed -outline-offset-2 z-10 border-none ${isCharge ? 'outline-emerald-600' : 'outline-rose-600'}`;
-                } else if (strategy.isReversed) {
-                  bgColor = 'bg-[#009b9f] hover:bg-[#008285]'; // 替代色: 反转状态（充变放/放变充用同一个颜色）
-                  borderClass = 'border-r border-white/30 last:border-0';
-                }
-              }
-              
-              return (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 20, delay: idx * 0.05 }}
-                  key={idx} 
-                  style={{ width: `${widthRatio}%` }} 
-                  className={`${bgColor} ${borderClass} h-full flex flex-col items-center justify-center relative group cursor-pointer transition-colors`}
-                  onMouseEnter={() => setHoveredTimeRange([startStr, endStr === '24:00' ? '23:45' : endStr])}
-                  onMouseLeave={() => setHoveredTimeRange(null)}
-                >
-                  <span className={`text-[11px] font-bold ${textColor} drop-shadow-sm truncate px-1 max-w-full text-center overflow-hidden`}>
-                    {strategy.action}
-                  </span>
-                  
-                  {/* Tooltip */}
-                  <div className="absolute top-[-54px] left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs rounded-lg p-2 opacity-0 group-hover:opacity-100 pointer-events-none z-10 transition-opacity whitespace-nowrap shadow-xl">
-                    <div className="font-bold mb-0.5 text-blue-200">{strategy.time}</div>
-                    <div className="font-medium text-slate-100">{strategy.tooltipAction} · {strategy.type}</div>
-                    {/* Little triangle arrow at bottom */}
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+              if (strategy.action === "充电") {
+                return (
+                  <div
+                    key={idx}
+                    className="absolute top-0 bottom-0 bg-[#10b981]/[0.05] border-x border-[#10b981]/20 pb-4"
+                    style={{
+                      left: `${leftPercent}%`,
+                      width: `${widthPercent}%`,
+                    }}
+                  >
+                    <span className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[#10b981] text-[10px] font-bold opacity-70">
+                      充电
+                    </span>
                   </div>
-                </motion.div>
-              );
+                );
+              } else if (strategy.action === "放电") {
+                return (
+                  <div
+                    key={idx}
+                    className="absolute top-0 bottom-0 bg-[#ef4444]/[0.05] border-x border-[#ef4444]/20 pb-4"
+                    style={{
+                      left: `${leftPercent}%`,
+                      width: `${widthPercent}%`,
+                    }}
+                  >
+                    <span className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[#ef4444] text-[10px] font-bold opacity-70">
+                      放电
+                    </span>
+                  </div>
+                );
+              }
+              return null;
             })}
-          </div>
-        </div>
 
-        {/* Strategy List removed as requested */}
-
-        {/* Separated Price Chart Header & Legend */}
-        <div className="flex items-start justify-between mt-6 mb-2">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800 tracking-tight">{activeScenario === 'negativePrice' ? '光伏上网电价走势预测' : '电价走势预测'}</h3>
-          </div>
-          <div className="flex items-center gap-6">
-            {activeScenario === 'standard' && (
-              <>
-                <div 
-                  className={`flex items-center gap-2 cursor-pointer transition-opacity ${visiblePriceSeries.dayAheadPrice ? 'opacity-100' : 'opacity-40'}`}
-                  onClick={() => togglePriceSeries('dayAheadPrice')}
-                >
-                  <div className="w-4 h-1 bg-[#f59e0b]"></div>
-                  <span className="text-xs font-bold text-slate-600">日前电价</span>
-                </div>
-                <div 
-                  className={`flex items-center gap-2 cursor-pointer transition-opacity ${visiblePriceSeries.realTimePrice ? 'opacity-100' : 'opacity-40'}`}
-                  onClick={() => togglePriceSeries('realTimePrice')}
-                >
-                  <div className="w-4 h-1 bg-[#ef4444]"></div>
-                  <span className="text-xs font-bold text-slate-600">实时电价</span>
-                </div>
-                <div 
-                  className={`flex items-center gap-2 cursor-pointer transition-opacity ${visiblePriceSeries.forecastDayAheadPrice ? 'opacity-100' : 'opacity-40'}`}
-                  onClick={() => togglePriceSeries('forecastDayAheadPrice')}
-                >
-                  <div className="w-4 h-1 bg-[#10b981]"></div>
-                  <span className="text-xs font-bold text-slate-600">预测日前电价</span>
-                </div>
-              </>
+            {activeScenario === "negativePrice" && (
+              <div className="absolute top-0 bottom-0 left-[33.333%] w-[25%] bg-[#0ea5e9]/[0.05] border-x border-[#0ea5e9]/20 pb-4">
+                <span className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[#0ea5e9] text-[10px] font-bold opacity-70">
+                  负电价
+                </span>
+              </div>
             )}
-            <div 
-              className={`flex items-center gap-2 cursor-pointer transition-opacity ${visiblePriceSeries.forecastRealTimePrice ? 'opacity-100' : 'opacity-40'}`}
-              onClick={() => togglePriceSeries('forecastRealTimePrice')}
-            >
-              <div className="w-4 h-1 bg-[#3b82f6]"></div>
-              <span className="text-xs font-bold text-slate-600">{activeScenario === 'negativePrice' ? '预测上网电价' : '预测实时电价'}</span>
+          </div>
+
+          {/* Separated Price Chart Header & Legend */}
+          <div className="flex items-start justify-end mt-2 mb-2 pr-[20px] relative z-10 w-full overflow-x-auto">
+            <div className="flex items-center gap-4 flex-wrap justify-end">
+              {activeScenario === "standard" && (
+                <>
+                  <div
+                    className={`flex items-center gap-1.5 cursor-pointer transition-opacity ${visiblePriceSeries.dayAheadPrice ? "opacity-100" : "opacity-40"}`}
+                    onClick={() => togglePriceSeries("dayAheadPrice")}
+                  >
+                    <div className="w-3 h-1 bg-[#f59e0b]"></div>
+                    <span className="text-[11px] font-bold text-slate-600">
+                      日前电价
+                    </span>
+                  </div>
+                  <div
+                    className={`flex items-center gap-1.5 cursor-pointer transition-opacity ${visiblePriceSeries.realTimePrice ? "opacity-100" : "opacity-40"}`}
+                    onClick={() => togglePriceSeries("realTimePrice")}
+                  >
+                    <div className="w-3 h-1 bg-[#ef4444]"></div>
+                    <span className="text-[11px] font-bold text-slate-600">
+                      实时电价
+                    </span>
+                  </div>
+                  <div
+                    className={`flex items-center gap-1.5 cursor-pointer transition-opacity ${visiblePriceSeries.forecastDayAheadPrice ? "opacity-100" : "opacity-40"}`}
+                    onClick={() => togglePriceSeries("forecastDayAheadPrice")}
+                  >
+                    <div className="w-3 h-1 bg-[#10b981]"></div>
+                    <span className="text-[11px] font-bold text-slate-600">
+                      预测日前电价
+                    </span>
+                  </div>
+                </>
+              )}
+              <div
+                className={`flex items-center gap-1.5 cursor-pointer transition-opacity ${visiblePriceSeries.forecastRealTimePrice ? "opacity-100" : "opacity-40"}`}
+                onClick={() => togglePriceSeries("forecastRealTimePrice")}
+              >
+                <div className="w-3 h-1 bg-[#3b82f6]"></div>
+                <span className="text-[11px] font-bold text-slate-600">
+                  {activeScenario === "negativePrice"
+                    ? "预测上网电价"
+                    : "预测实时电价"}
+                </span>
+              </div>
+
+              <div className="w-px h-3 bg-slate-200 mx-1"></div>
+
+              <div className="flex items-center gap-1.5 cursor-pointer transition-opacity opacity-100">
+                <div className="w-3 h-1 bg-violet-500"></div>
+                <span className="text-[11px] font-bold text-slate-800">
+                  负荷
+                </span>
+              </div>
+
+              <div
+                className={`flex items-center gap-1.5 cursor-pointer transition-opacity ${visibleSeries.grid ? "opacity-100" : "opacity-40"}`}
+                onClick={() => toggleSeries("grid")}
+              >
+                <div className="w-3 h-1 bg-slate-900 border-b border-slate-400"></div>
+                <span className="text-[11px] font-bold text-slate-800">
+                  电网功率
+                </span>
+              </div>
+
+              <button
+                onClick={() => toggleSeries("pv")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold transition-colors ml-1 ${
+                  visibleSeries.pv
+                    ? "bg-orange-100 text-orange-700"
+                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5" />
+                光伏效果
+              </button>
+
+              <button
+                onClick={() => toggleSeries("bess")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold transition-colors ml-1 ${
+                  visibleSeries.bess
+                    ? "bg-indigo-100 text-indigo-700"
+                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                }`}
+              >
+                <BrainCircuit className="w-3.5 h-3.5" />
+                AI调度效果
+              </button>
+
+              <button
+                onClick={() => {
+                  setVisibleSeries({
+                    load: false,
+                    pv: false,
+                    bess: false,
+                    grid: true,
+                  });
+                  setVisiblePriceSeries({
+                    dayAheadPrice: true,
+                    realTimePrice: true,
+                    forecastDayAheadPrice: true,
+                    forecastRealTimePrice: true,
+                  });
+                }}
+                className="px-2.5 py-1 rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors text-[10px] font-bold shadow-sm ml-1"
+              >
+                重置
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* Separated Price Chart */}
-        <div className="h-[260px] w-full mb-6">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart
-              data={priceDataWithExtremes}
-              margin={{ top: 45, right: 20, left: 20, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" />
-              
-              <XAxis 
-                dataKey="time" 
-                axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                tick={{ fill: '#334155', fontSize: 12, fontWeight: 'bold' }}
-                ticks={['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:00']}
-                height={30}
-              />
-              
-              <YAxis 
-                yAxisId="left" 
-                width={45}
-                axisLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                tickLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                tick={{ fill: '#475569', fontSize: 12, fontWeight: 'bold' }}
-                domain={activeScenario === 'negativePrice' ? [-0.5, 1.5] : [0, 1.5]}
-                ticks={activeScenario === 'negativePrice' ? [-0.5, 0, 0.5, 1.0, 1.5] : [0, 0.5, 1.0, 1.5]}
-                tickFormatter={(val) => val.toFixed(1)}
-                label={{ value: '电价：元/kWh', position: 'top', offset: 25, fill: '#475569', fontSize: 12, fontWeight: 'bold' }}
-                dx={-5}
-              />
-
-              <Tooltip content={<CustomTooltip hideAnnotations scenario={activeScenario} />} />
-
-              {/* High/Low Price Regions */}
-              {visiblePriceSeries.forecastRealTimePrice && (
-                <>
-                  {activeScenario === 'standard' && (
-                    <>
-                      <ReferenceArea yAxisId="left" x1="00:00" x2="05:00" fill="#10b981" fillOpacity={0.08} label={{ value: '低价谷时段', position: 'insideTopLeft', fill: '#10b981', fontSize: 12, fontWeight: 'bold' }} />
-                      <ReferenceArea yAxisId="left" x1="21:00" x2="23:00" fill="#10b981" fillOpacity={0.08} label={{ value: '低价谷时段', position: 'insideTopLeft', fill: '#10b981', fontSize: 12, fontWeight: 'bold' }} />
-                      <ReferenceArea yAxisId="left" x1="08:00" x2="11:00" fill="#ef4444" fillOpacity={0.08} label={{ value: '高价峰时段', position: 'insideTopLeft', fill: '#ef4444', fontSize: 12, fontWeight: 'bold' }} />
-                      <ReferenceArea yAxisId="left" x1="17:00" x2="20:00" fill="#ef4444" fillOpacity={0.08} label={{ value: '高价峰时段', position: 'insideTopLeft', fill: '#ef4444', fontSize: 12, fontWeight: 'bold' }} />
-                    </>
-                  )}
-                  {activeScenario === 'negativePrice' && (
-                    <ReferenceArea yAxisId="left" x1="08:00" x2="14:00" fill="#0ea5e9" fillOpacity={0.08} label={{ value: '负电价时段', position: 'insideTopLeft', fill: '#0ea5e9', fontSize: 12, fontWeight: 'bold' }} />
-                  )}
-                  
-                  {/* Min/Max Price Lines */}
-                  <ReferenceLine yAxisId="left" y={priceStats.maxPrice} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'insideBottomRight', value: `最高电价: ${priceStats.maxPrice.toFixed(2)}`, fill: '#ef4444', fontSize: 10 }} />
-                  <ReferenceLine yAxisId="left" y={priceStats.minPrice} stroke="#10b981" strokeDasharray="3 3" label={{ position: 'insideTopRight', value: `最低电价: ${priceStats.minPrice.toFixed(2)}`, fill: '#10b981', fontSize: 10 }} />
-                </>
-              )}
-
-              {/* Lines */}
-              {activeScenario === 'standard' && visiblePriceSeries.dayAheadPrice && <Line yAxisId="left" type="linear" dataKey="dayAheadPrice" name="日前电价" stroke="#f59e0b" strokeWidth={2} dot={false} isAnimationActive={false} />}
-              {activeScenario === 'standard' && visiblePriceSeries.realTimePrice && <Line yAxisId="left" type="linear" dataKey="realTimePrice" name="实时电价" stroke="#ef4444" strokeWidth={2} dot={false} isAnimationActive={false} />}
-              {activeScenario === 'standard' && visiblePriceSeries.forecastDayAheadPrice && <Line yAxisId="left" type="linear" dataKey="forecastDayAheadPrice" name="预测日前电价" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" dot={false} isAnimationActive={false} />}
-              
-              {/* Forecast RealTime Price & Extremes */}
-              {visiblePriceSeries.forecastRealTimePrice && (
-                <>
-                  <Line yAxisId="left" type="linear" dataKey="forecastRealTimePrice" name={activeScenario === 'negativePrice' ? '预测上网电价' : '预测实时电价'} stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
-                  {activeScenario === 'standard' && (
-                    <>
-                      <Line yAxisId="left" type="monotone" dataKey="top5Price" name="高峰价(放电预警)" stroke="none" isAnimationActive={false} dot={{ r: 5, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }} activeDot={false} />
-                      <Line yAxisId="left" type="monotone" dataKey="bottom5Price" name="低谷价(充电预警)" stroke="none" isAnimationActive={false} dot={{ r: 5, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} activeDot={false} />
-                    </>
-                  )}
-                </>
-              )}
-
-              {hoveredTimeRange && (
-                <ReferenceArea 
-                  yAxisId="left" 
-                  x1={hoveredTimeRange[0]} 
-                  x2={hoveredTimeRange[1]} 
-                  fill="#8b5cf6" 
-                  fillOpacity={0.15} 
+          {/* Separated Price Chart */}
+          <div className="h-[180px] w-full mb-6 relative z-10">
+            <div className="absolute left-[5px] top-0 bottom-[30px] w-[20px] flex items-center justify-center pointer-events-none text-center">
+              <h3
+                className="text-xs font-bold text-slate-500 tracking-widest whitespace-nowrap"
+                style={{ writingMode: "vertical-rl" }}
+              >
+                {activeScenario === "negativePrice"
+                  ? "上网电价预测"
+                  : "电价走势预测"}
+              </h3>
+            </div>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart
+                data={priceDataWithExtremes}
+                margin={{ top: 45, right: 20, left: 20, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#cbd5e1"
                 />
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
+
+                <XAxis
+                  dataKey="time"
+                  axisLine={{ stroke: "#94a3b8", strokeWidth: 1 }}
+                  tickLine={{ stroke: "#94a3b8", strokeWidth: 1 }}
+                  tick={{ fill: "#334155", fontSize: 12, fontWeight: "bold" }}
+                  ticks={[
+                    "00:00",
+                    "04:00",
+                    "08:00",
+                    "12:00",
+                    "16:00",
+                    "20:00",
+                    "23:00",
+                  ]}
+                  height={30}
+                />
+
+                <YAxis
+                  yAxisId="left"
+                  width={45}
+                  axisLine={{ stroke: "#94a3b8", strokeWidth: 1 }}
+                  tickLine={{ stroke: "#94a3b8", strokeWidth: 1 }}
+                  tick={{ fill: "#475569", fontSize: 12, fontWeight: "bold" }}
+                  domain={
+                    activeScenario === "negativePrice" ? [-0.5, 1.5] : [0, 1.5]
+                  }
+                  ticks={
+                    activeScenario === "negativePrice"
+                      ? [-0.5, 0, 0.5, 1.0, 1.5]
+                      : [0, 0.5, 1.0, 1.5]
+                  }
+                  tickFormatter={(val) => val.toFixed(1)}
+                  label={{
+                    value: "电价：元/kWh",
+                    position: "top",
+                    offset: 25,
+                    fill: "#475569",
+                    fontSize: 12,
+                    fontWeight: "bold",
+                  }}
+                  dx={-5}
+                />
+
+                <Tooltip
+                  content={
+                    <CustomTooltip hideAnnotations scenario={activeScenario} />
+                  }
+                />
+
+                {/* High/Low Price Regions are now handled by the absolute background layer */}
+
+                {/* Lines */}
+                {activeScenario === "standard" &&
+                  visiblePriceSeries.dayAheadPrice && (
+                    <Line
+                      yAxisId="left"
+                      type="linear"
+                      dataKey="dayAheadPrice"
+                      name="日前电价"
+                      stroke="#f59e0b"
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  )}
+                {activeScenario === "standard" &&
+                  visiblePriceSeries.realTimePrice && (
+                    <Line
+                      yAxisId="left"
+                      type="linear"
+                      dataKey="realTimePrice"
+                      name="实时电价"
+                      stroke="#ef4444"
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  )}
+                {activeScenario === "standard" &&
+                  visiblePriceSeries.forecastDayAheadPrice && (
+                    <Line
+                      yAxisId="left"
+                      type="linear"
+                      dataKey="forecastDayAheadPrice"
+                      name="预测日前电价"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  )}
+
+                {/* Forecast RealTime Price & Extremes */}
+                {visiblePriceSeries.forecastRealTimePrice && (
+                  <>
+                    <Line
+                      yAxisId="left"
+                      type="linear"
+                      dataKey="forecastRealTimePrice"
+                      name={
+                        activeScenario === "negativePrice"
+                          ? "预测上网电价"
+                          : "预测实时电价"
+                      }
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                    {activeScenario === "standard" && (
+                      <>
+                        <Line
+                          yAxisId="left"
+                          type="monotone"
+                          dataKey="top5Price"
+                          name="高峰价(放电预警)"
+                          stroke="none"
+                          isAnimationActive={false}
+                          dot={{
+                            r: 5,
+                            fill: "#ef4444",
+                            stroke: "#fff",
+                            strokeWidth: 2,
+                          }}
+                          activeDot={false}
+                        />
+                        <Line
+                          yAxisId="left"
+                          type="monotone"
+                          dataKey="bottom5Price"
+                          name="低谷价(充电预警)"
+                          stroke="none"
+                          isAnimationActive={false}
+                          dot={{
+                            r: 5,
+                            fill: "#10b981",
+                            stroke: "#fff",
+                            strokeWidth: 2,
+                          }}
+                          activeDot={false}
+                        />
+                      </>
+                    )}
+                  </>
+                )}
+
+                {hoveredTimeRange && (
+                  <ReferenceArea
+                    yAxisId="left"
+                    x1={hoveredTimeRange[0]}
+                    x2={hoveredTimeRange[1]}
+                    // @ts-expect-error - fill is valid
+                    fill="#8b5cf6"
+                    fillOpacity={0.15}
+                  />
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Base Schedule Bar */}
+          <div
+            className="mt-1 mb-2 pb-1 relative z-10"
+            style={{ paddingLeft: "65px", paddingRight: "20px" }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-xs font-bold text-slate-800">建议策略排程</h3>
+            </div>
+            <div className="h-8 w-full flex rounded-lg overflow-hidden border border-slate-200 shadow-sm relative">
+              {baseStrategies.map((strategy, idx) => {
+                const [startStr, endStr] = strategy.time.split(" - ");
+
+                const getMins = (str: string) => {
+                  if (str === "24:00") return 24 * 60;
+                  const [h, m] = str.split(":").map(Number);
+                  return h * 60 + m;
+                };
+
+                const startMins = getMins(startStr);
+                const endMins = getMins(endStr);
+                const durationMins = endMins - startMins;
+                const widthRatio = (durationMins / (24 * 60)) * 100;
+
+                let bgColor = "bg-slate-100 hover:bg-slate-200";
+                let textColor = "text-slate-600";
+                let borderClass = "border-r border-white/30 last:border-0";
+
+                if (strategy.action === "充电") {
+                  bgColor = "bg-emerald-400 hover:bg-emerald-500";
+                  textColor = "text-white";
+                } else if (strategy.action === "放电") {
+                  bgColor = "bg-rose-400 hover:bg-rose-500";
+                  textColor = "text-white";
+                }
+
+                return (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 20,
+                      delay: idx * 0.05,
+                    }}
+                    key={idx}
+                    style={{ width: `${widthRatio}%` }}
+                    className={`${bgColor} ${borderClass} h-full flex flex-col items-center justify-center relative group transition-colors`}
+                  >
+                    <span
+                      className={`text-[10px] font-bold ${textColor} drop-shadow-sm truncate px-1 max-w-full text-center overflow-hidden`}
+                    >
+                      {strategy.action}
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Power Chart Header & Toggles */}
+          <div className="w-full mt-1 flex justify-end pr-[20px] relative z-10">
+            {visibleSeries.bess && (
+              <div className="flex items-center gap-2 opacity-60">
+                <div className="w-4 h-0 border-t-2 border-dashed border-slate-500"></div>
+                <span className="text-xs font-bold text-slate-500">
+                  调整前电网功率
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Chart Area */}
+          <div className="h-[280px] w-full mt-1 relative z-10">
+            <div className="absolute left-[5px] top-0 bottom-[60px] w-[20px] flex items-center justify-center pointer-events-none text-center">
+              <h3
+                className="text-xs font-bold text-slate-500 tracking-widest whitespace-nowrap"
+                style={{ writingMode: "vertical-rl" }}
+              >
+                功率曲线预测
+              </h3>
+            </div>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart
+                data={processedData}
+                margin={{ top: 45, right: 20, left: 20, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#cbd5e1"
+                />
+
+                <XAxis
+                  dataKey="time"
+                  axisLine={{ stroke: "#94a3b8", strokeWidth: 1 }}
+                  tickLine={{ stroke: "#94a3b8", strokeWidth: 1 }}
+                  tick={<CustomXAxisTick chartData={chartData} />}
+                  ticks={[
+                    "00:00",
+                    "04:00",
+                    "08:00",
+                    "12:00",
+                    "16:00",
+                    "20:00",
+                    "23:45",
+                  ]}
+                  height={60}
+                />
+
+                <YAxis
+                  yAxisId="left"
+                  axisLine={{ stroke: "#94a3b8", strokeWidth: 1 }}
+                  tickLine={{ stroke: "#94a3b8", strokeWidth: 1 }}
+                  tick={{ fill: "#334155", fontSize: 12, fontWeight: "bold" }}
+                  domain={[-1000, 2000]}
+                  ticks={[-1000, -500, 0, 500, 1000, 1500, 2000]}
+                  label={{
+                    value: "功率：kW",
+                    position: "top",
+                    offset: 25,
+                    fill: "#334155",
+                    fontSize: 12,
+                    fontWeight: "bold",
+                  }}
+                  dx={-10}
+                />
+
+                {/* Removed YAxis right */}
+
+                <Tooltip
+                  content={<CustomTooltip scenario={activeScenario} />}
+                />
+
+                {/* Risk Areas */}
+                {/* Removed here, moved up */}
+
+                {/* Lines */}
+                <Line
+                  yAxisId="left"
+                  type="linear"
+                  dataKey="load"
+                  name="负荷"
+                  stroke="#8b5cf6"
+                  strokeWidth={2}
+                  dot={false}
+                />
+
+                {/* Risk Areas (Uses Original Grid to show risk) */}
+                {showAnnotations && visibleSeries.grid && (
+                  <>
+                    {visibleSeries.bess && (
+                      <Area
+                        yAxisId="left"
+                        type="linear"
+                        dataKey="overDemand"
+                        fill="#fda4af"
+                        fillOpacity={0.3}
+                        stroke="none"
+                        connectNulls={false}
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* Dashed original grid when BESS is overlaid */}
+                {visibleSeries.bess && visibleSeries.grid && (
+                  <Line
+                    yAxisId="left"
+                    type="linear"
+                    dataKey="gridWithoutBess"
+                    name="调整前电网功率"
+                    stroke="#64748b"
+                    strokeWidth={3}
+                    strokeDasharray="5 5"
+                    dot={false}
+                  />
+                )}
+
+                {/* Main displayed grid line */}
+                {visibleSeries.grid && (
+                  <Line
+                    yAxisId="left"
+                    type="linear"
+                    dataKey="displayedGrid"
+                    name={visibleSeries.bess ? "调整后电网功率" : "电网功率"}
+                    stroke={visibleSeries.bess ? "#020617" : "#64748b"}
+                    strokeWidth={visibleSeries.bess ? 3 : 2}
+                    dot={false}
+                  />
+                )}
+
+                {/* Risk Points Marks */}
+                {visibleSeries.grid && showAnnotations && (
+                  <Line
+                    yAxisId="left"
+                    type="linear"
+                    dataKey="riskPointOverDemand"
+                    name="超容风险"
+                    stroke="none"
+                    dot={{
+                      r: 5,
+                      fill: "#ef4444",
+                      stroke: "#fff",
+                      strokeWidth: 1.5,
+                    }}
+                    activeDot={{
+                      r: 7,
+                      fill: "#ef4444",
+                      stroke: "#fff",
+                      strokeWidth: 2,
+                    }}
+                    connectNulls={false}
+                  />
+                )}
+                {visibleSeries.grid && showAnnotations && (
+                  <Line
+                    yAxisId="left"
+                    type="linear"
+                    dataKey="riskPointReverseFlow"
+                    name="逆流风险"
+                    stroke="none"
+                    dot={{
+                      r: 5,
+                      fill: "#f97316",
+                      stroke: "#fff",
+                      strokeWidth: 1.5,
+                    }}
+                    activeDot={{
+                      r: 7,
+                      fill: "#f97316",
+                      stroke: "#fff",
+                      strokeWidth: 2,
+                    }}
+                    connectNulls={false}
+                  />
+                )}
+
+                {/* Threshold Lines */}
+                <ReferenceLine
+                  yAxisId="left"
+                  y={1200}
+                  stroke="#94a3b8"
+                  strokeWidth={1}
+                  strokeDasharray="5 5"
+                  label={{
+                    position: "insideTopLeft",
+                    value: "超容阈值 1200kW",
+                    fill: "#64748b",
+                    fontSize: 10,
+                  }}
+                />
+                <ReferenceLine
+                  yAxisId="left"
+                  y={10}
+                  stroke="#94a3b8"
+                  strokeWidth={1}
+                  strokeDasharray="5 5"
+                  label={{
+                    position: "insideBottomLeft",
+                    value: "逆流阈值 10kW",
+                    fill: "#64748b",
+                    fontSize: 10,
+                  }}
+                />
+
+                {/* Hover Highlight Area */}
+                {hoveredTimeRange && (
+                  <ReferenceArea
+                    yAxisId="left"
+                    x1={hoveredTimeRange[0]}
+                    x2={hoveredTimeRange[1]}
+                    // @ts-expect-error - fill is valid
+                    fill="#8b5cf6"
+                    fillOpacity={0.15}
+                  />
+                )}
+
+                {/* Regions are handled by relative background layer */}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Schedule Bar */}
+          <div
+            className="mt-1 mb-2 pb-2 relative z-10"
+            style={{ paddingLeft: "65px", paddingRight: "20px" }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-xs font-bold text-slate-800">AI建议策略</h3>
+            </div>
+            <div className="h-8 w-full flex rounded-lg overflow-hidden border border-slate-200 shadow-sm relative">
+              {generatedStrategies.map((strategy, idx) => {
+                const [startStr, endStr] = strategy.time.split(" - ");
+
+                const getMins = (str: string) => {
+                  if (str === "24:00") return 24 * 60;
+                  const [h, m] = str.split(":").map(Number);
+                  return h * 60 + m;
+                };
+
+                const startMins = getMins(startStr);
+                const endMins = getMins(endStr);
+                const durationMins = endMins - startMins;
+                const widthRatio = (durationMins / (24 * 60)) * 100;
+
+                let bgColor = "bg-slate-100 hover:bg-slate-200";
+                let textColor = "text-slate-600";
+                let borderClass = "border-r border-white/30 last:border-0";
+
+                const isCharge =
+                  strategy.finalActionCat &&
+                  strategy.finalActionCat.includes("充电");
+                const isDischarge =
+                  strategy.finalActionCat &&
+                  strategy.finalActionCat.includes("放电");
+                const isSuppressPV =
+                  strategy.action && strategy.action.includes("抑制光伏发电");
+
+                if (isCharge) {
+                  bgColor = "bg-emerald-400 hover:bg-emerald-500";
+                  textColor = "text-white";
+                } else if (isDischarge) {
+                  bgColor = "bg-rose-400 hover:bg-rose-500";
+                  textColor = "text-white";
+                } else if (isSuppressPV) {
+                  bgColor = "bg-orange-400 hover:bg-orange-500";
+                  textColor = "text-white";
+                }
+
+                return (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 20,
+                      delay: idx * 0.05,
+                    }}
+                    key={idx}
+                    style={{ width: `${widthRatio}%` }}
+                    className={`${bgColor} ${borderClass} h-full flex flex-col items-center justify-center relative group cursor-pointer transition-colors`}
+                    onMouseEnter={() =>
+                      setHoveredTimeRange([
+                        startStr,
+                        endStr === "24:00" ? "23:45" : endStr,
+                      ])
+                    }
+                    onMouseLeave={() => setHoveredTimeRange(null)}
+                  >
+                    <span
+                      className={`text-[10px] font-bold ${textColor} drop-shadow-sm truncate px-1 max-w-full text-center overflow-hidden`}
+                    >
+                      {strategy.action}
+                    </span>
+
+                    {/* Tooltip */}
+                    <div className="absolute top-[-54px] left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs rounded-lg p-2 opacity-0 group-hover:opacity-100 pointer-events-none z-20 transition-opacity whitespace-nowrap shadow-xl">
+                      <div className="font-bold mb-0.5 text-blue-200">
+                        {strategy.time}
+                      </div>
+                      <div className="font-medium text-slate-100">
+                        {strategy.tooltipAction} · {strategy.type}
+                      </div>
+                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </div>{" "}
+        {/* End of tracking relative container */}
+        {/* Strategy Section */}
+        <div className="mt-8 border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-sm">
+          <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+            <BrainCircuit className="w-5 h-5 text-indigo-500" />
+            <h3 className="font-black text-slate-800 text-lg">
+              Ai建议策略明细
+            </h3>
+          </div>
+
+          {/* Strategy Details Table */}
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600">
+              <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold">
+                <tr>
+                  <th className="px-6 py-4 w-[15%] whitespace-nowrap">
+                    执行时间
+                  </th>
+                  <th className="px-6 py-4 w-[15%] whitespace-nowrap">
+                    策略类型
+                  </th>
+                  <th className="px-6 py-4 w-[15%] whitespace-nowrap">
+                    建议动作
+                  </th>
+                  <th className="px-6 py-4 w-[55%]">触发原因/描述</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {generatedStrategies.map((s, i) => {
+                  let typePill = (
+                    <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[11px] font-bold border border-slate-200">
+                      平段待机
+                    </span>
+                  );
+                  if (
+                    s.type.includes("低价") ||
+                    s.type.includes("高价") ||
+                    s.type.includes("低谷") ||
+                    s.type.includes("高峰") ||
+                    s.type.includes("充电") ||
+                    s.type.includes("套利")
+                  ) {
+                    typePill = (
+                      <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded text-[11px] font-bold border border-blue-100">
+                        峰谷套利
+                      </span>
+                    );
+                  } else if (s.type.includes("超容")) {
+                    typePill = (
+                      <span className="px-2 py-1 bg-rose-50 text-rose-600 rounded text-[11px] font-bold border border-rose-100">
+                        需量控制
+                      </span>
+                    );
+                  } else if (
+                    s.type.includes("逆流") ||
+                    s.type.includes("负电价") ||
+                    s.type.includes("抑制光伏")
+                  ) {
+                    typePill = (
+                      <span className="px-2 py-1 bg-orange-50 text-orange-600 rounded text-[11px] font-bold border border-orange-100">
+                        防逆流
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <tr
+                      key={i}
+                      className="hover:bg-slate-50/50 transition-colors"
+                      onMouseEnter={() =>
+                        setHoveredTimeRange([
+                          s.startTime,
+                          s.endTime === "24:00" ? "23:45" : s.endTime,
+                        ])
+                      }
+                      onMouseLeave={() => setHoveredTimeRange(null)}
+                    >
+                      <td className="px-6 py-4 font-bold text-slate-700 whitespace-nowrap">
+                        {s.time}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {visibleSeries.bess ? (
+                          typePill
+                        ) : (
+                          <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[11px] font-bold border border-slate-200">
+                            平段待机
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 font-bold text-slate-800 whitespace-nowrap">
+                        {visibleSeries.bess ? s.action : "待机"}
+                      </td>
+                      <td className="px-6 py-4 text-slate-500 leading-relaxed text-xs">
+                        {s.desc}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-
-
       </div>
     </div>
   );
