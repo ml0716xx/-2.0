@@ -19,6 +19,7 @@ import MainWiringDiagramPage from './components/MainWiringDiagramPage';
 import StorageMonitoringPage from './components/StorageMonitoringPage';
 import AlarmManagementPage from './components/AlarmManagementPage';
 import AlgorithmPredictionPage from './components/AlgorithmPredictionPage';
+import AlgorithmPredictionPage2 from './components/AlgorithmPredictionPage2';
 import StrategyReportPage from './components/StrategyReportPage';
 import { EnergyStat, RevenueStat, AlarmItem, StrategyGroup } from './types';
 
@@ -103,6 +104,9 @@ const App: React.FC = () => {
     }
     if (currentPage === '算法预测监控') {
       return <AlgorithmPredictionPage onNavigate={setCurrentPage} />;
+    }
+    if (currentPage === '算法预测监控2') {
+      return <AlgorithmPredictionPage2 onNavigate={setCurrentPage} />;
     }
     if (currentPage === '报警管理') {
       return <AlarmManagementPage />;

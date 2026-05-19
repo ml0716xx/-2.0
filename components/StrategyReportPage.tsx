@@ -42,24 +42,30 @@ const dailyRevenueData = Array.from({ length: 31 }, (_, i) => {
     traditional: base,
     aiBoost: aiBoost,
     actual: base + aiBoost,
+    hasAi: hasAi,
+    aiMarker: hasAi ? (base + aiBoost + 500) : 0,
   };
 });
 
 const dailyPvConsumptionData = Array.from({ length: 31 }, (_, i) => {
   const traditional = 70 + Math.random() * 15; // 70-85%
-  const aiBoost = Math.random() * 12; // 0-12%
+  const hasAi = dailyRevenueData[i].hasAi; // Keep consistency
+  const aiBoost = hasAi ? (Math.random() * 12) : (Math.random() * 2);
   return {
     day: `${i + 1}日`,
     traditional: parseFloat(traditional.toFixed(1)),
     aiBoost: parseFloat(aiBoost.toFixed(1)),
+    hasAi: hasAi,
+    aiMarker: hasAi ? 102 : 0, // Above 100%
   };
 });
 
 const dailyEssBatteryData = Array.from({ length: 31 }, (_, i) => {
   const baseCharge = Math.round(500 + Math.random() * 200); // 500-700
   const baseDischarge = Math.round(baseCharge * 0.95);
+  const hasAi = dailyRevenueData[i].hasAi;
 
-  const aiCharge = Math.round(baseCharge + 100 + Math.random() * 100);
+  const aiCharge = hasAi ? Math.round(baseCharge + 100 + Math.random() * 100) : baseCharge;
   const aiDischarge = Math.round(aiCharge * 0.95);
 
   return {
@@ -68,181 +74,36 @@ const dailyEssBatteryData = Array.from({ length: 31 }, (_, i) => {
     traditionalDischarge: baseDischarge,
     aiCharge: -aiCharge,
     aiDischarge: aiDischarge,
+    hasAi: hasAi,
+    aiMarker: hasAi ? (aiDischarge + 100) : 0,
   };
 });
 
-const dailyChartDataMap: Record<string, any[]> = {};
-for (let i = 1; i <= 31; i++) {
-  const dayStr = `${i}日`;
-  const data = [];
-
-  // Deterministic variations based on day 'i'
-  const baseCharge = -150 - (i % 3) * 30; // e.g., -150, -180, -210
-  const aiChargeBoost = -50 - (i % 4) * 20; // e.g., -50, -70, -90, -110
-
-  const baseDischarge = 150 + (i % 3) * 30; // e.g., 150, 180, 210
-  const aiDischargeBoost = 50 + (i % 4) * 20; // e.g., 50, 70, 90, 110
-
-  const actualChargeEnd = 3 + (i % 2); // 3 or 4
-  const actualDischargeStart1 = 8 + (i % 2); // 8 or 9
-  const actualDischargeStart2 = 18 + (i % 2); // 18 or 19
-
-  for (let h = 0; h < 24; h++) {
-    const time = `${h.toString().padStart(2, "0")}:00`;
-    let price = 0.6;
-    if (h >= 0 && h < 6) price = 0.3;
-    if (h >= 21 && h < 24) price = 0.3;
-    if (h >= 8 && h < 11) price = 1.2;
-    if (h >= 17 && h < 21) price = 1.2;
-
-    let actualBess = 0;
-    let aiBess = 0;
-
-    // Night Charging (00:00 - 05:00)
-    if (h >= 0 && h < 6) {
-      actualBess = h <= actualChargeEnd ? baseCharge : 0;
-      aiBess = baseCharge + aiChargeBoost; // AI charges full low-price period
-    }
-    // Morning Discharging (08:00 - 10:00)
-    else if (h >= 8 && h < 11) {
-      actualBess = h >= actualDischargeStart1 ? baseDischarge : 0;
-      aiBess = baseDischarge + aiDischargeBoost;
-    }
-    // Midday PV Charging (11:00 - 14:00)
-    else if (h >= 11 && h <= 14) {
-      actualBess = 0; // Actual doesn't do midday PV charging
-      // AI does some PV charging depending on the day
-      aiBess =
-        i % 2 === 0 ? (h === 12 || h === 13 ? -150 : -50) : h === 12 ? -200 : 0;
-    }
-    // Evening Discharging (17:00 - 20:00)
-    else if (h >= 17 && h < 21) {
-      actualBess = h >= actualDischargeStart2 ? baseDischarge : 0;
-      aiBess = baseDischarge + aiDischargeBoost; // AI starts right at 17:00
-    }
-    // Night Charging (21:00 - 23:00)
-    else if (h >= 21 && h < 24) {
-      actualBess = baseCharge;
-      aiBess = baseCharge + aiChargeBoost;
-    }
-
-    data.push({ time, price, actualBess, aiBess });
-  }
-  data.push({ ...data[23], time: "23:59" });
-  dailyChartDataMap[dayStr] = data;
-}
-
-const CustomDailyTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    const aiBess = payload.find((p: any) => p.dataKey === "aiBess")?.value || 0;
-    const actualBess =
-      payload.find((p: any) => p.dataKey === "actualBess")?.value || 0;
-    const extra = Math.abs(aiBess) - Math.abs(actualBess);
-
-    return (
-      <div className="bg-white p-3 border border-slate-200 shadow-lg rounded-lg text-xs z-50">
-        <div className="font-bold text-slate-700 mb-2">{label}</div>
-        {payload.map((entry: any, index: number) => (
-          <div
-            key={index}
-            className="flex items-center justify-between gap-4 mb-1"
-          >
-            <div className="flex items-center gap-1.5">
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: entry.color }}
-              ></div>
-              <span className="text-slate-600">{entry.name}</span>
-            </div>
-            <span className="font-bold" style={{ color: entry.color }}>
-              {entry.value} {entry.name === "电价" ? "元/kWh" : "kW"}
-            </span>
-          </div>
-        ))}
-        {extra > 0 && (
-          <div className="mt-2 pt-2 border-t border-slate-100 text-purple-600 font-bold flex justify-between">
-            <span>AI 建议多{aiBess > 0 ? "放" : "充"}:</span>
-            <span>
-              {extra} kW {actualBess === 0 ? "(时段优化)" : "(功率提升)"}
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  }
-  return null;
+const CustomXAxisTick = (props: any) => {
+  const { x, y, payload, index } = props;
+  // All three data arrays have the same 'hasAi' status for the same day index
+  const hasAi = dailyRevenueData[index]?.hasAi;
+  
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0}
+        y={0}
+        dy={14}
+        textAnchor="middle"
+        fill={hasAi ? "#8b5cf6" : "#64748b"}
+        className="text-[10px] font-medium"
+        style={{ fontWeight: hasAi ? "800" : "500" }}
+      >
+        {payload.value}
+      </text>
+    </g>
+  );
 };
 
 const StrategyReportPage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState("2026-04");
   const [selectedDay, setSelectedDay] = useState<string | null>("6日");
-
-  const getDailyLogs = (day: string) => {
-    const dayNum = parseInt(day.replace("日", ""), 10) || 1;
-    const baseCharge = -150 - (dayNum % 3) * 30; // e.g., -150, -180, -210
-    const aiChargeBoost = -50 - (dayNum % 4) * 20; // e.g., -50, -70, -90, -110
-    const baseDischarge = 150 + (dayNum % 3) * 30; // e.g., 150, 180, 210
-    const aiDischargeBoost = 50 + (dayNum % 4) * 20; // e.g., 50, 70, 90, 110
-    const actualChargeEnd = 3 + (dayNum % 2); // 3 or 4
-    const actualDischargeStart1 = 8 + (dayNum % 2); // 8 or 9
-    const actualDischargeStart2 = 18 + (dayNum % 2); // 18 or 19
-
-    const logs = [
-      {
-        time: "00:00 - 06:00",
-        type: "峰谷套利",
-        originalAction: `00:00 - 0${actualChargeEnd}:00 充电 ${Math.abs(baseCharge)}kW`,
-        aiAction: `00:00 - 06:00 充电 ${Math.abs(baseCharge + aiChargeBoost)}kW`,
-        aiImpact: `+¥${120 + (dayNum % 5) * 10}`,
-        aiDiff: `延长充电并提升功率`,
-        desc: "电价谷时段，执行储能充电",
-      },
-      {
-        time: "08:00 - 11:00",
-        type: "峰谷套利",
-        originalAction: `0${actualDischargeStart1}:00 - 11:00 放电 ${Math.abs(baseDischarge)}kW`,
-        aiAction: `08:00 - 11:00 放电 ${Math.abs(baseDischarge + aiDischargeBoost)}kW`,
-        aiImpact: `+¥${150 + (dayNum % 4) * 15}`,
-        aiDiff: `提前放电并提升功率`,
-        desc: "早高峰高电价时段，执行储能放电",
-      },
-    ];
-
-    if (dayNum % 2 === 0) {
-      logs.push({
-        time: "11:00 - 14:00",
-        type: "全额消纳",
-        originalAction: "无动作",
-        aiAction: "智能匹配光伏余电充电",
-        aiImpact: `+¥${80 + (dayNum % 3) * 15}`,
-        aiDiff: "新增消纳动作",
-        desc: "预测光伏大发，提前消纳防逆流",
-      });
-    }
-
-    logs.push(
-      {
-        time: "17:00 - 21:00",
-        type: "峰谷套利",
-        originalAction: `${actualDischargeStart2}:00 - 21:00 放电 ${Math.abs(baseDischarge)}kW`,
-        aiAction: `17:00 - 21:00 放电 ${Math.abs(baseDischarge + aiDischargeBoost)}kW`,
-        aiImpact: `+¥${180 + (dayNum % 4) * 20}`,
-        aiDiff: `提前放电并提升功率`,
-        desc: "晚高峰高电价时段，执行储能放电",
-      },
-      {
-        time: "21:00 - 24:00",
-        type: "峰谷套利",
-        originalAction: `21:00 - 24:00 充电 ${Math.abs(baseCharge)}kW`,
-        aiAction: `21:00 - 24:00 充电 ${Math.abs(baseCharge + aiChargeBoost)}kW`,
-        aiImpact: `+¥${50 + (dayNum % 2) * 10}`,
-        aiDiff: `提升充电功率`,
-        desc: "夜间谷时段，执行储能充电",
-      },
-    );
-
-    return logs;
-  };
 
   return (
     <div className="p-4 sm:p-6 h-full overflow-y-auto bg-slate-50 space-y-4 sm:space-y-6 flex flex-col">
@@ -269,11 +130,11 @@ const StrategyReportPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 shrink-0">
         {/* Top Cards */}
         <div className="bg-white p-6 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 flex items-center justify-between">
           <div>
-            <p className="text-sm text-slate-500 font-bold mb-1">本月收益预估</p>
+            <p className="text-sm text-slate-500 font-bold mb-1">本月收益</p>
             <h3 className="text-2xl font-black text-slate-800">¥ 125,430</h3>
             <p className="text-xs text-emerald-500 mt-2 flex items-center gap-1 font-bold">
               <TrendingUp className="w-3 h-3" />
@@ -295,6 +156,19 @@ const StrategyReportPage: React.FC = () => {
           </div>
           <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center">
             <BrainCircuit className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-slate-500 font-bold mb-1">AI 策略运行时长占比</p>
+            <h3 className="text-2xl font-black text-indigo-600">92.4%</h3>
+            <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+              本月累计运行 665.2 小时
+            </p>
+          </div>
+          <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center">
+            <Clock className="w-6 h-6" />
           </div>
         </div>
 
@@ -347,7 +221,7 @@ const StrategyReportPage: React.FC = () => {
 
             <div className="h-[250px] w-full mt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
+                <ComposedChart
                   data={dailyRevenueData}
                   margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                 >
@@ -360,9 +234,8 @@ const StrategyReportPage: React.FC = () => {
                     dataKey="day"
                     axisLine={{ stroke: "#94a3b8" }}
                     tickLine={false}
-                    tick={{ fill: "#64748b", fontSize: 10 }}
-                    dy={10}
-                    interval="preserveStartEnd"
+                    tick={<CustomXAxisTick />}
+                    interval={0}
                   />
                   <YAxis
                     axisLine={{ stroke: "#94a3b8" }}
@@ -378,6 +251,7 @@ const StrategyReportPage: React.FC = () => {
                       boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
                     }}
                     formatter={(value: number, name: string) => {
+                      if (name === "aiMarker") return null;
                       const displayNames: Record<string, string> = {
                         traditional: "传统模式收益",
                         aiBoost: "AI 提升收益",
@@ -404,25 +278,11 @@ const StrategyReportPage: React.FC = () => {
                     onClick={(data) => setSelectedDay(data.day)}
                     cursor="pointer"
                   />
-                </BarChart>
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
 
-            <div className="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-start gap-3">
-              <div className="bg-blue-100 p-1.5 rounded-lg mt-0.5 shrink-0">
-                <BrainCircuit className="w-4 h-4 text-blue-600" />
-              </div>
-              <div>
-                <h4 className="font-bold text-blue-900 mb-0.5 text-xs">
-                  AI 策略价值验证
-                </h4>
-                <p className="text-[11px] text-blue-800 leading-relaxed">
-                  本月依靠高精度的曲线预测，AI 算法成功规避了 12
-                  次潜在的超容风险，并在电价波谷期增加了 15%
-                  的储能充电深度，相较于传统的固定充放控制，整体经济效益得到极大跃升。
-                </p>
-              </div>
-            </div>
+
           </div>
 
           {/* 本月 AI 策略光伏消纳率统计 */}
@@ -453,7 +313,7 @@ const StrategyReportPage: React.FC = () => {
 
             <div className="h-[250px] w-full mt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
+                <ComposedChart
                   data={dailyPvConsumptionData}
                   margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                 >
@@ -466,16 +326,15 @@ const StrategyReportPage: React.FC = () => {
                     dataKey="day"
                     axisLine={{ stroke: "#94a3b8" }}
                     tickLine={false}
-                    tick={{ fill: "#64748b", fontSize: 10 }}
-                    dy={10}
-                    interval="preserveStartEnd"
+                    tick={<CustomXAxisTick />}
+                    interval={0}
                   />
                   <YAxis
                     axisLine={{ stroke: "#94a3b8" }}
                     tickLine={false}
                     tick={{ fill: "#64748b", fontSize: 10 }}
                     tickFormatter={(val) => `${val}%`}
-                    domain={[0, 100]}
+                    domain={[0, 110]}
                   />
                   <Tooltip
                     cursor={{ fill: "#f8fafc" }}
@@ -485,6 +344,7 @@ const StrategyReportPage: React.FC = () => {
                       boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
                     }}
                     formatter={(value: number, name: string) => {
+                      if (name === "aiMarker") return null;
                       const displayNames: Record<string, string> = {
                         traditional: "传统模式消纳率",
                         aiBoost: "AI 策略提升率",
@@ -499,42 +359,48 @@ const StrategyReportPage: React.FC = () => {
                     fill="#f97316"
                     radius={[4, 4, 0, 0]}
                   />
-                </BarChart>
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* 本月 AI 策略储能充放电量统计 */}
+          {/* 本月 AI 策略储能充放电对比 */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-indigo-500" />
                 <h3 className="text-lg font-bold text-slate-800">
-                  本月 AI 策略储能充放电量统计
+                  本月 AI 策略储能充放电对比
                 </h3>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-sm mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-blue-300"></div>
-                <span className="text-slate-600 font-medium text-xs">
-                  传统模式充放电
-                </span>
+            <div className="flex flex-wrap items-center gap-6 text-sm mb-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-1.5 rounded-sm bg-[#fbbf24]"></div>
+                  <div className="w-3 h-1.5 rounded-sm bg-[#93c5fd]"></div>
+                  <span className="text-slate-500 font-medium text-[11px]">
+                    传统模式 (放/充)
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-indigo-500"></div>
-                <span className="text-slate-600 font-medium text-xs">
-                  AI 策略充放电
-                </span>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-1.5 rounded-sm bg-[#f59e0b]"></div>
+                  <div className="w-3 h-1.5 rounded-sm bg-[#2563eb]"></div>
+                  <span className="text-indigo-600 font-bold text-[11px]">
+                    AI 优化模式 (放/充)
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="h-[250px] w-full mt-2">
+            <div className="h-[400px] w-full mt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
+                <ComposedChart
                   data={dailyEssBatteryData}
-                  margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+                  margin={{ top: 10, right: 10, left: -10, bottom: 20 }}
                 >
                   <CartesianGrid
                     strokeDasharray="3 3"
@@ -545,15 +411,22 @@ const StrategyReportPage: React.FC = () => {
                     dataKey="day"
                     axisLine={{ stroke: "#94a3b8" }}
                     tickLine={false}
-                    tick={{ fill: "#64748b", fontSize: 10 }}
-                    dy={10}
-                    interval="preserveStartEnd"
+                    tick={<CustomXAxisTick />}
+                    interval={0}
                   />
                   <YAxis
                     axisLine={{ stroke: "#94a3b8" }}
                     tickLine={false}
                     tick={{ fill: "#64748b", fontSize: 10 }}
                     tickFormatter={(val) => `${Math.abs(val)}`}
+                    label={{
+                      value: "电量 (kWh)",
+                      angle: -90,
+                      position: "insideLeft",
+                      fill: "#94a3b8",
+                      fontSize: 10,
+                      offset: 15,
+                    }}
                   />
                   <Tooltip
                     cursor={{ fill: "#f8fafc" }}
@@ -563,7 +436,7 @@ const StrategyReportPage: React.FC = () => {
                       boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
                     }}
                     formatter={(value: number, name: string) => {
-                      const isCharge = value < 0;
+                      if (name === "aiMarker") return null;
                       const displayNames: Record<string, string> = {
                         traditionalCharge: "传统模式充电",
                         traditionalDischarge: "传统模式放电",
@@ -571,295 +444,55 @@ const StrategyReportPage: React.FC = () => {
                         aiDischarge: "AI 策略放电",
                       };
                       return [
-                        `${Math.abs(value)} kWh`,
+                        `${Math.abs(value).toLocaleString()} kWh`,
                         displayNames[name] || name,
                       ];
                     }}
                   />
                   <Legend
-                    wrapperStyle={{ fontSize: "12px" }}
+                    verticalAlign="bottom"
+                    height={36}
+                    wrapperStyle={{ paddingTop: "20px", fontSize: "11px" }}
                     formatter={(value) => {
                       const nameMap: any = {
-                        traditionalCharge: "传统模式充电",
-                        traditionalDischarge: "传统模式放电",
-                        aiCharge: "AI 策略充电",
-                        aiDischarge: "AI 策略放电",
+                        traditionalCharge: "传统充电",
+                        traditionalDischarge: "传统放电",
+                        aiCharge: "AI充电",
+                        aiDischarge: "AI放电",
                       };
-                      return nameMap[value];
+                      return <span className="text-slate-600 font-bold">{nameMap[value] || value}</span>;
                     }}
                   />
                   <Bar
                     dataKey="traditionalDischarge"
-                    stackId="traditional"
-                    fill="#60a5fa"
-                    radius={[4, 4, 0, 0]}
+                    name="traditionalDischarge"
+                    fill="#fbbf24"
+                    radius={[2, 2, 0, 0]}
                   />
                   <Bar
                     dataKey="traditionalCharge"
-                    stackId="traditional"
+                    name="traditionalCharge"
                     fill="#93c5fd"
+                    radius={[0, 0, 2, 2]}
                   />
 
                   <Bar
                     dataKey="aiDischarge"
-                    stackId="ai"
-                    fill="#6366f1"
-                    radius={[4, 4, 0, 0]}
+                    name="aiDischarge"
+                    fill="#f59e0b"
+                    radius={[2, 2, 0, 0]}
                   />
-                  <Bar dataKey="aiCharge" stackId="ai" fill="#818cf8" />
-                </BarChart>
+                  <Bar 
+                    dataKey="aiCharge" 
+                    name="aiCharge"
+                    fill="#2563eb" 
+                    radius={[0, 0, 2, 2]}
+                  />
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
           </div>
         </div>
-
-        {/* Daily Strategy Details Row */}
-        {selectedDay && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 animate-in fade-in slide-in-from-top-4 duration-500 flex flex-col">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-indigo-500" />
-                <h2 className="text-lg font-bold text-slate-800">
-                  每日策略运行详情
-                </h2>
-                <input
-                  type="date"
-                  value={`${selectedMonth}-${selectedDay.replace("日", "").padStart(2, "0")}`}
-                  onChange={(e) => {
-                    const newDate = e.target.value;
-                    if (newDate) {
-                      const [year, month, day] = newDate.split("-");
-                      setSelectedMonth(`${year}-${month}`);
-                      setSelectedDay(`${parseInt(day, 10)}日`);
-                    }
-                  }}
-                  className="ml-2 px-2.5 py-1 bg-indigo-50 text-indigo-600 text-sm font-bold rounded-md outline-none cursor-pointer border border-indigo-100 hover:bg-indigo-100 transition-colors"
-                />
-              </div>
-              <button
-                onClick={() => setSelectedDay(null)}
-                className="text-sm text-slate-400 hover:text-slate-600 font-medium"
-              >
-                关闭
-              </button>
-            </div>
-
-            <div className="mb-8">
-              <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-blue-500" />
-                策略运行监控图表
-              </h3>
-              <div className="h-[250px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart
-                    data={dailyChartDataMap[selectedDay || "1日"]}
-                    margin={{ top: 20, right: 20, left: 0, bottom: 0 }}
-                  >
-                    <defs>
-                      <pattern
-                        id="aiPattern"
-                        patternUnits="userSpaceOnUse"
-                        width="6"
-                        height="6"
-                      >
-                        <path
-                          d="M-1,1 l2,-2 M0,6 l6,-6 M5,7 l2,-2"
-                          stroke="#8b5cf6"
-                          strokeWidth="1.5"
-                          opacity="0.4"
-                        />
-                      </pattern>
-                    </defs>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      vertical={false}
-                      stroke="#e2e8f0"
-                    />
-                    <XAxis
-                      dataKey="time"
-                      axisLine={{ stroke: "#94a3b8" }}
-                      tickLine={false}
-                      tick={{ fill: "#64748b", fontSize: 10 }}
-                      ticks={[
-                        "00:00",
-                        "04:00",
-                        "08:00",
-                        "12:00",
-                        "16:00",
-                        "20:00",
-                        "23:59",
-                      ]}
-                    />
-                    <YAxis
-                      yAxisId="left"
-                      axisLine={{ stroke: "#94a3b8" }}
-                      tickLine={false}
-                      tick={{ fill: "#64748b", fontSize: 10 }}
-                      domain={[-400, 400]}
-                      ticks={[-400, -200, 0, 200, 400]}
-                      label={{
-                        value: "功率(kW)",
-                        angle: -90,
-                        position: "insideLeft",
-                        fill: "#64748b",
-                        fontSize: 10,
-                        offset: 10,
-                      }}
-                      width={45}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      axisLine={{ stroke: "#94a3b8" }}
-                      tickLine={false}
-                      tick={{ fill: "#64748b", fontSize: 10 }}
-                      domain={[0, 1.5]}
-                      ticks={[0, 0.5, 1.0, 1.5]}
-                      label={{
-                        value: "电价(元)",
-                        angle: 90,
-                        position: "insideRight",
-                        fill: "#64748b",
-                        fontSize: 10,
-                        offset: 10,
-                      }}
-                      width={40}
-                    />
-                    <Tooltip content={<CustomDailyTooltip />} />
-                    <Legend wrapperStyle={{ fontSize: "10px" }} />
-
-                    <Area
-                      yAxisId="left"
-                      type="stepAfter"
-                      dataKey="aiBess"
-                      name="AI 策略储能功率"
-                      fill="url(#aiPattern)"
-                      stroke="#8b5cf6"
-                      strokeWidth={2}
-                      strokeDasharray="5 5"
-                    />
-
-                    <Area
-                      yAxisId="left"
-                      type="stepAfter"
-                      dataKey="actualBess"
-                      name="传统模式"
-                      fill="#3b82f6"
-                      fillOpacity={0.8}
-                      stroke="#2563eb"
-                      strokeWidth={2}
-                    />
-
-                    <Line
-                      yAxisId="right"
-                      type="stepAfter"
-                      dataKey="price"
-                      name="电价"
-                      stroke="#f59e0b"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex justify-center mt-2">
-                <div className="text-[10px] text-slate-500 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full border border-purple-100 flex items-center gap-1.5">
-                  <div
-                    className="w-3 h-3 rounded-sm"
-                    style={{
-                      background:
-                        "repeating-linear-gradient(45deg, #8b5cf6 0, #8b5cf6 1px, transparent 1px, transparent 4px)",
-                      opacity: 0.6,
-                    }}
-                  ></div>
-                  <span>
-                    阴影部分为 AI
-                    建议可多充/多放的优化空间（含功率提升与时段优化）
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto flex-1 mb-4">
-              <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-slate-500" />
-                综合策略运行与 AI 优化日志
-              </h3>
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50">
-                    <th className="p-3 font-bold text-slate-500 text-xs rounded-tl-lg w-32">
-                      执行时间
-                    </th>
-                    <th className="p-3 font-bold text-slate-500 text-xs w-24">
-                      策略类型
-                    </th>
-                    <th className="p-3 font-bold text-slate-500 text-xs w-48">
-                      传统模式
-                    </th>
-                    <th className="p-3 font-bold text-purple-600 text-xs bg-purple-50/50 w-48">
-                      AI 策略动作
-                    </th>
-                    <th className="p-3 font-bold text-emerald-600 text-xs w-32">
-                      优化效果预估
-                    </th>
-                    <th className="p-3 font-bold text-slate-500 text-xs rounded-tr-lg">
-                      触发原因/描述
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {getDailyLogs(selectedDay).map((log, idx) => (
-                    <tr
-                      key={idx}
-                      className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors"
-                    >
-                      <td className="p-3 text-xs font-medium text-slate-700">
-                        {log.time}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            log.type === "峰谷套利"
-                              ? "bg-blue-50 text-blue-600"
-                              : log.type === "需量控制"
-                                ? "bg-red-50 text-red-600"
-                                : log.type === "全额消纳"
-                                  ? "bg-amber-50 text-amber-600"
-                                  : "bg-emerald-50 text-emerald-600"
-                          }`}
-                        >
-                          {log.type}
-                        </span>
-                      </td>
-                      <td className="p-3 text-xs text-slate-600">
-                        {log.originalAction}
-                      </td>
-                      <td
-                        className={`p-3 text-xs font-medium ${log.aiImpact !== "-" ? "text-purple-700 bg-purple-50/30" : "text-slate-500"}`}
-                      >
-                        {log.aiAction}
-                      </td>
-                      <td
-                        className={`p-3 text-xs font-bold ${log.aiImpact !== "-" ? "text-emerald-600" : "text-slate-400 font-normal"}`}
-                      >
-                        <div className="flex flex-col">
-                          <span>{log.aiImpact}</span>
-                          {log.aiImpact !== "-" && (
-                            <span className="text-[10px] text-slate-400 font-normal mt-0.5">
-                              {log.aiDiff}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-3 text-xs text-slate-500">{log.desc}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
