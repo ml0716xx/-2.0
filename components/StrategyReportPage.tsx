@@ -11,6 +11,8 @@ import {
   Clock,
   Activity,
   Sun,
+  Settings,
+  Download,
 } from "lucide-react";
 
 import {
@@ -30,6 +32,8 @@ import {
   ComposedChart,
   Line,
 } from "recharts";
+
+import StrategyConfigModal from "./StrategyConfigModal";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
@@ -104,6 +108,7 @@ const CustomXAxisTick = (props: any) => {
 const StrategyReportPage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState("2026-04");
   const [selectedDay, setSelectedDay] = useState<string | null>("6日");
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
   return (
     <div className="p-4 sm:p-6 h-full overflow-y-auto bg-slate-50 space-y-4 sm:space-y-6 flex flex-col">
@@ -123,9 +128,17 @@ const StrategyReportPage: React.FC = () => {
             />
           </div>
         </div>
-        <div>
-          <button className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-md transition-colors hidden sm:block">
-            批量操作
+        <div className="flex items-center gap-2">
+          <button className="flex items-center gap-1.5 px-4 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-bold rounded-md transition-colors shadow-sm hidden sm:flex">
+            <Download className="w-4 h-4" />
+            导出
+          </button>
+          <button 
+            onClick={() => setShowConfigModal(true)}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-md transition-colors shadow-sm shadow-indigo-100"
+          >
+            <Settings className="w-4 h-4" />
+            策略配置
           </button>
         </div>
       </div>
@@ -494,6 +507,10 @@ const StrategyReportPage: React.FC = () => {
           </div>
         </div>
       </div>
+      <StrategyConfigModal 
+        isOpen={showConfigModal} 
+        onClose={() => setShowConfigModal(false)} 
+      />
     </div>
   );
 };
