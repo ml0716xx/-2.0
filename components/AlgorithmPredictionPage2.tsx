@@ -861,7 +861,7 @@ const AlgorithmPredictionPage2: React.FC<AlgorithmPredictionPage2Props> = ({
         <div className="flex items-start justify-between mb-8">
           <div>
             <h1 className="text-2xl font-black text-slate-800 tracking-tight mb-2">
-              算法预测监控 2
+              算法推理 2
             </h1>
             <p className="text-sm text-slate-500 mb-4">
               基于历史负荷和气象数据的实时24小时预测（15分钟粒度）- 备份视图

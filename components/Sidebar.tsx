@@ -29,7 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
       name: '监控中心', 
       icon: <Activity className="w-5 h-5" />,
       hasSub: true,
-      subItems: ['监控概览', '策略监控', '算法监控', '主接线图', '储能监控', '算法预测监控']
+      subItems: ['监控概览', '策略监控', '算法监控', '主接线图', '储能监控', '算法推理']
     },
     { 
       name: '策略管理', 

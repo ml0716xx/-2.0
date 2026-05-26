@@ -103,10 +103,10 @@ const App: React.FC = () => {
     if (currentPage === '储能监控') {
       return <StorageMonitoringPage />;
     }
-    if (currentPage === '算法预测监控') {
+    if (currentPage === '算法推理') {
       return <AlgorithmPredictionPage onNavigate={setCurrentPage} />;
     }
-    if (currentPage === '算法预测监控2') {
+    if (currentPage === '算法推理2') {
       return <AlgorithmPredictionPage2 onNavigate={setCurrentPage} />;
     }
     if (currentPage === '报警管理') {

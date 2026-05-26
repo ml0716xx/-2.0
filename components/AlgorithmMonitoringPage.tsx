@@ -5,18 +5,12 @@ import {
   TrendingDown, 
   Zap, 
   Clock, 
-  Lock, 
-  Info, 
   X, 
-  ArrowRight, 
-  ShieldCheck, 
   CloudSun, 
-  Thermometer,
   ChevronRight,
   Sparkles,
   Workflow,
   BrainCircuit,
-  CheckCircle2,
   Layers
 } from "lucide-react";
 import { 
@@ -228,7 +222,7 @@ const ForecastCard = ({ title, icon, value, unit, subValue, data, color, onClick
   </motion.div>
 );
 
-const DetailModal = ({ isOpen, onClose, data, initialType, isAiActive }: { isOpen: boolean, onClose: () => void, data: any[], initialType: 'pv' | 'load' | 'price' | null, isAiActive: boolean }) => {
+const DetailModal = ({ isOpen, onClose, data, initialType }: { isOpen: boolean, onClose: () => void, data: any[], initialType: 'pv' | 'load' | 'price' | null }) => {
   const [activeLayers, setActiveLayers] = useState({
     pv: false,
     load: false,
@@ -398,49 +392,6 @@ const DetailModal = ({ isOpen, onClose, data, initialType, isAiActive }: { isOpe
   );
 };
 
-const StrategyUpgradeModal = ({ isOpen, onClose }: any) => (
-  <AnimatePresence>
-    {isOpen && (
-      <>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[110] bg-slate-900/60 backdrop-blur-md" />
-        <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed inset-x-4 top-[20%] md:w-[500px] md:left-1/2 md:-ml-[250px] z-[111] bg-white rounded-[32px] p-8 shadow-2xl overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-          <div className="relative z-10">
-            <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-100 mb-6">
-              <Sparkles className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">升级开通 AI 智能调度策略</h2>
-            <p className="text-slate-500 text-[13px] leading-relaxed mb-6">开启能源自动化的未来，通过多目标智能寻优算法实现电站运营闭环。</p>
-            
-            <div className="space-y-4 mb-8">
-              {[
-                { title: "全天候峰谷价差自动套利", sub: "基于实时现货电价动态优化策略" },
-                { title: "精细化需量控制", sub: "有效规避超额罚款，降低需量费支出" },
-                { title: "降低综合用电成本达 15%+", sub: "大数据模型驱动，持续进化优化闭环" }
-              ].map((item, i) => (
-                <div key={i} className="flex gap-4">
-                  <div className="mt-1 flex-shrink-0 w-5 h-5 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
-                    <ArrowRight className="w-3 h-3" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800">{item.title}</h4>
-                    <p className="text-[11px] text-slate-500">{item.sub}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 py-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors">下次再说</button>
-              <button className="flex-[2] py-4 bg-indigo-600 text-white text-sm font-bold rounded-2xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">申请免费试用</button>
-            </div>
-          </div>
-        </motion.div>
-      </>
-    )}
-  </AnimatePresence>
-);
-
 // --- Interactive Diagnostic Calibration Points for AI Monitor ---
 const CALIBRATION_POINTS = [
   {
@@ -506,9 +457,7 @@ const CALIBRATION_POINTS = [
 ];
 
 const AlgorithmMonitoringPage: React.FC = () => {
-  const [isAiActive, setIsAiActive] = useState(true);
   const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [showUpgrade, setShowUpgrade] = useState(false);
   const [highlightRange, setHighlightRange] = useState<{ start: string; end: string } | null>(null);
   const [hoveredCalibration, setHoveredCalibration] = useState<number | null>(null);
   const [hoveredCoords, setHoveredCoords] = useState<{ x: number; y: number } | null>(null);
@@ -712,18 +661,15 @@ const AlgorithmMonitoringPage: React.FC = () => {
             <Zap className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-800">算法预测监控</h1>
+            <h1 className="text-lg font-bold text-slate-800">算法监控</h1>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-0.5">AI Global Strategy Optimization</p>
           </div>
         </div>
 
-        <button 
-          onClick={() => setShowUpgrade(true)}
-          className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-bold rounded-xl transition-all shadow-md shadow-indigo-100 hover:shadow-indigo-200 active:scale-95 cursor-pointer"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
-          <span>申请开通AI服务</span>
-        </button>
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-100/50 rounded-xl text-emerald-600 shadow-sm">
+          <BrainCircuit className="w-4 h-4 text-emerald-500 animate-pulse" />
+          <span className="text-[12px] font-bold">AI 智能调度引擎运行中</span>
+        </div>
       </div>
 
       <div className="max-w-[1700px] mx-auto space-y-6">
@@ -855,7 +801,7 @@ const AlgorithmMonitoringPage: React.FC = () => {
                 )}
               </AnimatePresence>
 
-              <div className={`h-[420px] w-full transition-all duration-700 ${!isAiActive ? 'blur-[4px]' : ''}`}>
+              <div className="h-[420px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={processedData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -919,15 +865,11 @@ const AlgorithmMonitoringPage: React.FC = () => {
                     <Line yAxisId="energy" name="实际基准电网" type="monotone" dataKey="baselineActual" stroke="#94a3b8" strokeWidth={1} dot={false} legendType="none" hide={!visibleSeries["基准电网"]} />
                     <Line yAxisId="energy" name="基准电网" type="monotone" dataKey="baselineForecast" stroke="#94a3b8" strokeWidth={1} strokeDasharray="6 6" dot={false} hide={!visibleSeries["基准电网"]} />
                     
-                    {isAiActive && (
-                      <>
-                        <Line yAxisId="energy" name="电网功率" type="monotone" dataKey="gridActual" stroke="#2468f2" strokeWidth={3} dot={false} hide={!visibleSeries["电网功率"]} />
-                        <Line yAxisId="energy" name="AI 预测优化" type="monotone" dataKey="gridForecast" stroke="#2468f2" strokeWidth={2} strokeDasharray="6 6" dot={false} legendType="none" hide={!visibleSeries["电网功率"]} />
-                      </>
-                    )}
+                    <Line yAxisId="energy" name="电网功率" type="monotone" dataKey="gridActual" stroke="#2468f2" strokeWidth={3} dot={false} hide={!visibleSeries["电网功率"]} />
+                    <Line yAxisId="energy" name="AI 预测优化" type="monotone" dataKey="gridForecast" stroke="#2468f2" strokeWidth={2} strokeDasharray="6 6" dot={false} legendType="none" hide={!visibleSeries["电网功率"]} />
 
                     {/* Diagnostic Calibration Pins Draw Directly on Curves */}
-                    {isAiActive && calibrationDots.map((pt) => (
+                    {calibrationDots.map((pt) => (
                       <ReferenceDot
                         key={pt.id}
                         x={pt.x}
@@ -1249,14 +1191,14 @@ const AlgorithmMonitoringPage: React.FC = () => {
                           onMouseLeave={() => setHighlightRange(null)}
                           className={`relative h-full flex items-center justify-center border-r border-white/20 last:border-0 transition-all duration-300 select-none cursor-pointer ${blockBg} ${textColor} ${
                             isHovered ? 'brightness-95 contrast-105 z-10 scale-[0.99] shadow-inner' : ''
-                          } ${!isAiActive ? 'blur-[4px] opacity-50 select-none pointer-events-none' : ''}`}
+                          }`}
                         >
                           <span className="w-full text-center px-2 font-bold text-[12px] truncate whitespace-nowrap overflow-hidden text-ellipsis selection:bg-transparent">
                             {label}
                           </span>
 
                           {/* Dynamic Segment Time Hover tooltip */}
-                          {isHovered && isAiActive && (
+                          {isHovered && (
                             <div className="absolute top-[-44px] left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] font-sans font-bold px-2.5 py-1.5 rounded-md shadow-lg pointer-events-none z-50 whitespace-nowrap border border-slate-700 animate-fade-in">
                               <div className="flex items-center gap-2">
                                 <span className="text-yellow-400">{seg.startTime} - {seg.endTime}</span>
@@ -1320,7 +1262,7 @@ const AlgorithmMonitoringPage: React.FC = () => {
                   <th className="px-12 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest pr-16">触发原因/描述</th>
                 </tr>
               </thead>
-              <tbody className={`transition-all duration-1000 ${!isAiActive ? 'blur-[16px] opacity-30 select-none' : ''}`}>
+              <tbody>
                 {strategyEvents.map((row, i) => (
                   <tr 
                     key={i} 
@@ -1345,20 +1287,6 @@ const AlgorithmMonitoringPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
-            
-            {!isAiActive && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/10 backdrop-blur-md z-20">
-                 <div className="bg-white p-10 rounded-[32px] shadow-2xl border border-indigo-100 flex flex-col items-center text-center max-w-md scale-110">
-                    <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-indigo-200 mb-6">
-                      <Sparkles className="w-10 h-10 text-white animate-pulse" />
-                    </div>
-                    <h3 className="text-2xl font-black text-slate-800 mb-3 tracking-tight">开通 AI 策略解锁明细</h3>
-                    <p className="text-xs text-slate-500 mb-8 font-bold leading-loose px-4">升级后可实时查看由盈立方 AI Engine 生成的24小时最优调度方案，精准掌握每笔收益的决策逻辑与手动干扰建议。</p>
-                    <button onClick={() => setShowUpgrade(true)} className="w-full py-4 bg-indigo-600 text-white text-xs font-black rounded-2xl shadow-xl shadow-indigo-100 active:scale-95 transition-all uppercase tracking-widest">立即申请企业版试用</button>
-                    <p className="mt-4 text-[9px] text-slate-400 font-bold uppercase tracking-widest">Enterprise Strategy Optimization Service</p>
-                 </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -1368,12 +1296,6 @@ const AlgorithmMonitoringPage: React.FC = () => {
         onClose={() => setActiveModal(null)} 
         data={data}
         initialType={activeModal as any}
-        isAiActive={isAiActive}
-      />
-
-      <StrategyUpgradeModal 
-        isOpen={showUpgrade} 
-        onClose={() => setShowUpgrade(false)} 
       />
     </div>
   );
