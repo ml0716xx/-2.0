@@ -29,7 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
       name: '监控中心', 
       icon: <Activity className="w-5 h-5" />,
       hasSub: true,
-      subItems: ['监控概览', '策略监控', '主接线图', '储能监控', '算法预测监控', '算法预测监控2']
+      subItems: ['监控概览', '策略监控', '算法监控', '主接线图', '储能监控', '算法预测监控']
     },
     { 
       name: '策略管理', 
@@ -60,7 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
         <span className="text-lg font-bold text-blue-600 tracking-tight">智能微网</span>
       </div>
 
-      <div className="px-4 py-2">
+      <div className="px-4 py-2 flex-1 overflow-y-auto min-h-0 scrollbar-none">
         <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-4 mb-4">主导航</div>
         
         <nav className="space-y-1">

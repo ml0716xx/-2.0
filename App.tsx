@@ -21,6 +21,7 @@ import AlarmManagementPage from './components/AlarmManagementPage';
 import AlgorithmPredictionPage from './components/AlgorithmPredictionPage';
 import AlgorithmPredictionPage2 from './components/AlgorithmPredictionPage2';
 import StrategyReportPage from './components/StrategyReportPage';
+import AlgorithmMonitoringPage from './components/AlgorithmMonitoringPage';
 import { EnergyStat, RevenueStat, AlarmItem, StrategyGroup } from './types';
 
 const App: React.FC = () => {
@@ -113,6 +114,9 @@ const App: React.FC = () => {
     }
     if (currentPage === '策略运行报告') {
       return <StrategyReportPage />;
+    }
+    if (currentPage === '算法监控') {
+      return <AlgorithmMonitoringPage />;
     }
     if (currentPage === '策略监控') {
       return (
