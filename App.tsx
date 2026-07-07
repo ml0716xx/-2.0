@@ -29,6 +29,7 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState('监控概览');
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+  const [overviewDiagramType, setOverviewDiagramType] = useState<'flow' | 'wiring'>('wiring');
 
   // Mock data with yesterday values
   const [energyStats] = useState<EnergyStat[]>([
@@ -194,16 +195,44 @@ const App: React.FC = () => {
             </button>
             
             <div 
-              className={`relative h-full transition-all duration-500 ease-in-out ${isLeftPanelOpen ? '' : 'pl-8'} ${isRightPanelOpen ? '' : 'pr-8'}`} 
+              className={`relative h-full flex flex-col transition-all duration-500 ease-in-out ${isLeftPanelOpen ? '' : 'pl-8'} ${isRightPanelOpen ? '' : 'pr-8'}`} 
             >
+              {/* Segmented control for switching diagrams */}
+              <div className="absolute top-6 left-6 z-30 flex items-center gap-1.5 bg-white/90 backdrop-blur-md p-1.5 rounded-full shadow-sm border border-slate-100">
+                <button
+                  onClick={() => setOverviewDiagramType('flow')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    overviewDiagramType === 'flow'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  3D光储能流图
+                </button>
+                <button
+                  onClick={() => setOverviewDiagramType('wiring')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    overviewDiagramType === 'wiring'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  10kV主接线潮流图
+                </button>
+              </div>
+
               <button 
                 onClick={() => setCurrentPage('策略监控')}
                 className="absolute top-6 right-6 z-30 bg-white/90 backdrop-blur px-4 py-2 rounded-full text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition-all shadow-sm border border-emerald-100 flex items-center gap-1 cursor-pointer hover:shadow-md"
               >
                 点击查看策略监控 &rarr;
               </button>
-              <div className="h-full">
-                <EnergyFlowDiagram alarms={alarms} onNavigate={setCurrentPage} />
+              <div className="h-full flex-1">
+                {overviewDiagramType === 'flow' ? (
+                  <EnergyFlowDiagram alarms={alarms} onNavigate={setCurrentPage} />
+                ) : (
+                  <MainWiringDiagramPage isEmbedded={true} />
+                )}
               </div>
             </div>
           </div>

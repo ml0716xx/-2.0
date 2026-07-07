@@ -13,6 +13,7 @@ import {
   Sun,
   Settings,
   Download,
+  Loader2,
 } from "lucide-react";
 
 import {
@@ -405,10 +406,24 @@ const StrategyReportPage: React.FC = () => {
           
           <button 
             onClick={() => setShowConfigModal(true)}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-md transition-colors shadow-sm shadow-indigo-100"
+            disabled={isAnalyzing}
+            className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-bold rounded-md transition-all shadow-sm ${
+              isAnalyzing 
+                ? "bg-indigo-500/80 text-white cursor-not-allowed opacity-90" 
+                : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100"
+            }`}
           >
-            <Settings className="w-4 h-4" />
-            策略配置
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                正在进行模拟...
+              </>
+            ) : (
+              <>
+                <Settings className="w-4 h-4" />
+                策略配置
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -1301,7 +1316,11 @@ const StrategyReportPage: React.FC = () => {
           if (userAiStatus === "not_activated") {
             handleRunUnactivatedSimulation();
           } else {
-            setEnableSimulation(true);
+            setIsAnalyzing(true);
+            setTimeout(() => {
+              setIsAnalyzing(false);
+              setEnableSimulation(true);
+            }, 1200);
           }
         }}
       />
