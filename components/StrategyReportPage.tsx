@@ -14,6 +14,9 @@ import {
   Settings,
   Download,
   Loader2,
+  X,
+  AlertCircle,
+  FileSpreadsheet,
 } from "lucide-react";
 
 import {
@@ -32,6 +35,8 @@ import {
   Area,
   ComposedChart,
   Line,
+  ReferenceArea,
+  ReferenceLine,
 } from "recharts";
 
 import StrategyConfigModal from "./StrategyConfigModal";
@@ -114,16 +119,131 @@ const CustomXAxisTick = (props: any) => {
 };
 
 const StrategyReportPage: React.FC = () => {
-  const [selectedMonth, setSelectedMonth] = useState("2026-04");
-  const [selectedDay, setSelectedDay] = useState<string | null>("6日");
+  const [selectedMonth, setSelectedMonth] = useState("2026-07");
+  const [selectedDay, setSelectedDay] = useState<string | null>("15日");
   const [showConfigModal, setShowConfigModal] = useState(false);
   
+  // Custom states for curtailment loss mitigation evaluation
+  const [hasCurtailmentPermission, setHasCurtailmentPermission] = useState<boolean>(true);
+  const [selectedCurtailDay, setSelectedCurtailDay] = useState<string>("15日");
+  const [isCurtailModalOpen, setIsCurtailModalOpen] = useState<boolean>(false);
+  const [isTableExpanded, setIsTableExpanded] = useState<boolean>(false);
+  const [showExportToast, setShowExportToast] = useState<boolean>(false);
+
+  // Daily curtailment assessment dataset for Hebei user-side microgrid (July 2026)
+  const curtailmentDataList = [
+    { day: "1日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "2日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "3日", lossSaved: 120, curtailedEnergy: 10.5 },
+    { day: "4日", lossSaved: 85, curtailedEnergy: 7.2 },
+    { day: "5日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "6日", lossSaved: 200, curtailedEnergy: 16.8 },
+    { day: "7日", lossSaved: 180, curtailedEnergy: 15.2 },
+    { day: "8日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "9日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "10日", lossSaved: 240, curtailedEnergy: 20.1 },
+    { day: "11日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "12日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "13日", lossSaved: 150, curtailedEnergy: 12.5 },
+    { day: "14日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "15日", lossSaved: 580, curtailedEnergy: 48.5 }, // Target day for deep-dive
+    { day: "16日", lossSaved: 320, curtailedEnergy: 26.8 },
+    { day: "17日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "18日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "19日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "20日", lossSaved: 110, curtailedEnergy: 9.4 },
+    { day: "21日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "22日", lossSaved: 95, curtailedEnergy: 8.1 },
+    { day: "23日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "24日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "25日", lossSaved: 280, curtailedEnergy: 23.5 },
+    { day: "26日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "27日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "28日", lossSaved: 140, curtailedEnergy: 11.8 },
+    { day: "29日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "30日", lossSaved: 0, curtailedEnergy: 0 },
+    { day: "31日", lossSaved: 0, curtailedEnergy: 0 },
+  ];
+
+  // Dynamically generates 96 points trend for the selected day
+  const get96PointsForDay = (day: string) => {
+    const dayNum = parseInt(day) || 15;
+    const points = [];
+    
+    const is15 = dayNum === 15;
+    const is16 = dayNum === 16;
+    const hasCurtailment = [3, 4, 6, 7, 10, 13, 15, 16, 20, 22, 25, 28].includes(dayNum);
+    
+    // Exact target totals
+    const targetCurtail = is15 ? 48.5 : (is16 ? 26.8 : (hasCurtailment ? 15.0 : 0));
+    const targetLossSaved = is15 ? 580 : (is16 ? 320 : (hasCurtailment ? 120 : 0));
+    
+    const curtailStartIdx = 44; // 11:00
+    const curtailEndIdx = 56;   // 14:00
+    
+    for (let i = 0; i < 96; i++) {
+      const hour = Math.floor(i / 4);
+      const minute = (i % 4) * 15;
+      const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      
+      // Solar profile (represented as 15min energy in kWh, i.e., Power (kW) * 0.25h)
+      let theoreticalGen = 0;
+      if (i >= 24 && i <= 72) { // 06:00 to 18:00
+        const angle = ((i - 24) / 48) * Math.PI;
+        theoreticalGen = (Math.sin(angle) * (is15 ? 45 : 30) + Math.random() * 1.5) / 4;
+      }
+      theoreticalGen = parseFloat(Math.max(0, theoreticalGen).toFixed(2));
+      
+      let actualGen = theoreticalGen;
+      let curtailedGen = 0;
+      let tariff = 0.35;
+      let lossSaved = 0;
+      
+      if (hasCurtailment && i >= curtailStartIdx && i <= curtailEndIdx) {
+        tariff = -0.25; // Negative feed-in tariff
+        
+        const angle = ((i - 24) / 48) * Math.PI;
+        const weight = Math.sin(angle);
+        
+        let sumWeights = 0;
+        for (let k = curtailStartIdx; k <= curtailEndIdx; k++) {
+          sumWeights += Math.sin(((k - 24) / 48) * Math.PI);
+        }
+        
+        const share = weight / sumWeights;
+        curtailedGen = parseFloat((targetCurtail * share).toFixed(2));
+        actualGen = parseFloat(Math.max(0, theoreticalGen - curtailedGen).toFixed(2));
+        curtailedGen = parseFloat((theoreticalGen - actualGen).toFixed(2));
+        lossSaved = parseFloat((targetLossSaved * share).toFixed(1));
+      } else {
+        if ((hour >= 8 && hour < 11) || (hour >= 18 && hour < 22)) {
+          tariff = 0.85;
+        } else if (hour >= 23 || hour < 7) {
+          tariff = 0.25;
+        } else {
+          tariff = 0.45;
+        }
+      }
+      
+      points.push({
+        time: timeStr,
+        theoreticalGen,
+        actualGen: parseFloat(actualGen.toFixed(2)),
+        curtailedGen: parseFloat(curtailedGen.toFixed(2)),
+        tariff,
+        lossSaved: parseFloat(lossSaved.toFixed(1)),
+      });
+    }
+    
+    return points;
+  };
+
   // Custom states for simulations & scenarios
   const [userAiStatus, setUserAiStatus] = useState<"activated" | "not_activated">("activated");
   const [enableSimulation, setEnableSimulation] = useState(false);
   const [unactivatedSimulated, setUnactivatedSimulated] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-
+  
   // Trigger simulated backtest
   const handleRunUnactivatedSimulation = () => {
     setIsAnalyzing(true);
@@ -374,6 +494,32 @@ const StrategyReportPage: React.FC = () => {
             </button>
           </div>
 
+          {/* Curtailment Permission Toggle */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+            <button
+              onClick={() => setHasCurtailmentPermission(true)}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                hasCurtailmentPermission
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+              title="有权限查看限电评估模块"
+            >
+              限电止损评估: 有
+            </button>
+            <button
+              onClick={() => setHasCurtailmentPermission(false)}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                !hasCurtailmentPermission
+                  ? "bg-white text-slate-800 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+              title="无权限查看限电评估模块"
+            >
+              无
+            </button>
+          </div>
+
           <div className="flex items-center gap-2 border border-slate-200 bg-white rounded-md px-3 py-1.5 shadow-sm">
             <Calendar className="w-4 h-4 text-slate-400" />
             <input
@@ -399,10 +545,7 @@ const StrategyReportPage: React.FC = () => {
             </div>
           )}
 
-          <button className="flex items-center gap-1.5 px-4 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-bold rounded-md transition-colors shadow-sm">
-            <Download className="w-4 h-4" />
-            导出
-          </button>
+
           
           <button 
             onClick={() => setShowConfigModal(true)}
@@ -875,187 +1018,265 @@ const StrategyReportPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Chart 2: 本月运行策略光伏消纳率统计 */}
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
-                <div className="flex items-center justify-between mb-2">
+              {/* Chart 2: AI策略光伏数据评估 */}
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col" id="chart-solar-and-curtailment">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <Sun className="w-5 h-5 text-amber-500" />
                     <h3 className="text-lg font-bold text-slate-800">
-                      {userAiStatus === "not_activated" ? "本月光伏消纳率模拟分析" : "本月运行策略光伏消纳率统计"}
+                      AI策略光伏数据评估
                     </h3>
                   </div>
+                  {hasCurtailmentPermission && (
+                    <span className="text-xs text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full font-medium">
+                      双轴安全防亏机制已运行
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm mb-4 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded bg-[#fbbf24]"></div>
-                    <span className="text-slate-600 font-bold text-xs">
-                      基础策略消纳率
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded bg-[#f97316]"></div>
-                    <span className="text-slate-600 font-bold text-xs">
-                      AI 策略提升率
-                    </span>
-                  </div>
-                  
-                  {!(userAiStatus === "not_activated" && unactivatedSimulated) && (
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded bg-[#94a3b8]"></div>
-                      <span className="text-slate-600 font-bold text-xs">
-                        实际消纳率 (未运行AI)
-                      </span>
+                {/* 指标标签行（4个或2个） */}
+                <div className={`grid grid-cols-1 gap-4 mb-6 ${hasCurtailmentPermission ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2'}`}>
+                  {/* KPI 1: 光伏消纳率 */}
+                  <div className="bg-slate-50/50 hover:bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center justify-between transition-colors">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">光伏消纳率</span>
+                      <h4 className="text-xl font-black text-slate-800">85.2%</h4>
                     </div>
-                  )}
+                    <div className="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-lg flex items-center justify-center">
+                      <Sun className="w-5 h-5" />
+                    </div>
+                  </div>
 
-                  {/* Simulated state legends */}
-                  {((userAiStatus === "activated" && enableSimulation) || (userAiStatus === "not_activated" && unactivatedSimulated)) && (
-                    <>
-                      <div className="h-4 w-[1px] bg-slate-200 hidden md:block" />
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded bg-[#fef08a] border border-dashed border-[#eab308]"></div>
-                        <span className="text-orange-700 font-bold text-xs">
-                          模拟基础消纳 (回测)
-                        </span>
+                  {/* KPI 2: AI提升优化 */}
+                  <div className="bg-slate-50/50 hover:bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center justify-between transition-colors">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">AI提升优化</span>
+                        <span className="text-[8px] text-slate-400 font-normal">较自定义策略</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded bg-[#ffedd5] border border-dashed border-[#ea580c]"></div>
-                        <span className="text-orange-700 font-bold text-xs">
-                          模拟 AI 提升率 (回测)
-                        </span>
+                      <h4 className="text-xl font-black text-emerald-600">+3.2%</h4>
+                    </div>
+                    <div className="w-10 h-10 bg-emerald-500/10 text-emerald-500 rounded-lg flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5" />
+                    </div>
+                  </div>
+
+                  {hasCurtailmentPermission && (
+                    <>
+                      {/* KPI 3: 限电电量 - 新增 */}
+                      <div className="bg-indigo-50/40 hover:bg-indigo-50/60 p-4 rounded-xl border border-indigo-100/50 flex items-center justify-between transition-colors relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-8 h-8 bg-indigo-500/5 rounded-full translate-x-2 -translate-y-2 group-hover:scale-150 transition-transform" />
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block">限电电量</span>
+                            <span className="px-1 py-0.2 bg-indigo-100 text-indigo-700 rounded text-[7px] font-bold">Hebei-GCS</span>
+                          </div>
+                          <h4 className="text-xl font-black text-indigo-700">1,200 <span className="text-xs font-bold text-indigo-500">kWh</span></h4>
+                        </div>
+                        <div className="w-10 h-10 bg-indigo-600 text-white rounded-lg flex items-center justify-center shadow-sm shadow-indigo-100">
+                          <Zap className="w-5 h-5" />
+                        </div>
+                      </div>
+
+                      {/* KPI 4: 负电价主动止损 - 新增 */}
+                      <div className="bg-emerald-50/40 hover:bg-emerald-50/60 p-4 rounded-xl border border-emerald-100/50 flex items-center justify-between transition-colors relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-8 h-8 bg-emerald-500/5 rounded-full translate-x-2 -translate-y-2 group-hover:scale-150 transition-transform" />
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">负电价主动止损</span>
+                            <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-700 rounded text-[7px] font-bold">防亏套利</span>
+                          </div>
+                          <h4 className="text-xl font-black text-emerald-600">¥580</h4>
+                        </div>
+                        <div className="w-10 h-10 bg-emerald-600 text-white rounded-lg flex items-center justify-center shadow-sm shadow-emerald-100">
+                          <TrendingUp className="w-5 h-5" />
+                        </div>
                       </div>
                     </>
                   )}
+                </div>
 
-                  <div className="h-4 w-[1px] bg-slate-200 hidden md:block" />
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">
-                      {userAiStatus === "not_activated" ? "🟢 测算结果：消纳极度平衡" : "🟣 X轴紫字: 运行 AI 策略"}
-                    </span>
+                {/* 上图：光伏消纳率堆叠柱状（原有，不变） */}
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-slate-500">每日光伏消纳率趋势统计</span>
+                    <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded">1日 ~ 31日</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm mb-4 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded bg-[#fbbf24]"></div>
+                      <span className="text-slate-600 font-bold text-xs">基础策略消纳率</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded bg-[#f97316]"></div>
+                      <span className="text-slate-600 font-bold text-xs">AI 策略提升率</span>
+                    </div>
+                    {!(userAiStatus === "not_activated" && unactivatedSimulated) && (
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded bg-[#94a3b8]"></div>
+                        <span className="text-slate-600 font-bold text-xs">实际消纳率 (未运行AI)</span>
+                      </div>
+                    )}
+                    {((userAiStatus === "activated" && enableSimulation) || (userAiStatus === "not_activated" && unactivatedSimulated)) && (
+                      <>
+                        <div className="h-4 w-[1px] bg-slate-200 hidden md:block" />
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2.5 h-2.5 rounded bg-[#fef08a] border border-dashed border-[#eab308]"></div>
+                          <span className="text-orange-700 font-bold text-xs">模拟基础消纳 (回测)</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2.5 h-2.5 rounded bg-[#ffedd5] border border-dashed border-[#ea580c]"></div>
+                          <span className="text-orange-700 font-bold text-xs">模拟 AI 提升率 (回测)</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div className="h-[200px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart
+                        data={chartPvData}
+                        margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis dataKey="day" scale="band" axisLine={{ stroke: "#94a3b8" }} tickLine={false} tick={<DynamicXAxisTick />} interval={0} />
+                        <YAxis axisLine={{ stroke: "#94a3b8" }} tickLine={false} tick={{ fill: "#64748b", fontSize: 10 }} tickFormatter={(val) => `${val}%`} domain={[0, 110]} />
+                        <Tooltip
+                          cursor={{ fill: "#f8fafc" }}
+                          contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)" }}
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload || !payload.length) return null;
+                            const data = payload[0].payload;
+                            const isSimulated = data.isSimulatedDay;
+                            return (
+                              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-xl min-w-[200px]">
+                                <div className="flex items-center justify-between font-bold text-slate-800 text-xs mb-2 pb-1 border-b border-slate-100">
+                                  <span>{label}</span>
+                                  {isSimulated && (
+                                    <span className="bg-amber-50 text-amber-600 border border-amber-200/50 text-[9px] px-1.5 py-0.5 rounded">回测模拟数据</span>
+                                  )}
+                                </div>
+                                <div className="space-y-1.5">
+                                  {payload.map((item: any, idx: number) => {
+                                    if (item.value === null || item.value === undefined) return null;
+                                    let displayName = item.dataKey === "basePv" ? "基础策略消纳率" : item.dataKey === "aiPvBoost" ? "AI 策略提升率" : item.dataKey === "actualPv" ? "实际消纳率 (未运行AI)" : item.dataKey === "simulatedBasePv" ? "模拟基础消纳率" : item.dataKey === "simulatedAiPvBoost" ? "模拟 AI 提升率" : item.name;
+                                    let color = item.dataKey === "basePv" ? "#fbbf24" : item.dataKey === "aiPvBoost" ? "#f97316" : item.dataKey === "actualPv" ? "#94a3b8" : item.dataKey === "simulatedBasePv" ? "#fbbf24" : item.dataKey === "simulatedAiPvBoost" ? "#f97316" : item.color;
+                                    return (
+                                      <div key={idx} className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-1.5">
+                                          <div className={`w-2.5 h-2.5 rounded shrink-0 ${isSimulated && item.dataKey.startsWith('simulated') ? 'border border-dashed' : ''}`} style={{ backgroundColor: color }} />
+                                          <span className="text-slate-500 font-medium">{displayName}</span>
+                                        </div>
+                                        <span className="font-bold text-slate-700">{item.value}%</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Bar dataKey="basePv" stackId="pvStack" fill="#fbbf24" />
+                        <Bar dataKey="aiPvBoost" stackId="pvStack" fill="#f97316" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="actualPv" stackId="pvStack" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="simulatedBasePv" stackId="pvStack" fill="#fef08a" stroke="#eab308" strokeDasharray="3 3" strokeWidth={1} />
+                        <Bar dataKey="simulatedAiPvBoost" stackId="pvStack" fill="#ffedd5" stroke="#ea580c" strokeDasharray="3 3" strokeWidth={1} radius={[4, 4, 0, 0]} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
 
-                <div className="h-[250px] w-full mt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart
-                      data={chartPvData}
-                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        vertical={false}
-                        stroke="#e2e8f0"
-                      />
-                      <XAxis
-                        dataKey="day"
-                        scale="band"
-                        axisLine={{ stroke: "#94a3b8" }}
-                        tickLine={false}
-                        tick={<DynamicXAxisTick />}
-                        interval={0}
-                      />
-                      <YAxis
-                        axisLine={{ stroke: "#94a3b8" }}
-                        tickLine={false}
-                        tick={{ fill: "#64748b", fontSize: 10 }}
-                        tickFormatter={(val) => `${val}%`}
-                        domain={[0, 110]}
-                      />
-                      <Tooltip
-                        cursor={{ fill: "#f8fafc" }}
-                        contentStyle={{
-                          borderRadius: "12px",
-                          border: "1px solid #e2e8f0",
-                          boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
-                        }}
-                        content={({ active, payload, label }) => {
-                          if (!active || !payload || !payload.length) return null;
-                          const data = payload[0].payload;
-                          const isSimulated = data.isSimulatedDay;
-                          
-                          return (
-                            <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-xl min-w-[200px]">
-                              <div className="flex items-center justify-between font-bold text-slate-800 text-xs mb-2 pb-1 border-b border-slate-100">
-                                <span>{label}</span>
-                                {isSimulated && (
-                                  <span className="bg-amber-50 text-amber-600 border border-amber-200/50 text-[9px] px-1.5 py-0.5 rounded">
-                                    回测模拟数据
-                                  </span>
-                                )}
-                              </div>
-                              <div className="space-y-1.5">
-                                {payload.map((item: any, idx: number) => {
-                                  if (item.value === null || item.value === undefined) return null;
-                                  
-                                  let displayName = "";
-                                  let color = "";
-                                  
-                                  if (item.dataKey === "basePv") {
-                                    displayName = "基础策略消纳率";
-                                    color = "#fbbf24";
-                                  } else if (item.dataKey === "aiPvBoost") {
-                                    displayName = "AI 策略提升率";
-                                    color = "#f97316";
-                                  } else if (item.dataKey === "actualPv") {
-                                    displayName = "实际消纳率 (未运行AI)";
-                                    color = "#94a3b8";
-                                  } else if (item.dataKey === "simulatedBasePv") {
-                                    displayName = "模拟基础消纳率";
-                                    color = "#fbbf24";
-                                  } else if (item.dataKey === "simulatedAiPvBoost") {
-                                    displayName = "模拟 AI 提升率";
-                                    color = "#f97316";
-                                  } else {
-                                    displayName = item.name;
-                                    color = item.color || "#000000";
-                                  }
-                                  
-                                  return (
-                                    <div key={idx} className="flex items-center justify-between text-xs">
-                                      <div className="flex items-center gap-1.5">
-                                        <div 
-                                          className={`w-2.5 h-2.5 rounded shrink-0 ${isSimulated && (item.dataKey.startsWith('simulated')) ? 'border border-dashed' : ''}`}
-                                          style={{ backgroundColor: color, borderColor: isSimulated ? color : 'transparent' }}
-                                        />
-                                        <span className="text-slate-500 font-medium">{displayName}</span>
-                                      </div>
-                                      <span className="font-bold text-slate-700">
-                                        {item.value}%
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        }}
-                      />
-                      <Bar dataKey="basePv" stackId="pvStack" fill="#fbbf24" />
-                      <Bar dataKey="aiPvBoost" stackId="pvStack" fill="#f97316" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="actualPv" stackId="pvStack" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                {/* 下图：每日限电止损组合图（新增，权限控制） */}
+                {hasCurtailmentPermission && (
+                  <div className="border-t border-slate-100 pt-6 mt-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                          <span className="w-1.5 h-3 bg-emerald-500 rounded-full" />
+                          每日负电价限电止损组合图
+                        </h4>
+                        <p className="text-[10px] text-slate-400 mt-0.5">当监测到电力负电价时段，AI主动下发限电策略，避免上网倒贴费用损失。点击下方柱体查看当日96点明细。</p>
+                      </div>
                       
-                      {/* Simulated bars */}
-                      <Bar 
-                        dataKey="simulatedBasePv" 
-                        stackId="pvStack" 
-                        fill="#fef08a" 
-                        stroke="#eab308" 
-                        strokeDasharray="3 3" 
-                        strokeWidth={1} 
-                      />
-                      <Bar 
-                        dataKey="simulatedAiPvBoost" 
-                        stackId="pvStack" 
-                        fill="#ffedd5" 
-                        stroke="#ea580c" 
-                        strokeDasharray="3 3" 
-                        strokeWidth={1} 
-                        radius={[4, 4, 0, 0]} 
-                      />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
+                      <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 self-start sm:self-auto shrink-0">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-3 h-1.5 rounded-sm bg-[#10b981]" />
+                          <span>止损金额 (左轴·元)</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-3 h-[2px] bg-[#2563eb]" />
+                          <span>限电电量 (右轴·kWh)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedMonth === "2026-07" ? (
+                      <div className="h-[220px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart
+                            data={curtailmentDataList}
+                            margin={{ top: 10, right: -5, left: -20, bottom: 0 }}
+                            onClick={(state) => {
+                              if (state && state.activeLabel) {
+                                const clickedDay = state.activeLabel;
+                                const dayData = curtailmentDataList.find(item => item.day === clickedDay);
+                                if (dayData && dayData.lossSaved > 0) {
+                                  setSelectedCurtailDay(clickedDay);
+                                  setIsCurtailModalOpen(true);
+                                }
+                              }
+                            }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                            <XAxis dataKey="day" axisLine={{ stroke: "#94a3b8" }} tickLine={false} tick={<DynamicXAxisTick />} interval={0} />
+                            <YAxis yAxisId="left" orientation="left" axisLine={{ stroke: "#94a3b8" }} tickLine={false} tick={{ fill: "#64748b", fontSize: 10 }} tickFormatter={(val) => `¥${val}`} />
+                            <YAxis yAxisId="right" orientation="right" axisLine={{ stroke: "#94a3b8" }} tickLine={false} tick={{ fill: "#64748b", fontSize: 10 }} tickFormatter={(val) => `${val}k`} />
+                            <Tooltip
+                              cursor={{ fill: "#f8fafc" }}
+                              content={({ active, payload, label }) => {
+                                if (!active || !payload || !payload.length) return null;
+                                const data = payload[0].payload;
+                                return (
+                                  <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-xl min-w-[180px]">
+                                    <div className="font-bold text-slate-800 text-xs mb-2 pb-1 border-b border-slate-100">
+                                      7月{label} 限电止损评估
+                                    </div>
+                                    <div className="space-y-1.5 text-xs">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-slate-500 font-medium">避免倒贴损失:</span>
+                                        <span className="font-bold text-emerald-600">¥{data.lossSaved}</span>
+                                      </div>
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-slate-500 font-medium">主动限电电量:</span>
+                                        <span className="font-bold text-blue-600">{data.curtailedEnergy} kWh</span>
+                                      </div>
+                                    </div>
+                                    {data.lossSaved > 0 ? (
+                                      <div className="mt-2 text-[9px] text-emerald-600 bg-emerald-50 py-1 px-1.5 rounded text-center font-bold animate-pulse">
+                                        💡 点击柱体钻取 15分钟 详细测点 ↗
+                                      </div>
+                                    ) : (
+                                      <div className="mt-2 text-[9px] text-slate-400 bg-slate-50 py-1 px-1.5 rounded text-center font-medium">
+                                        当日未发生负电价，无需限电
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              }}
+                            />
+                            <Bar yAxisId="left" dataKey="lossSaved" fill="#10b981" radius={[3, 3, 0, 0]} barSize={10} cursor="pointer" />
+                            <Line yAxisId="right" type="monotone" dataKey="curtailedEnergy" stroke="#2563eb" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="h-[220px] w-full flex flex-col items-center justify-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200 p-6">
+                        <AlertCircle className="w-8 h-8 text-slate-300 mb-2" />
+                        <span className="text-sm font-bold text-slate-500">当月无限电止损数据</span>
+                        <span className="text-xs text-slate-400 mt-1">河北国杉电网在 {selectedMonth} 期间未监测到负电价套利或限电考核事件</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Chart 3: 本月运行策略储能充放电统计 */}
@@ -1324,6 +1545,288 @@ const StrategyReportPage: React.FC = () => {
           }
         }}
       />
+
+      {/* 负电价限电止损钻取日明细弹窗 */}
+      {isCurtailModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* 弹窗头部 */}
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shadow-inner">
+                  <Sun className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">
+                    2026年7月{selectedCurtailDay} · 限电止损诊断明细
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    河北南部电网配网侧接线点（用户侧微网）· 15分钟高精度测点联动
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsCurtailModalOpen(false);
+                  setIsTableExpanded(false);
+                }}
+                className="p-1.5 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 弹窗主体内容 */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* 当日概要标签行（2个KPI） */}
+              {(() => {
+                const dayData = curtailmentDataList.find(d => d.day === selectedCurtailDay) || { lossSaved: 0, curtailedEnergy: 0 };
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 flex items-center justify-between">
+                      <div className="space-y-1">
+                        <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider block">当日限电电量</span>
+                        <h4 className="text-3xl font-black text-indigo-700">
+                          {dayData.curtailedEnergy} <span className="text-sm font-bold">kWh</span>
+                        </h4>
+                      </div>
+                      <div className="w-12 h-12 bg-indigo-600/10 text-indigo-600 rounded-xl flex items-center justify-center">
+                        <Zap className="w-6 h-6" />
+                      </div>
+                    </div>
+
+                    <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 flex items-center justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block">当日减亏止损金额</span>
+                          <span className="bg-emerald-100 text-emerald-800 text-[8px] font-bold px-1.5 py-0.2 rounded-full">防倒贴</span>
+                        </div>
+                        <h4 className="text-3xl font-black text-emerald-700">
+                          ¥{dayData.lossSaved}
+                        </h4>
+                      </div>
+                      <div className="w-12 h-12 bg-emerald-600/10 text-emerald-500 rounded-xl flex items-center justify-center">
+                        <TrendingUp className="w-6 h-6" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 15min趋势图 */}
+              <div className="bg-slate-50/40 p-4 rounded-xl border border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">
+                      15分钟级联动运行趋势
+                    </h4>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      展示15分钟级理论发电量、实际发电量与实时电价关系。其中 11:00 - 14:00 上网电价为负，AI启动限电减亏机制。
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-[10px] font-semibold text-slate-500">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2.5 h-[2px] bg-[#f59e0b]" />
+                      <span>15min理论发电量 (kWh)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2.5 h-[2px] bg-[#10b981]" />
+                      <span>15min实际发电量 (kWh)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2.5 h-[2px] bg-[#ef4444]" />
+                      <span>实时上网电价 (右轴·元/kWh)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-[240px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart
+                      data={get96PointsForDay(selectedCurtailDay)}
+                      margin={{ top: 10, right: -5, left: -20, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis 
+                        dataKey="time" 
+                        axisLine={{ stroke: "#94a3b8" }} 
+                        tickLine={false} 
+                        tick={{ fill: "#64748b", fontSize: 9 }}
+                        interval={7}
+                      />
+                      <YAxis 
+                        yAxisId="left" 
+                        orientation="left" 
+                        axisLine={{ stroke: "#94a3b8" }} 
+                        tickLine={false} 
+                        tick={{ fill: "#64748b", fontSize: 9 }} 
+                        tickFormatter={(val) => `${val}kWh`}
+                      />
+                      <YAxis 
+                        yAxisId="right" 
+                        orientation="right" 
+                        axisLine={{ stroke: "#94a3b8" }} 
+                        tickLine={false} 
+                        tick={{ fill: "#64748b", fontSize: 9 }} 
+                        tickFormatter={(val) => `${val.toFixed(2)}元`}
+                      />
+                      
+                      {/* Highlight the Negative feed-in tariff area */}
+                      <ReferenceArea 
+                        x1="11:00" 
+                        x2="14:00" 
+                        yAxisId="left" 
+                        fill="#fee2e2" 
+                        fillOpacity={0.25} 
+                        label={{ value: '负电价防亏限电段', position: 'insideTop', fill: '#ef4444', fontSize: 9, fontWeight: 'bold' }} 
+                      />
+                      
+                      <ReferenceLine y={0} yAxisId="right" stroke="#ef4444" strokeDasharray="3 3" />
+
+                      <Tooltip
+                        cursor={{ fill: "#f1f5f9", fillOpacity: 0.5 }}
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload || !payload.length) return null;
+                          const data = payload[0].payload;
+                          const hasLossSaved = data.lossSaved > 0;
+                          return (
+                            <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-xl min-w-[200px] text-xs">
+                              <div className="font-bold text-slate-800 mb-1.5 pb-1 border-b border-slate-100 flex justify-between">
+                                <span>时段: {label}</span>
+                                {hasLossSaved && <span className="bg-emerald-50 text-emerald-600 px-1 py-0.1 rounded text-[8px] font-bold">防亏限电中</span>}
+                              </div>
+                              <div className="space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="text-slate-400">15min理论发电量:</span>
+                                  <span className="font-bold text-slate-700">{data.theoreticalGen.toFixed(2)} kWh</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-400">15min实际发电量:</span>
+                                  <span className="font-bold text-emerald-600">{data.actualGen.toFixed(2)} kWh</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-400">15min限电量:</span>
+                                  <span className="font-bold text-indigo-600">{data.curtailedGen.toFixed(2)} kWh</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-400">上网电价:</span>
+                                  <span className={`font-bold ${data.tariff < 0 ? 'text-rose-500' : 'text-slate-700'}`}>
+                                    {data.tariff.toFixed(3)} 元/kWh
+                                  </span>
+                                </div>
+                                {hasLossSaved && (
+                                  <div className="flex justify-between pt-1 border-t border-dashed border-slate-100">
+                                    <span className="text-emerald-600 font-medium">主动减亏金额:</span>
+                                    <span className="font-bold text-emerald-600">¥{data.lossSaved}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
+                      
+                      <Line yAxisId="left" type="monotone" dataKey="theoreticalGen" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                      <Line yAxisId="left" type="monotone" dataKey="actualGen" stroke="#10b981" strokeWidth={2} dot={false} />
+                      <Line yAxisId="right" type="stepAfter" dataKey="tariff" stroke="#ef4444" strokeWidth={1.5} dot={false} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* 明细表格 96 行 */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                      <FileSpreadsheet className="w-4 h-4 text-indigo-500" />
+                      15分钟多维度监控遥测报表
+                    </h4>
+                    <p className="text-[10px] text-slate-400">
+                      默认展示日内核心波动时段（09:00 - 15:00），可一键展开完整 96 个点报表。
+                    </p>
+                  </div>
+
+
+                </div>
+
+                <div className="border border-slate-100 rounded-xl overflow-hidden shadow-sm bg-white">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 font-bold text-[10px] border-b border-slate-100">
+                          <th className="px-4 py-2.5">序号</th>
+                          <th className="px-4 py-2.5">监测时段</th>
+                          <th className="px-4 py-2.5 text-right">15min理论发电量 (kWh)</th>
+                          <th className="px-4 py-2.5 text-right">15min实际发电量 (kWh)</th>
+                          <th className="px-4 py-2.5 text-right">15min限电量 (kWh)</th>
+                          <th className="px-4 py-2.5 text-right">结算电价 (元/kWh)</th>
+                          <th className="px-4 py-2.5 text-right">AI 主动止损 (元)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-600 text-xs">
+                        {get96PointsForDay(selectedCurtailDay)
+                          .filter((item, idx) => {
+                            if (isTableExpanded) return true;
+                            // Filter hours between 09:00 and 15:00
+                            const hour = parseInt(item.time.split(':')[0]);
+                            return hour >= 9 && hour < 15;
+                          })
+                          .map((row, idx) => {
+                            const isNegativePrice = row.tariff < 0;
+                            return (
+                              <tr 
+                                key={idx} 
+                                className={`hover:bg-slate-50/80 transition-colors ${isNegativePrice ? 'bg-rose-50/20' : ''}`}
+                              >
+                                <td className="px-4 py-2 font-mono text-slate-400 text-[10px]">{idx + 1}</td>
+                                <td className="px-4 py-2 font-bold text-slate-700">{row.time}</td>
+                                <td className="px-4 py-2 text-right font-mono">{row.theoreticalGen.toFixed(2)}</td>
+                                <td className="px-4 py-2 text-right font-mono text-emerald-600 font-medium">{row.actualGen.toFixed(2)}</td>
+                                <td className="px-4 py-2 text-right font-mono text-indigo-600 font-medium">
+                                  {row.curtailedGen > 0 ? row.curtailedGen.toFixed(2) : "-"}
+                                </td>
+                                <td className={`px-4 py-2 text-right font-mono font-medium ${isNegativePrice ? 'text-rose-500 font-bold' : ''}`}>
+                                  {row.tariff.toFixed(3)}
+                                </td>
+                                <td className="px-4 py-2 text-right font-mono text-emerald-600 font-bold">
+                                  {row.lossSaved > 0 ? `¥${row.lossSaved.toFixed(1)}` : "-"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="bg-slate-50 px-4 py-3 border-t border-slate-100 flex items-center justify-center">
+                    <button 
+                      onClick={() => setIsTableExpanded(!isTableExpanded)}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      {isTableExpanded ? "收起明细报表 (仅展示 09:00 ~ 15:00) ▲" : "展开全部 96 点日内诊断数据 (展开 00:00 ~ 24:00) ▼"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 弹窗页脚 */}
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
+              <button 
+                onClick={() => {
+                  setIsCurtailModalOpen(false);
+                  setIsTableExpanded(false);
+                }}
+                className="px-5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
