@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Zap, RefreshCw, ChevronRight, TrendingUp, Cpu } from 'lucide-react';
+import { Zap, RefreshCw, ChevronRight, TrendingUp, Cpu, Sparkles, Bot } from 'lucide-react';
 import { StrategyGroup } from '../types';
 
 interface StrategyPanelProps {
@@ -42,7 +42,13 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({ strategy }) => {
                     <RefreshCw className="w-5 h-5" />
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-slate-800 leading-tight">{mainStrategy.name}</div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="text-sm font-bold text-slate-800 leading-tight">{mainStrategy.name}</div>
+                      <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-0.5 shadow-sm shadow-emerald-50">
+                        <Bot className="w-2.5 h-2.5" />
+                        AI 调度
+                      </span>
+                    </div>
                     <div className="text-[8px] text-indigo-400 font-bold uppercase tracking-wider mt-0.5">{mainStrategy.englishName}</div>
                   </div>
                 </div>
@@ -105,6 +111,12 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({ strategy }) => {
                   {item.name === '余电上网' ? <TrendingUp className="w-4 h-4" /> : <Cpu className="w-4 h-4" />}
                 </div>
                 <span className="text-xs font-bold text-slate-700">{item.name}</span>
+                {item.name === '余电上网' && (
+                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-0.5 shadow-sm shadow-indigo-50">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    AI 排程
+                  </span>
+                )}
               </div>
               {item.params.map((param, pIdx) => (
                 <div key={pIdx} className="grid grid-cols-2 gap-2">

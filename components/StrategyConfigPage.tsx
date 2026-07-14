@@ -2,8 +2,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Plus, Edit, Trash2, ChevronRight, Clock, 
-  Zap, Save, ArrowLeft, ChevronDown, HelpCircle, Info, Calendar, X, Copy, ChevronUp
+  Zap, Save, ArrowLeft, ChevronDown, HelpCircle, Info, Calendar, X, Copy, ChevronUp,
+  TrendingUp
 } from 'lucide-react';
+import CommonConfigPanel from './CommonConfigPanel';
 
 interface SubPeriod {
   start: string;
@@ -41,6 +43,9 @@ const StrategyConfigPage: React.FC = () => {
   const [selectedId, setSelectedId] = useState('01');
   const [isEditing, setIsEditing] = useState(false);
   const [focusedThresholdBlockId, setFocusedThresholdBlockId] = useState<string | null>(null);
+
+  // 公共配置状态
+  const [activeTab, setActiveTab] = useState<'common' | 'selfConsumption'>('common');
 
   const [templates, setTemplates] = useState<StrategyTemplate[]>([
     {
@@ -202,13 +207,50 @@ const StrategyConfigPage: React.FC = () => {
   const strategyTypes = ["全额消纳（自发自用）", "余电上网（自发自用）", "峰谷套利", "动态增容", "需量控制", "动态调压", "需求响应"];
 
   return (
-    <div className="flex-1 flex gap-8">
+    <div className="flex-1 flex flex-col gap-4">
+      {/* 顶部标签页切换 */}
+      <div className="flex items-center gap-8 border-b border-slate-100 pb-3">
+        <button
+          onClick={() => setActiveTab('common')}
+          className={`text-base font-bold pb-2 transition-all relative cursor-pointer ${
+            activeTab === 'common' 
+              ? 'text-emerald-600 font-black' 
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          公共配置
+          {activeTab === 'common' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
+          )}
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('selfConsumption');
+            setIsEditing(false);
+          }}
+          className={`text-base font-bold pb-2 transition-all relative cursor-pointer ${
+            activeTab === 'selfConsumption' 
+              ? 'text-emerald-600 font-black' 
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          策略组合模板
+          {activeTab === 'selfConsumption' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'common' ? (
+        <CommonConfigPanel />
+      ) : (
+        <div className="flex-1 flex gap-4">
       {!isEditing && (
-        <div className="w-80 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col shrink-0 animate-in slide-in-from-left duration-300">
-          <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-            <h3 className="font-black text-slate-800 tracking-tight">策略组合模板</h3>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100 text-xs font-bold">
-              <Plus className="w-3.5 h-3.5" /> 新增
+        <div className="w-72 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col shrink-0 animate-in slide-in-from-left duration-300">
+          <div className="p-4 border-b border-slate-50 flex items-center justify-between">
+            <h3 className="font-black text-slate-800 tracking-tight text-sm">策略组合模板</h3>
+            <button className="flex items-center gap-1 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all shadow-sm text-[11px] px-2 py-1 font-bold">
+              <Plus className="w-3 h-3" /> 新增
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -233,18 +275,18 @@ const StrategyConfigPage: React.FC = () => {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col gap-8 transition-all duration-300 min-w-0">
-        <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-50 flex-1 relative">
+      <div className="flex-1 flex flex-col gap-4 transition-all duration-300 min-w-0">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-50 flex-1 relative">
           
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-10 pb-6 border-b border-slate-50">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-50">
+            <div className="flex items-center gap-3">
               {isEditing && (
-                <button onClick={handleCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                  <ArrowLeft className="w-5 h-5 text-slate-400" />
+                <button onClick={handleCancel} className="p-1.5 hover:bg-slate-100 rounded-full transition-colors">
+                  <ArrowLeft className="w-4 h-4 text-slate-400" />
                 </button>
               )}
               <div>
-                <h2 className="text-xl font-black text-slate-800 tracking-tight">
+                <h2 className="text-lg font-black text-slate-800 tracking-tight">
                   {isEditing ? `编辑: ${currentTemplate.name}` : '策略配置详情'}
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
@@ -338,9 +380,9 @@ const StrategyConfigPage: React.FC = () => {
                 </div>
 
                 {!block.isCollapsed && (
-                  <div className="p-8 animate-in slide-in-from-top-4 duration-500">
-                    <div className="grid grid-cols-12 gap-10">
-                      <div className="col-span-12 xl:col-span-6 space-y-4">
+                  <div className="p-4 animate-in slide-in-from-top-4 duration-500">
+                    <div className="grid grid-cols-12 gap-4">
+                      <div className="col-span-12 xl:col-span-6 space-y-2">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><span className="text-rose-500">*</span> 策略生效时段</label>
                         {isEditing ? (
                           <div className="flex items-center gap-3">
@@ -375,10 +417,10 @@ const StrategyConfigPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="mt-10 border-t border-slate-100 pt-10 space-y-6">
+                    <div className="mt-4 border-t border-slate-100 pt-4 space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
-                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                             储能放电预留容量 (Discharge Margin)
                             {isEditing && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>}
                           </div>
@@ -661,6 +703,8 @@ const StrategyConfigPage: React.FC = () => {
           </div>
         </div>
       </div>
+    </div>
+      )}
     </div>
   );
 };

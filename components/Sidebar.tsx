@@ -35,7 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
       name: '策略管理', 
       icon: <ClipboardList className="w-5 h-5" />, 
       hasSub: true,
-      subItems: ['策略运行', '策略运行2', '策略配置']
+      subItems: ['策略运行', '策略配置']
     },
     { name: '运营中心', icon: <Share2 className="w-5 h-5" /> },
     { name: '多站概览', icon: <LayoutDashboard className="w-5 h-5" /> },

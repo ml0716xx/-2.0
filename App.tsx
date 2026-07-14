@@ -93,9 +93,6 @@ const App: React.FC = () => {
       return <StrategyConfigPage />;
     }
     if (currentPage === '策略运行') {
-      return <StrategySchedulePage />;
-    }
-    if (currentPage === '策略运行2') {
       return <StrategySchedulePage2 />;
     }
     if (currentPage === '主接线图') {
@@ -121,7 +118,7 @@ const App: React.FC = () => {
     }
     if (currentPage === '策略监控') {
       return (
-        <div className="space-y-8">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-slate-800">策略监控</h1>
             <button 
@@ -131,7 +128,7 @@ const App: React.FC = () => {
               &larr; 返回监控中心
             </button>
           </div>
-          <div className="grid grid-cols-12 gap-8">
+          <div className="grid grid-cols-12 gap-4">
             <div className="col-span-12 xl:col-span-8">
               <PowerStrategySection />
             </div>
@@ -152,11 +149,11 @@ const App: React.FC = () => {
             className="transition-all duration-500 ease-in-out flex-shrink-0 relative z-20 overflow-hidden"
             style={{ 
               width: isLeftPanelOpen ? '320px' : '0px',
-              marginRight: isLeftPanelOpen ? '2rem' : '0px'
+              marginRight: isLeftPanelOpen ? '1rem' : '0px'
             }}
           >
             <div 
-              className="w-[320px] flex flex-col gap-8 h-full transition-all duration-500 ease-in-out"
+              className="w-[320px] flex flex-col gap-4 h-full transition-all duration-500 ease-in-out"
               style={{
                 transform: isLeftPanelOpen ? 'translateX(0)' : 'translateX(-50px)',
                 opacity: isLeftPanelOpen ? 1 : 0,
@@ -239,14 +236,14 @@ const App: React.FC = () => {
 
           {/* Right Panel (Collapsible) */}
           <div 
-            className="transition-all duration-500 ease-in-out flex-shrink-0 relative z-20 overflow-hidden mt-8 xl:mt-0"
+            className="transition-all duration-500 ease-in-out flex-shrink-0 relative z-20 overflow-hidden mt-4 xl:mt-0"
             style={{ 
               width: isRightPanelOpen ? '320px' : '0px',
-              marginLeft: isRightPanelOpen ? '2rem' : '0px'
+              marginLeft: isRightPanelOpen ? '1rem' : '0px'
             }}
           >
             <div 
-              className="w-[320px] flex flex-col gap-6 h-full transition-all duration-500 ease-in-out"
+              className="w-[320px] flex flex-col gap-4 h-full transition-all duration-500 ease-in-out"
               style={{
                 transform: isRightPanelOpen ? 'translateX(0)' : 'translateX(50px)',
                 opacity: isRightPanelOpen ? 1 : 0,
@@ -260,7 +257,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Detailed Sections */}
-        <div className="grid grid-cols-12 gap-8">
+        <div className="grid grid-cols-12 gap-4 mt-4">
           <div className="col-span-12 xxl:col-span-8">
             <EnergyRevenueSection />
           </div>
@@ -278,14 +275,14 @@ const App: React.FC = () => {
       <Sidebar onNavigate={setCurrentPage} activePage={currentPage} />
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col p-8 gap-8 overflow-y-auto max-w-[1920px] mx-auto w-full">
+      <main className="flex-1 flex flex-col p-4 sm:p-5 gap-4 sm:gap-5 overflow-y-auto max-w-[1920px] mx-auto w-full">
         {/* Top Header */}
         <Header />
 
         {renderContent()}
 
         {/* Footer / Status Bar */}
-        <div className="flex items-center justify-between text-sm text-slate-500 bg-white p-5 rounded-3xl border border-slate-100 shadow-sm mt-4">
+        <div className="flex items-center justify-between text-xs text-slate-500 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm mt-2">
           <div className="flex items-center gap-8">
             <span className="flex items-center gap-2"><Activity className="w-4 h-4 text-emerald-500" /> 站点当前健康指数: 98/100</span>
             <span className="flex items-center gap-2 border-l border-slate-100 pl-8"><Database className="w-4 h-4 text-blue-500" /> 云端同步周期: 15s</span>

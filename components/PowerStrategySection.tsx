@@ -1,10 +1,32 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Settings, Clock, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
 
 const PowerStrategySection: React.FC = () => {
   const [hoverData, setHoverData] = useState<{ x: number, time: string, values: any } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const [demandMode, setDemandMode] = useState<'static' | 'dynamic' | 'ai'>(() => {
+    return (localStorage.getItem('sys_demandMode') as 'static' | 'dynamic' | 'ai') || 'dynamic';
+  });
+  const [initialDemandLimit, setInitialDemandLimit] = useState(() => localStorage.getItem('sys_initialDemandLimit') || '500');
+  const [baselineOvercapacity, setBaselineOvercapacity] = useState(() => localStorage.getItem('sys_baselineOvercapacity') || '470');
+  const [demandLimit, setDemandLimit] = useState(() => localStorage.getItem('sys_demandLimit') || '100');
+  const [overcapacityLimit, setOvercapacityLimit] = useState(() => localStorage.getItem('sys_overcapacityLimit') || '90');
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setDemandMode((localStorage.getItem('sys_demandMode') as 'static' | 'dynamic' | 'ai') || 'dynamic');
+      setInitialDemandLimit(localStorage.getItem('sys_initialDemandLimit') || '500');
+      setBaselineOvercapacity(localStorage.getItem('sys_baselineOvercapacity') || '470');
+      setDemandLimit(localStorage.getItem('sys_demandLimit') || '100');
+      setOvercapacityLimit(localStorage.getItem('sys_overcapacityLimit') || '90');
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   // 模拟路径数据生成的逻辑点
   const generatePaths = () => {
@@ -46,37 +68,133 @@ const PowerStrategySection: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm p-8 flex flex-col gap-8 border border-slate-50 relative overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-col gap-5 border border-slate-50 relative overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-50 pb-6">
-        <div className="flex items-center gap-4">
-          <div className="w-1.5 h-6 bg-blue-500 rounded-full"></div>
-          <h2 className="text-lg font-black text-slate-800 tracking-tight">功率曲线与监控策略</h2>
-          <div className="flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-500 rounded-lg text-xs font-bold border border-rose-100">
-            <AlertCircle className="w-3.5 h-3.5" />
+      <div className="flex items-center justify-between border-b border-slate-50 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-1.5 h-5 bg-blue-500 rounded-full"></div>
+          <h2 className="text-base font-black text-slate-800 tracking-tight">功率曲线与监控策略</h2>
+          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-rose-50 text-rose-500 rounded-md text-[10px] font-bold border border-rose-100">
+            <AlertCircle className="w-3 h-3" />
             16:42 负荷接近限值
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex p-1 bg-slate-100 rounded-xl">
+          <div className="flex p-0.5 bg-slate-100 rounded-lg">
             {['今日', '昨日'].map((t) => (
               <button 
                 key={t} 
-                className={`px-5 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                  t === '今日' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'
+                className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${
+                  t === '今日' ? 'bg-white shadow-xs text-blue-600' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 {t}
               </button>
             ))}
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all">
-            <Settings className="w-4 h-4" /> 策略高级配置
+          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all">
+            <Settings className="w-3.5 h-3.5" /> 策略配置
           </button>
         </div>
       </div>
 
-      <div className="space-y-10">
+      <div className="space-y-6">
+        {/* 实时核心指标看板 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* 指标卡 1: 变压器安全容量 */}
+          <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-4 flex flex-col justify-between hover:shadow-md hover:border-slate-200 transition-all duration-300">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">变压器安全容量</div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-xl font-black text-slate-800 font-mono">1,200</span>
+              <span className="text-[10px] font-bold text-slate-400">kW</span>
+            </div>
+            <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-500 font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              运行状态: 正常安全范围
+            </div>
+          </div>
+
+          {/* 指标卡 2: 本月实时最大需量 */}
+          <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-4 flex flex-col justify-between hover:shadow-md hover:border-slate-200 transition-all duration-300">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">本月最大下网需量</div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-xl font-black text-slate-800 font-mono">498.2</span>
+              <span className="text-[10px] font-bold text-slate-400">kW</span>
+            </div>
+            <div className="mt-1 text-[10px] text-slate-400 font-bold flex items-center gap-1">
+              <Clock className="w-3 h-3 text-slate-400" />
+              出现时间: 今日 14:30
+            </div>
+          </div>
+
+          {/* 指标卡 3: 需量门限 */}
+          <div className={`border rounded-xl p-4 flex flex-col justify-between transition-all duration-300 hover:shadow-md ${
+            demandMode === 'ai' 
+              ? 'bg-indigo-50/30 border-indigo-200/60 hover:border-indigo-300' 
+              : 'bg-slate-50/50 border-slate-100 hover:border-slate-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">需量门限</div>
+              {demandMode === 'ai' && (
+                <span className="bg-indigo-50 text-indigo-600 px-1 py-0.5 rounded font-black text-[8px] border border-indigo-100 animate-pulse">AI 调整</span>
+              )}
+            </div>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className={`text-2xl font-black font-mono ${demandMode === 'ai' ? 'text-indigo-600' : 'text-slate-800'}`}>
+                {demandMode === 'ai' 
+                  ? (Math.round((parseFloat(initialDemandLimit) || 500) * 1.04 * 10) / 10).toFixed(1) 
+                  : (localStorage.getItem('sys_demandLimit') || '100')}
+              </span>
+              <span className={`text-xs font-bold ${demandMode === 'ai' ? 'text-indigo-400' : 'text-slate-400'}`}>kW</span>
+            </div>
+            <div className="mt-2 text-[10px] font-bold flex items-center gap-1">
+              {demandMode === 'ai' ? (
+                <span className="text-indigo-500 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                  AI 调整 · 今日 09:15 (基准: {initialDemandLimit}kW)
+                </span>
+              ) : (
+                <span className="text-slate-400 flex items-center gap-1">
+                  {demandMode === 'dynamic' ? '● 动态追需模式' : '● 静态控需模式'}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 指标卡 4: 超限限值 */}
+          <div className={`border rounded-2xl p-5 flex flex-col justify-between transition-all duration-300 hover:shadow-md ${
+            demandMode === 'ai' 
+              ? 'bg-indigo-50/30 border-indigo-200/60 hover:border-indigo-300' 
+              : 'bg-slate-50/50 border-slate-100 hover:border-slate-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">超限阈值</div>
+              {demandMode === 'ai' && (
+                <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-black text-[9px] border border-indigo-100">AI 寻优</span>
+              )}
+            </div>
+            <div className="mt-3 flex items-baseline gap-1">
+              <span className={`text-2xl font-black font-mono ${demandMode === 'ai' ? 'text-indigo-600' : 'text-slate-800'}`}>
+                {demandMode === 'ai' 
+                  ? (Math.round((parseFloat(baselineOvercapacity) || 470) * 0.996 * 10) / 10).toFixed(1) 
+                  : (localStorage.getItem('sys_overcapacityLimit') || '90')}
+              </span>
+              <span className={`text-xs font-bold ${demandMode === 'ai' ? 'text-indigo-400' : 'text-slate-400'}`}>kW</span>
+            </div>
+            <div className="mt-2 text-[10px] font-bold flex items-center gap-1">
+              {demandMode === 'ai' ? (
+                <span className="text-indigo-500">
+                  AI 优化 · 自动重置 (基准: {baselineOvercapacity}kW)
+                </span>
+              ) : (
+                <span className="text-slate-400">
+                  超量防超限保护
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* 1. 图表交互区域 */}
         <div className="relative group/chart" ref={containerRef} onMouseMove={handleMouseMove} onMouseLeave={() => setHoverData(null)}>
           <div className="h-[350px] w-full relative px-12 pt-10">

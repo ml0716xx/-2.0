@@ -11,7 +11,8 @@ import {
   Sparkles,
   Workflow,
   BrainCircuit,
-  Layers
+  Layers,
+  Calendar
 } from "lucide-react";
 import { 
   ResponsiveContainer, 
@@ -31,7 +32,21 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 
 // --- Mock Data Generators ---
-const generate24hData = () => {
+// Simple LCG (Linear Congruential Generator) or seed-based random to ensure stable daily curves
+const createSeededRandom = (seedStr: string) => {
+  let h = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    h = Math.imul(31, h) + seedStr.charCodeAt(i) | 0;
+  }
+  return () => {
+    h = Math.imul(h ^ h >>> 16, 2246822507);
+    h = Math.imul(h ^ h >>> 13, 3266489909);
+    return ((h ^= h >>> 16) >>> 0) / 4294967296;
+  };
+};
+
+const generate24hData = (dateStr: string) => {
+  const rand = createSeededRandom(dateStr || "2026-07-13");
   return Array.from({ length: 97 }, (_, i) => {
     const hour = i / 4;
     const h = Math.floor(hour);
@@ -46,32 +61,32 @@ const generate24hData = () => {
     // Both can be negative as requested
     // Purchase Price Analysis (Peak-Valley)
     const basePurchasePrice = isPeak ? 1.15 : isValley ? 0.28 : 0.65;
-    const purchasePrice = Math.round((basePurchasePrice + (Math.random() - 0.5) * 0.08) * 100) / 100;
+    const purchasePrice = Math.round((basePurchasePrice + (rand() - 0.5) * 0.08) * 100) / 100;
 
     // Sell Price Analysis (Negative during peak PV)
     // PV Intensity factor: peaks at 1.0 around 13:00 (h=13)
     const pvIntensity = h >= 6 && h <= 18 ? Math.sin(((h - 6) / 12) * Math.PI) : 0;
     // Base sell price is around 0.45, but drops by up to 0.8 during midday gluts
-    const sellPrice = Math.round((0.45 - (pvIntensity * 0.8) + (Math.random() - 0.5) * 0.05) * 100) / 100;
+    const sellPrice = Math.round((0.45 - (pvIntensity * 0.8) + (rand() - 0.5) * 0.05) * 100) / 100;
 
     // Load Curve Simulation
-    let baseLoad = 400 + Math.random() * 50;
-    if (isPeak) baseLoad += 650 + Math.random() * 150;
-    else if (!isValley) baseLoad += 350 + Math.random() * 80;
+    let baseLoad = 400 + rand() * 50;
+    if (isPeak) baseLoad += 650 + rand() * 150;
+    else if (!isValley) baseLoad += 350 + rand() * 80;
     
     if (h === 3) baseLoad += 950; 
     const loadCurve = Math.round(baseLoad * 100) / 100;
-    const loadActual = Math.round(Math.max(0, loadCurve * (0.97 + Math.random() * 0.06)) * 100) / 100;
+    const loadActual = Math.round(Math.max(0, loadCurve * (0.97 + rand() * 0.06)) * 100) / 100;
 
     // PV Generation
     let pv = 0;
     if (h >= 6 && h <= 18) {
-      pv = Math.sin(((h - 6) / 12) * Math.PI) * 1350 + (Math.random() - 0.5) * 80;
+      pv = Math.sin(((h - 6) / 12) * Math.PI) * 1350 + (rand() - 0.5) * 80;
       if (h === 10 || h === 11) pv += 500;
       pv = Math.max(0, pv);
     }
     const pvForecast = Math.round(pv * 100) / 100;
-    const pvActual = Math.round(Math.max(0, pvForecast * (0.92 + Math.random() * 0.15)) * 100) / 100;
+    const pvActual = Math.round(Math.max(0, pvForecast * (0.92 + rand() * 0.15)) * 100) / 100;
 
     // AI Optimization Logic
     const unoptimizedGrid = Math.round((loadCurve - pvForecast) * 100) / 100;
@@ -456,7 +471,25 @@ const CALIBRATION_POINTS = [
   }
 ];
 
+const getTodayStr = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const getOffsetDateStr = (offset: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 const AlgorithmMonitoringPage: React.FC = () => {
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [highlightRange, setHighlightRange] = useState<{ start: string; end: string } | null>(null);
   const [hoveredCalibration, setHoveredCalibration] = useState<number | null>(null);
@@ -513,12 +546,19 @@ const AlgorithmMonitoringPage: React.FC = () => {
     }));
   };
 
-  const data = useMemo(() => generate24hData(), []);
+  const data = useMemo(() => generate24hData(selectedDate), [selectedDate]);
 
   const { pvTotal, loadTotal, currentIndex, priceRange } = useMemo(() => {
-    const now = new Date();
-    const currentHour = now.getHours() + now.getMinutes() / 60;
-    const idx = Math.min(Math.floor(currentHour * 4), 96);
+    const todayStr = getTodayStr();
+    let idx = 96; // By default, for historical dates, everything is in the past ("actual")
+    
+    if (selectedDate === todayStr) {
+      const now = new Date();
+      const currentHour = now.getHours() + now.getMinutes() / 60;
+      idx = Math.min(Math.floor(currentHour * 4), 96);
+    } else if (selectedDate > todayStr) {
+      idx = 0; // Future
+    }
 
     const pv = data.reduce((acc, curr) => acc + curr.pvForecast, 0) / 4;
     const load = data.reduce((acc, curr) => acc + curr.loadCurve, 0) / 4;
@@ -538,7 +578,7 @@ const AlgorithmMonitoringPage: React.FC = () => {
         sellAvg: (sellPrices.reduce((a, b) => a + b, 0) / sellPrices.length).toFixed(2)
       }
     };
-  }, [data]);
+  }, [data, selectedDate]);
 
   // Split data into actual (hist) and forecast (future) for visualization
   const processedData = useMemo(() => {
@@ -591,71 +631,266 @@ const AlgorithmMonitoringPage: React.FC = () => {
 
   // Aligned strategy details generation to correspond with the 3-tier logic
   const strategyEvents = useMemo(() => {
-    const events: any[] = [];
-    let currentEvent: any = null;
-
-    data.forEach((d, i) => {
-      // Find the most significant strategy for this interval
-      // Priority: Demand (Safety) > Consumption (PV) > Arbitrage (Economic)
-      let type = "平段待机";
-      let action = "待机";
-      let color = "slate";
-      let reason = "系统处于经济运行模式，无风险触发。";
-
-      if (d.atomicStrategies.demand === 1) {
-        type = "需量控制";
-        action = `放电 (${(d.bessAction).toFixed(2)}kW)`;
-        color = "rose";
-        reason = "负荷预测超容风险触发，执行高功率放电。";
-      } else if (d.atomicStrategies.demand === -1) {
-        type = "动态增容";
-        action = "预设增容";
-        color = "rose";
-        reason = "预测到未来负载波动风险，提前释放增容余量。";
-      } else if (d.atomicStrategies.consumption === 1) {
-        type = "全额消纳";
-        action = `充电 (${Math.abs(d.bessAction).toFixed(2)}kW)`;
-        color = "emerald";
-        reason = "光伏功率高企且触发逆流风险，强制消纳充电。";
-      } else if (d.atomicStrategies.consumption === -1) {
-        type = "余电上网";
-        action = "馈电网"; // Feed-in
-        color = "amber";
-        reason = "本地负荷及储能策略已饱和，多余光伏电力上网。";
-      } else if (d.atomicStrategies.arbitrage === 1) {
-        type = "峰谷套利(充)";
-        action = `充电 (${Math.abs(d.bessAction).toFixed(2)}kW)`;
-        color = "indigo";
-        reason = "当前处于电价谷段，算法建议满额充电储备。";
-      } else if (d.atomicStrategies.arbitrage === -1) {
-        type = "峰谷套利(放)";
-        action = `放电 (${Math.abs(d.bessAction).toFixed(2)}kW)`;
-        color = "indigo";
-        reason = "当前处于电位峰段，算法建议高位放电获利。";
+    return [
+      // 00:00 - 03:00
+      {
+        startTime: "00:00",
+        endTime: "03:00",
+        type: "峰谷套利(充)",
+        action: "充电 (300.00kW)",
+        color: "indigo",
+        reason: "当前处于电价谷段，算法建议满额充电储备。"
+      },
+      {
+        startTime: "00:00",
+        endTime: "03:00",
+        type: "需量控制",
+        action: "安全备用 (0.00kW)",
+        color: "rose",
+        reason: "夜间厂区变压器安全负荷容量充裕，未触发需量削峰限值，系统维持静默备用。"
+      },
+      {
+        startTime: "00:00",
+        endTime: "03:00",
+        type: "全额消纳",
+        action: "待机 (0.00kW)",
+        color: "emerald",
+        reason: "此段无光伏发电出力，系统保持绿色电力自发自用通道通畅，随时响应微网并网状态。"
+      },
+      // 03:00 - 04:00
+      {
+        startTime: "03:00",
+        endTime: "04:00",
+        type: "需量控制",
+        action: "放电 (295.52kW)",
+        color: "rose",
+        reason: "负荷预测超容风险触发，执行高功率放电。"
+      },
+      {
+        startTime: "03:00",
+        endTime: "04:00",
+        type: "峰谷套利(充)",
+        action: "动作闭锁 (0.00kW)",
+        color: "indigo",
+        reason: "需量越限控制处于最高优先级，紧急闭锁谷段充电指令，转为防越限放电。"
+      },
+      // 04:00 - 06:00
+      {
+        startTime: "04:00",
+        endTime: "06:00",
+        type: "峰谷套利(充)",
+        action: "充电 (300.00kW)",
+        color: "indigo",
+        reason: "继续处于电价谷段，算法建议满额充电储备，确保次日首个高峰期放电电量充足。"
+      },
+      {
+        startTime: "04:00",
+        endTime: "06:00",
+        type: "需量控制",
+        action: "安全备用 (0.00kW)",
+        color: "rose",
+        reason: "厂区负荷回落至安全区间，需量控制自动解除放电，进入安全策略待机监视。"
+      },
+      // 08:00 - 09:00
+      {
+        startTime: "08:00",
+        endTime: "09:00",
+        type: "峰谷套利(放)",
+        action: "放电 (300.00kW)",
+        color: "indigo",
+        reason: "上午电价进入峰段，启动储能额定功率放电，执行高峰高价套利。"
+      },
+      {
+        startTime: "08:00",
+        endTime: "09:00",
+        type: "需量控制",
+        action: "协同削峰 (80.00kW)",
+        color: "rose",
+        reason: "早班负荷处于快速上升阶段，储能高位放电自然顺带削减了变压器的瞬时需求负荷。"
+      },
+      // 09:00 - 14:15
+      {
+        startTime: "09:00",
+        endTime: "14:15",
+        type: "全额消纳",
+        action: "充电 (228.11kW)",
+        color: "emerald",
+        reason: "午间光伏出力极高，本地负载无法完全吸收。为防止逆流倒送电网，储能启动绿电消纳充电。"
+      },
+      {
+        startTime: "09:00",
+        endTime: "14:15",
+        type: "峰谷套利(充)",
+        action: "平段蓄能 (50.00kW)",
+        color: "indigo",
+        reason: "中午处于电价平段，算法检测到光伏富余，建议低成本蓄能以备晚间高峰期二次放电。"
+      },
+      // 14:15 - 14:45
+      {
+        startTime: "14:15",
+        endTime: "14:45",
+        type: "动态增容",
+        action: "预设增容",
+        color: "rose",
+        reason: "预测到未来负载波动风险，提前释放变压器增容余量，防止变压器温度过高越限。"
+      },
+      {
+        startTime: "14:15",
+        endTime: "14:45",
+        type: "全额消纳",
+        action: "充电 (413.77kW)",
+        color: "emerald",
+        reason: "午后光伏瞬时爬峰，算法预测有逆流风险，协同调节储能进行高比例并网消纳。"
+      },
+      // 14:45 - 15:00
+      {
+        startTime: "14:45",
+        endTime: "15:00",
+        type: "全额消纳",
+        action: "充电 (413.77kW)",
+        color: "emerald",
+        reason: "光伏功率高企且触发逆流风险，强制消纳充电。"
+      },
+      {
+        startTime: "14:45",
+        endTime: "15:00",
+        type: "动态增容",
+        action: "预设增容",
+        color: "rose",
+        reason: "预测到未来负载波动风险，提前释放增容余量。"
+      },
+      // 15:00 - 15:15
+      {
+        startTime: "15:00",
+        endTime: "15:15",
+        type: "动态增容",
+        action: "预设增容",
+        color: "rose",
+        reason: "预测到未来负载波动风险，提前释放增容余量。"
+      },
+      {
+        startTime: "15:00",
+        endTime: "15:15",
+        type: "全额消纳",
+        action: "充电 (177.05kW)",
+        color: "emerald",
+        reason: "光伏功率高企且触发逆流风险，强制消纳充电。"
+      },
+      // 15:15 - 15:30
+      {
+        startTime: "15:15",
+        endTime: "15:30",
+        type: "全额消纳",
+        action: "充电 (177.05kW)",
+        color: "emerald",
+        reason: "光伏功率高企且触发逆流风险，强制消纳充电。"
+      },
+      {
+        startTime: "15:15",
+        endTime: "15:30",
+        type: "动态增容",
+        action: "预设增容",
+        color: "rose",
+        reason: "预测到未来负载波动风险，提前释放增容余量。"
+      },
+      // 15:30 - 16:00
+      {
+        startTime: "15:30",
+        endTime: "16:00",
+        type: "动态增容",
+        action: "预设增容",
+        color: "rose",
+        reason: "预测到未来负载波动风险，提前释放增容余量。"
+      },
+      {
+        startTime: "15:30",
+        endTime: "16:00",
+        type: "全额消纳",
+        action: "余电充电 (150.00kW)",
+        color: "emerald",
+        reason: "傍晚前最后一波光伏余量捕获，算法建议尽可能吸收光伏绿电，降低综合电费。"
+      },
+      // 17:00 - 21:00
+      {
+        startTime: "17:00",
+        endTime: "21:00",
+        type: "峰谷套利(放)",
+        action: "放电 (300.00kW)",
+        color: "indigo",
+        reason: "晚间迎来最关键的电价最高峰段，储能满负荷放电，将储藏的廉价电能高价售回/自用以获利。"
+      },
+      {
+        startTime: "17:00",
+        endTime: "21:00",
+        type: "需量控制",
+        action: "越限削峰 (120.00kW)",
+        color: "rose",
+        reason: "晚间厂区动力设备与照明负荷重合，负荷曲线急剧爬升。储能放电有效阻止变压器越限。"
+      },
+      {
+        startTime: "17:00",
+        endTime: "21:00",
+        type: "全额消纳",
+        action: "通道静默 (0.00kW)",
+        color: "emerald",
+        reason: "光伏已无发电量，全额消纳通道进入安全静默备用状态，完全释放电量配合削峰套利。"
+      },
+      // 21:00 - 24:00
+      {
+        startTime: "21:00",
+        endTime: "24:00",
+        type: "峰谷套利(充)",
+        action: "充电 (300.00kW)",
+        color: "indigo",
+        reason: "21:00后电价再度回落入低谷段，储能启动低成本充电循环，为下一轮循环储备能量。"
+      },
+      {
+        startTime: "21:00",
+        endTime: "24:00",
+        type: "需量控制",
+        action: "安全备用 (0.00kW)",
+        color: "rose",
+        reason: "变压器整体负载负荷平缓安全，执行常规电压越限与谐波抑制安全保护检测。"
+      },
+      {
+        startTime: "21:00",
+        endTime: "24:00",
+        type: "全额消纳",
+        action: "待机 (0.00kW)",
+        color: "emerald",
+        reason: "夜间无光伏发电，消纳策略通道进入休眠，保持状态同步。"
       }
+    ];
+  }, []);
 
-      if (!currentEvent || currentEvent.type !== type) {
-        if (currentEvent) {
-          currentEvent.endTime = d.time;
-          events.push(currentEvent);
-        }
-        currentEvent = { startTime: d.time, type, action, reason, color };
+  const getRowSpan = (index: number) => {
+    const current = strategyEvents[index];
+    if (!current) return 1;
+    const currentTimeStr = `${current.startTime} - ${current.endTime}`;
+    
+    if (index > 0) {
+      const prev = strategyEvents[index - 1];
+      if (prev && `${prev.startTime} - ${prev.endTime}` === currentTimeStr) {
+        return 0;
       }
-    });
-
-    if (currentEvent) {
-      currentEvent.endTime = "24:00";
-      events.push(currentEvent);
     }
-
-    // Return the timeline of events
-    return events.filter(e => e.type !== "平段待机");
-  }, [data]);
+    
+    let span = 1;
+    for (let i = index + 1; i < strategyEvents.length; i++) {
+      const next = strategyEvents[i];
+      if (next && `${next.startTime} - ${next.endTime}` === currentTimeStr) {
+        span++;
+      } else {
+        break;
+      }
+    }
+    return span;
+  };
 
   return (
-    <div className="min-h-full bg-[#f8fafc] font-sans p-6 space-y-6">
+    <div className="min-h-full bg-[#f8fafc] font-sans p-4 space-y-4">
       {/* State Switcher & Header */}
-      <div className="flex items-center justify-between pr-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pr-4 border-b border-slate-100 pb-4">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
             <Zap className="w-5 h-5" />
@@ -666,49 +901,75 @@ const AlgorithmMonitoringPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-100/50 rounded-xl text-emerald-600 shadow-sm">
-          <BrainCircuit className="w-4 h-4 text-emerald-500 animate-pulse" />
-          <span className="text-[12px] font-bold">AI 智能调度引擎运行中</span>
+        {/* Date Selector and Engine Status */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Custom Date Picker Group */}
+          <div className="flex items-center gap-2.5 bg-white border border-slate-200/80 rounded-xl px-3.5 py-2 shadow-sm">
+            <Calendar className="w-4 h-4 text-slate-400" />
+            <div className="relative flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">选择日期:</span>
+              <input 
+                type="date" 
+                value={selectedDate}
+                max={getTodayStr()} // Only allow historical or today
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setSelectedDate(e.target.value);
+                  }
+                }}
+                className="bg-transparent border-none text-xs font-bold text-slate-700 focus:outline-none focus:ring-0 cursor-pointer p-0"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-100/50 rounded-xl text-emerald-600 shadow-sm">
+            <BrainCircuit className="w-4 h-4 text-emerald-500 animate-pulse" />
+            <span className="text-[12px] font-bold">
+              {selectedDate === getTodayStr() ? "AI 智能调度引擎运行中" : "AI 历史归档数据调度已完成"}
+            </span>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-[1700px] mx-auto space-y-6">
+      <div className="max-w-[1700px] mx-auto space-y-4">
         {/* Top Section: Input Source Metrics Cards in a Grid */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="px-1 flex items-center justify-between text-slate-800">
             <h2 className="text-sm font-bold flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-indigo-500" />
-              数据输入源 (Forecasting Matrix)
+              {selectedDate === getTodayStr() ? "数据输入源 (Forecasting Matrix)" : `历史运行记录 (Archived: ${selectedDate})`}
             </h2>
             <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-100 rounded-full shadow-sm">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-[10px] font-bold text-slate-500 font-mono tracking-tighter">Updated: {new Date().toLocaleTimeString()}</span>
+              <span className="text-[10px] font-bold text-slate-500 font-mono tracking-tighter">
+                {selectedDate === getTodayStr() ? `实时更新: ${new Date().toLocaleTimeString()}` : "历史已归档 (Archived)"}
+              </span>
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <ForecastCard 
-              title="光伏发电预测" 
+              title={selectedDate === getTodayStr() ? "光伏发电预测" : "全日实际光伏发电"} 
               icon={<Sun className="w-5 h-5" />} 
               value={pvTotal} 
               unit="kWh" 
-              subValue="预计增长 +12%" 
+              subValue={selectedDate === getTodayStr() ? "预计增长 +12%" : "历史真实出力"} 
               color="amber" 
               data={data.map(d => ({ val: d.pvForecast }))}
               onClick={() => setActiveModal('pv')}
             />
             <ForecastCard 
-              title="负荷消耗预测" 
+              title={selectedDate === getTodayStr() ? "负荷消耗预测" : "全日实际负荷消耗"} 
               icon={<BarChart3 className="w-5 h-5" />} 
               value={loadTotal} 
               unit="kWh" 
-              subValue="峰值功率: 1,350kW" 
+              subValue={selectedDate === getTodayStr() ? "峰值功率: 1,350kW" : "变压器实际负载"} 
               color="purple" 
               data={data.map(d => ({ val: d.loadCurve }))}
               onClick={() => setActiveModal('load')}
             />
             <ForecastCard 
-              title="动态电价预测" 
+              title={selectedDate === getTodayStr() ? "动态电价预测" : "全日电价结算区间"} 
               icon={<TrendingDown className="w-5 h-5" />} 
               value={`${priceRange.purchaseMin}-${priceRange.purchaseMax}`} 
               unit="元/kWh" 
@@ -721,8 +982,8 @@ const AlgorithmMonitoringPage: React.FC = () => {
         </div>
 
         {/* Main Charts Visualizer */}
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-          <div className="p-8 pb-4 space-y-8">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+          <div className="p-4 pb-3 space-y-4">
             {/* Layer C: Optimized Power Curves */}
             <div className="relative pt-4 group/layer">
               <div className="flex items-center justify-between mb-4 px-1">
@@ -1231,23 +1492,23 @@ const AlgorithmMonitoringPage: React.FC = () => {
         </div>
 
         {/* Bottom Section: AI Strategy Details Table */}
-        <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden min-w-0 relative">
-          <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/20">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden min-w-0 relative">
+          <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/20">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-50 rounded-xl">
-                <BrainCircuit className="w-5 h-5 text-indigo-600" />
+              <div className="p-1.5 bg-indigo-50 rounded-lg">
+                <BrainCircuit className="w-4 h-4 text-indigo-600" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-slate-800">AI 建议策略明细</h2>
-                <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-wider">Detailed Execution Plan & Reasoning</p>
+                <h2 className="text-sm font-bold text-slate-800">AI 建议策略明细</h2>
+                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 tracking-wider">Detailed Execution Plan & Reasoning</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => window.print()}
-                className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-colors"
               >
-                <Workflow className="w-3.5 h-3.5" /> 导出详情报告
+                <Workflow className="w-3 h-3" /> 导出详情报告
               </button>
             </div>
           </div>
@@ -1256,35 +1517,45 @@ const AlgorithmMonitoringPage: React.FC = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100">
-                  <th className="px-10 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-12">执行时间</th>
-                  <th className="px-8 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">策略类型</th>
-                  <th className="px-8 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">建议动作</th>
-                  <th className="px-12 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest pr-16">触发原因/描述</th>
+                  <th className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-8">执行时间</th>
+                  <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">策略类型</th>
+                  <th className="px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">建议动作</th>
+                  <th className="px-8 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest pr-12">触发原因/描述</th>
                 </tr>
               </thead>
               <tbody>
-                {strategyEvents.map((row, i) => (
-                  <tr 
-                    key={i} 
-                    className="border-b border-slate-50 hover:bg-indigo-50/10 transition-colors group cursor-pointer"
-                    onMouseEnter={() => setHighlightRange({ start: row.startTime, end: row.endTime })}
-                    onMouseLeave={() => setHighlightRange(null)}
-                  >
-                    <td className="px-10 py-6 text-sm font-bold text-slate-700 font-mono tracking-tight border-l-4 border-transparent group-hover:border-indigo-500 pl-12">{row.startTime} - {row.endTime}</td>
-                    <td className="px-8 py-6 text-center">
-                      <span className={`text-[10px] font-bold px-4 py-1.5 rounded-full transition-all bg-${row.color === 'indigo' ? 'indigo' : row.color === 'rose' ? 'rose' : row.color === 'slate' ? 'slate' : row.color === 'emerald' ? 'emerald' : 'amber'}-50 text-${row.color === 'indigo' ? 'indigo' : row.color === 'rose' ? 'rose' : row.color === 'slate' ? 'slate' : row.color === 'emerald' ? 'emerald' : 'amber'}-600 border border-${row.color === 'indigo' ? 'indigo' : row.color === 'rose' ? 'rose' : row.color === 'slate' ? 'slate' : row.color === 'emerald' ? 'emerald' : 'amber'}-100 shadow-sm shadow-${row.color}-100`}>
-                        {row.type}
-                      </span>
-                    </td>
-                    <td className="px-8 py-6">
-                      <div className="flex items-center gap-2">
-                        <Zap className={`w-3.5 h-3.5 text-${row.action.includes('充电') ? 'emerald' : row.action.includes('放电') ? 'rose' : 'slate'}-500`} />
-                        <span className="text-sm font-bold text-slate-800">{row.action}</span>
-                      </div>
-                    </td>
-                    <td className="px-12 py-6 text-[12px] text-slate-500 leading-relaxed font-medium pr-16 max-w-md">{row.reason}</td>
-                  </tr>
-                ))}
+                {strategyEvents.map((row, i) => {
+                  const rowSpan = getRowSpan(i);
+                  return (
+                    <tr 
+                      key={i} 
+                      className="border-b border-slate-50 hover:bg-indigo-50/10 transition-colors group cursor-pointer"
+                      onMouseEnter={() => setHighlightRange({ start: row.startTime, end: row.endTime })}
+                      onMouseLeave={() => setHighlightRange(null)}
+                    >
+                      {rowSpan > 0 && (
+                        <td 
+                          rowSpan={rowSpan} 
+                          className="px-6 py-4 text-xs font-bold text-slate-700 font-mono tracking-tight border-r border-slate-100 pl-8 bg-slate-50/30 text-center align-middle"
+                        >
+                          {row.startTime} - {row.endTime}
+                        </td>
+                      )}
+                      <td className="px-4 py-3 text-center">
+                        <span className={`text-[9px] font-bold px-2.5 py-1 rounded-full transition-all bg-${row.color === 'indigo' ? 'indigo' : row.color === 'rose' ? 'rose' : row.color === 'slate' ? 'slate' : row.color === 'emerald' ? 'emerald' : 'amber'}-50 text-${row.color === 'indigo' ? 'indigo' : row.color === 'rose' ? 'rose' : row.color === 'slate' ? 'slate' : row.color === 'emerald' ? 'emerald' : 'amber'}-600 border border-${row.color === 'indigo' ? 'indigo' : row.color === 'rose' ? 'rose' : row.color === 'slate' ? 'slate' : row.color === 'emerald' ? 'emerald' : 'amber'}-100 shadow-xs shadow-${row.color}-50`}>
+                          {row.type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Zap className={`w-3.5 h-3.5 text-${row.action.includes('充电') ? 'emerald' : row.action.includes('放电') ? 'rose' : 'slate'}-500`} />
+                          <span className="text-xs font-bold text-slate-800">{row.action}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-3 text-[11px] text-slate-500 leading-relaxed font-medium pr-12 max-w-md">{row.reason}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
