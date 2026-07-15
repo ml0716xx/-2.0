@@ -488,12 +488,145 @@ const getOffsetDateStr = (offset: number) => {
   return `${y}-${m}-${day}`;
 };
 
+const CALIBRATION_INFO_MAP: Record<string, { title: string; desc: string; color: string; bg: string; border: string }> = {
+  low_price: {
+    title: "低电价时段",
+    desc: "预计处于今日相对低电价时段",
+    color: "#2563eb",
+    bg: "bg-blue-50",
+    border: "border-blue-100"
+  },
+  high_price: {
+    title: "高电价时段",
+    desc: "预计处于今日相对高电价时段",
+    color: "#e11d48",
+    bg: "bg-rose-50",
+    border: "border-rose-100"
+  },
+  negative_price: {
+    title: "上网负价时段",
+    desc: "预计处于负电价时段",
+    color: "#ea580c",
+    bg: "bg-orange-50",
+    border: "border-orange-100"
+  },
+  over_threshold: {
+    title: "预计超阈值时段",
+    desc: "预计基准电网侧负荷将超容/超需",
+    color: "#8b5cf6",
+    bg: "bg-purple-50",
+    border: "border-purple-100"
+  },
+  reverse_flow: {
+    title: "预计逆流时段",
+    desc: "预计基准电网侧将逆流",
+    color: "#059669",
+    bg: "bg-emerald-50",
+    border: "border-emerald-100"
+  }
+};
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: any[];
+  label?: string;
+  calibrationDots: any[];
+  hoveredCalibration: number | null;
+  visibleSeries: Record<string, boolean>;
+}
+
+const CustomTooltip = ({ active, payload, label, calibrationDots, hoveredCalibration, visibleSeries }: CustomTooltipProps) => {
+  if (!active) return null;
+
+  let activeDot = null;
+  if (hoveredCalibration !== null) {
+    activeDot = calibrationDots.find((dot: any) => dot.id === hoveredCalibration);
+  }
+  if (!activeDot && label) {
+    activeDot = calibrationDots.find((dot: any) => label >= dot.start && label <= dot.end);
+  }
+
+  const info = activeDot ? CALIBRATION_INFO_MAP[activeDot.type] : null;
+
+  const isSeriesVisible = (name: string) => {
+    if (!visibleSeries) return true;
+    if (name.includes("购电")) return visibleSeries["购电电价"];
+    if (name.includes("上网")) return visibleSeries["上网电价"];
+    if (name.includes("储能")) return visibleSeries["储能排程"];
+    if (name.includes("负载")) return visibleSeries["负载"];
+    if (name.includes("光伏")) return visibleSeries["光伏功率"];
+    if (name.includes("基准")) return visibleSeries["基准电网"];
+    if (name.includes("电网") || name.includes("AI 预测")) return visibleSeries["电网功率"];
+    return true;
+  };
+
+  const visiblePayload = (payload || []).filter((item: any) => isSeriesVisible(item.name));
+
+  return (
+    <div className="bg-white/95 backdrop-blur-md border border-slate-200/60 rounded-xl p-2.5 shadow-[0_10px_25px_rgba(15,23,42,0.06)] text-left w-[220px] pointer-events-none text-slate-800 font-sans">
+      <div className="text-[10px] font-bold text-slate-400 flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
+        <span className="flex items-center gap-1">
+          <Clock className="w-3 h-3 text-indigo-500" />
+          <span>时段: {label}</span>
+        </span>
+        {activeDot && (
+          <span className="text-[8px] font-bold text-indigo-600 font-mono uppercase tracking-wider bg-indigo-50 border border-indigo-100 px-1 py-0.5 rounded">
+            标定激活
+          </span>
+        )}
+      </div>
+
+      {info && activeDot && (
+        <div className={`mb-1.5 p-1.5 rounded-lg border ${info.bg} ${info.border} text-slate-700 space-y-0.5 shadow-sm`}>
+          <div className="flex items-center gap-1 text-[10px] font-bold">
+            <div className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: info.color }} />
+            <span style={{ color: info.color }}>{info.title}</span>
+            <span className="text-[8.5px] text-slate-400 font-mono ml-auto">{activeDot.start}-{activeDot.end}</span>
+          </div>
+          <div className="text-[9px] text-slate-500 font-medium pl-2.5 leading-tight">
+            {info.desc}
+          </div>
+        </div>
+      )}
+
+      {visiblePayload.length > 0 ? (
+        <div className="space-y-1 max-h-[160px] overflow-y-auto pr-0.5">
+          {visiblePayload.map((item: any, idx: number) => {
+            if (item.value === undefined || item.value === null) return null;
+            const isPrice = item.name.includes("电价") || (item.name.includes("预测") && item.name.includes("价"));
+            const unit = isPrice ? " 元/kWh" : " kW";
+            return (
+              <div key={idx} className="flex items-center justify-between gap-3 text-[10px]">
+                <div className="flex items-center gap-1 text-slate-500 font-medium">
+                  <span 
+                    className="w-1 h-1 rounded-full shrink-0" 
+                    style={{ backgroundColor: item.color || '#94a3b8' }} 
+                  />
+                  <span>{item.name}</span>
+                </div>
+                <span className="font-mono font-bold text-slate-700">
+                  {typeof item.value === 'number' ? item.value.toFixed(2) : item.value}
+                  <span className="text-[8px] text-slate-400 font-normal ml-0.5">{unit}</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-[10px] text-slate-400 text-center py-1 font-medium">
+          无活跃数据指标
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AlgorithmMonitoringPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [highlightRange, setHighlightRange] = useState<{ start: string; end: string } | null>(null);
   const [hoveredCalibration, setHoveredCalibration] = useState<number | null>(null);
-  const [hoveredCoords, setHoveredCoords] = useState<{ x: number; y: number } | null>(null);
+  const [hoveredChartTime, setHoveredChartTime] = useState<string | null>(null);
   const [visibleSeries, setVisibleSeries] = useState<Record<string, boolean>>({
     "购电电价": false,
     "上网电价": false,
@@ -605,29 +738,140 @@ const AlgorithmMonitoringPage: React.FC = () => {
   const calibrationDots = useMemo(() => {
     if (!processedData || processedData.length === 0) return [];
     
-    // Use raw properties (unoptimizedGrid, purchasePrice, sellPrice) so points stay anchored
-    // even as the daily timeline slides forward.
-    const uniqueAnchors = [
-      { id: 1, time: "02:00", field: "purchasePrice", yAxisId: "price" },
-      { id: 2, time: "03:30", field: "unoptimizedGrid", yAxisId: "energy" },
-      { id: 3, time: "10:30", field: "unoptimizedGrid", yAxisId: "energy" },
-      { id: 4, time: "12:30", field: "sellPrice", yAxisId: "price" },
-      { id: 5, time: "19:00", field: "purchasePrice", yAxisId: "price" }
-    ];
+    const groupedPeriods: { type: string; points: any[] }[] = [];
+    let currentGroup: { type: string; points: any[] } | null = null;
 
-    return uniqueAnchors.map(anchor => {
-      const dataItem = processedData.find((d: any) => d.time === anchor.time) || processedData[0];
-      const value = dataItem ? (dataItem[anchor.field] ?? 0) : 0;
-      const base = CALIBRATION_POINTS.find(p => p.id === anchor.id)!;
+    processedData.forEach((d: any) => {
+      const time = d.time;
+      let type: string | null = null;
+      let catInfo: any = null;
+
+      if ((time >= "00:00" && time <= "07:59") || (time >= "23:00" && time <= "23:59")) {
+        type = "low_price";
+        catInfo = {
+          title: "低电价时段",
+          badgeColor: "bg-blue-50 border-blue-100 text-blue-700",
+          dotColor: "bg-blue-500",
+          start: time >= "00:00" && time <= "07:59" ? "00:00" : "23:00",
+          end: time >= "00:00" && time <= "07:59" ? "07:59" : "23:59",
+          condition: `处于谷期极低电价时段 (${time >= "00:00" && time <= "07:59" ? "00:00-07:59" : "23:00-23:59"})，购电电价约 ${d.purchasePrice} 元/kWh。`,
+          aiOptimizedText: `AI 调度决策：执行最优谷电充电蓄能 (${Math.abs(d.bessAction)}kW)，低成本吸纳廉价网侧电量储备。`,
+          impact: `储能低成本吸能，最大化拉大日内价差空间，预计该单次循环收益非常丰沛。`
+        };
+      } else if ((time >= "10:00" && time <= "11:59") || (time >= "15:00" && time <= "20:59")) {
+        type = "high_price";
+        catInfo = {
+          title: "高电价时段",
+          badgeColor: "bg-rose-50 border-rose-100 text-rose-700",
+          dotColor: "bg-rose-500",
+          start: time >= "10:00" && time <= "11:59" ? "10:00" : "15:00",
+          end: time >= "10:00" && time <= "11:59" ? "11:59" : "20:59",
+          condition: `处于购电峰/尖段高价时段 (${time >= "10:00" && time <= "11:59" ? "10:00-11:59" : "15:00-20:59"})，市电电费高达 ${d.purchasePrice} 元/kWh。`,
+          aiOptimizedText: `AI 调度决策：精准释放储能高溢价电力 (${d.bessAction}kW)，强制顶替高额网购电量。`,
+          impact: `避峰放电闪击，最大化利用储能峰谷高价差，直接冲减高额整站峰值电费。`
+        };
+      } else if (time >= "13:30" && time <= "14:59") {
+        type = "negative_price";
+        catInfo = {
+          title: "上网负电价时段",
+          badgeColor: "bg-orange-50 border-orange-100 text-orange-700",
+          dotColor: "bg-orange-500",
+          start: "13:30",
+          end: "14:59",
+          condition: `处于午间光伏过剩极值期 (13:30-14:59)，日内实时上网电价低至负值 (${d.sellPrice} 元/kWh)。`,
+          aiOptimizedText: `AI 调度决策：自动实施上网调限防护，调度储能大功率充电消纳 (${Math.abs(d.bessAction)}kW)，闭锁逆流。`,
+          impact: `阻断返送负电价网侧所导致的贴钱亏损，全额消纳多余绿电。`
+        };
+      } else if (time >= "08:00" && time <= "09:59") {
+        type = "over_threshold";
+        catInfo = {
+          title: "预计超阈时段",
+          badgeColor: "bg-purple-50 border-purple-100 text-purple-700",
+          dotColor: "bg-purple-500",
+          start: "08:00",
+          end: "09:59",
+          condition: `厂区迎来早班生产的大负荷陡峭爬坡期 (08:00-09:59)，基准网侧负荷预计暴涨至 ${d.loadCurve}kW，超出变压器安全容量。`,
+          aiOptimizedText: `AI 调度决策：自动执行需量安全防御，释放峰值防御有功 (${d.bessAction}kW)，平抑变压器负载。`,
+          impact: `精准将变压器受电有功锁定在安全边界以内 (${d.aiGridOptimized}kW)，彻底规避月度需量超限罚款风险。`
+        };
+      } else if (time >= "12:00" && time <= "13:29") {
+        type = "reverse_flow";
+        catInfo = {
+          title: "预计逆流时段",
+          badgeColor: "bg-emerald-50 border-emerald-100 text-emerald-700",
+          dotColor: "bg-emerald-500",
+          start: "12:00",
+          end: "13:29",
+          condition: `中午光伏出力处于大发饱和阶段 (12:00-13:29)，本地负载低迷，有功倒灌并网潮流逼近安全反向逆流阈值。`,
+          aiOptimizedText: `AI 调度决策：触发全消纳防逆流联动消纳模式，引导储能充电吸收多余光伏绿电 (${Math.abs(d.bessAction)}kW)。`,
+          impact: `消除并网点逆向溢流引发的电网合规性风险，大幅提高绿电就地消纳率。`
+        };
+      }
+
+      if (type) {
+        if (currentGroup && currentGroup.type === type) {
+          currentGroup.points.push({ item: d, catInfo });
+        } else {
+          if (currentGroup) {
+            groupedPeriods.push(currentGroup);
+          }
+          currentGroup = {
+            type,
+            points: [{ item: d, catInfo }]
+          };
+        }
+      } else {
+        if (currentGroup) {
+          groupedPeriods.push(currentGroup);
+          currentGroup = null;
+        }
+      }
+    });
+
+    if (currentGroup) {
+      groupedPeriods.push(currentGroup);
+    }
+
+    const dots = groupedPeriods.map((group, index) => {
+      const midIndex = Math.floor(group.points.length / 2);
+      const { item: d, catInfo } = group.points[midIndex];
+      const time = d.time;
+      const start = group.points[0].item.time;
+      const end = group.points[group.points.length - 1].item.time;
+      
       return {
-        ...base,
-        anchorTime: anchor.time,
-        x: anchor.time,
-        y: value,
-        yAxisId: anchor.yAxisId
+        id: index + 1,
+        title: catInfo.title,
+        timeRange: `${start} - ${end}`,
+        start,
+        end,
+        badgeColor: catInfo.badgeColor,
+        dotColor: catInfo.dotColor,
+        condition: catInfo.condition,
+        aiOptimizedText: catInfo.aiOptimizedText,
+        impact: catInfo.impact,
+        anchorTime: time,
+        x: time,
+        y: d.unoptimizedGrid ?? 0, // Plot on baseline/unoptimized grid curve
+        yAxisId: "energy",
+        type: group.type
       };
     });
+
+    return dots;
   }, [processedData]);
+
+  const filteredCalibrationDots = calibrationDots;
+
+  const activeHoveredDot = useMemo(() => {
+    if (hoveredCalibration !== null) {
+      return calibrationDots.find(pt => pt.id === hoveredCalibration) || null;
+    }
+    if (hoveredChartTime !== null) {
+      return calibrationDots.find(pt => hoveredChartTime >= pt.start && hoveredChartTime <= pt.end) || null;
+    }
+    return null;
+  }, [calibrationDots, hoveredCalibration, hoveredChartTime]);
 
   // Aligned strategy details generation to correspond with the 3-tier logic
   const strategyEvents = useMemo(() => {
@@ -986,85 +1230,29 @@ const AlgorithmMonitoringPage: React.FC = () => {
           <div className="p-4 pb-3 space-y-4">
             {/* Layer C: Optimized Power Curves */}
             <div className="relative pt-4 group/layer">
-              <div className="flex items-center justify-between mb-4 px-1">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 px-1 border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
                   <Workflow className="w-3.5 h-3.5" /> 算法运行监控 (Running Status)
                 </div>
               </div>
 
-              {/* Dynamic Overlay Tooltip for Calibration Pins on Hover directly on the curves */}
-              <AnimatePresence>
-                {hoveredCalibration !== null && hoveredCoords && (
-                  (() => {
-                    const pt = CALIBRATION_POINTS.find(p => p.id === hoveredCalibration);
-                    if (!pt) return null;
-                    
-                    const isLeft = hoveredCoords.x < 450;
-                    const isHigh = hoveredCoords.y < 255;
 
-                    return (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: isHigh ? -10 : 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: isHigh ? -10 : 10 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute bg-slate-800 border border-slate-700/80 text-white rounded-2xl p-4 shadow-[0_20px_50px_rgba(15,23,42,0.4)] z-50 pointer-events-none text-left w-[360px]"
-                        style={{
-                          left: hoveredCoords.x,
-                          top: hoveredCoords.y,
-                          transform: `translate(${isLeft ? '20px' : '-380px'}, ${isHigh ? '20px' : '-260px'})`
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-700/60">
-                          <span className={`text-[10px] font-black px-2.5 py-1 rounded-md border ${pt.badgeColor}`}>
-                            {pt.title}
-                          </span>
-                          <span className="text-[10px] text-indigo-300 font-bold flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-indigo-300" /> {pt.timeRange}
-                          </span>
-                        </div>
-                        
-                        <div className="space-y-3 font-sans">
-                          <div>
-                            <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1">工况特征 / 触发风险</div>
-                            <p className="text-[11.5px] text-slate-200 font-medium leading-relaxed">{pt.condition}</p>
-                          </div>
-                          
-                          <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-                            <div className="text-[9px] text-indigo-300 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                              <Sparkles className="w-2.5 h-2.5 text-indigo-300 animate-pulse" /> AI 建议解决预案
-                            </div>
-                            <p className="text-[11px] text-indigo-100 font-medium leading-relaxed mt-0.5">{pt.aiOptimizedText}</p>
-                          </div>
-                          
-                          <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                            <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mb-0.5">优化赋能价值</div>
-                            <p className="text-[11px] text-emerald-200 font-semibold leading-normal mt-0.5">{pt.impact}</p>
-                          </div>
-                        </div>
-
-                        {/* Arrow pointing back to coordinating pin */}
-                        <div 
-                          className="absolute w-3 h-3 bg-slate-800 rotate-45 border-slate-700"
-                          style={{
-                            left: isLeft ? '-6px' : 'auto',
-                            right: isLeft ? 'auto' : '-6px',
-                            top: isHigh ? '30px' : '205px',
-                            borderRightWidth: isLeft ? 0 : '1px',
-                            borderBottomWidth: isLeft ? 0 : '1px',
-                            borderLeftWidth: isLeft ? '1px' : 0,
-                            borderTopWidth: isLeft ? '1px' : 0
-                          }}
-                        />
-                      </motion.div>
-                    );
-                  })()
-                )}
-              </AnimatePresence>
 
               <div className="h-[420px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={processedData}>
+                  <ComposedChart 
+                    data={processedData}
+                    onMouseMove={(state) => {
+                      if (state && state.activeLabel) {
+                        setHoveredChartTime(state.activeLabel);
+                      } else {
+                        setHoveredChartTime(null);
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredChartTime(null);
+                    }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis 
                       dataKey="time" 
@@ -1078,29 +1266,34 @@ const AlgorithmMonitoringPage: React.FC = () => {
                     <YAxis yAxisId="price" orientation="right" axisLine={false} tickLine={false} tick={{fill: '#10b981', fontSize: 10}} label={{ value: '电价 (元)', angle: 90, position: 'insideRight', style: { fontSize: '10px', fill: '#10b981' } }} />
                     
                     <Tooltip 
-                      contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)'}} 
-                      itemStyle={{fontSize: '11px', fontWeight: 'bold'}}
-                      formatter={(value: any, name: any) => [
-                        typeof value === 'number' ? value.toFixed(2) : value,
-                        name
-                      ]}
+                      content={<CustomTooltip calibrationDots={calibrationDots} hoveredCalibration={hoveredCalibration} visibleSeries={visibleSeries} />} 
                     />
                     
-                    <ReferenceArea x1="00:00" x2="06:00" fill="#f0fdf4" fillOpacity={0.4} />
-                    <ReferenceArea x1="08:00" x2="12:00" fill="#fef2f2" fillOpacity={0.4} />
-                    <ReferenceArea x1="17:00" x2="21:00" fill="#fef2f2" fillOpacity={0.4} />
-                    <ReferenceArea x1="21:00" x2="23:45" fill="#f0fdf4" fillOpacity={0.4} />
-                    
-                    {highlightRange && (
-                      <ReferenceArea 
-                        x1={highlightRange.start} 
-                        x2={highlightRange.end} 
-                        fill="#6366f1" 
-                        fillOpacity={0.15} 
-                        stroke="#6366f1" 
-                        strokeWidth={1} 
-                        strokeDasharray="4 4"
-                      />
+                    {/* Render a beautifully styled dynamic shaded background band ONLY when a calibration dot is hovered */}
+                    {activeHoveredDot && (
+                      (() => {
+                        const areaColor = 
+                          activeHoveredDot.type === 'low_price' ? '#3b82f6' : 
+                          activeHoveredDot.type === 'high_price' ? '#f43f5e' : 
+                          activeHoveredDot.type === 'negative_price' ? '#f97316' : 
+                          activeHoveredDot.type === 'over_threshold' ? '#a855f7' : 
+                          activeHoveredDot.type === 'reverse_flow' ? '#10b981' : 
+                          '#6366f1';
+                        
+                        return (
+                          <ReferenceArea 
+                            x1={activeHoveredDot.start}
+                            x2={activeHoveredDot.end}
+                            yAxisId="energy"
+                            fill={areaColor}
+                            fillOpacity={0.03}
+                            stroke={areaColor}
+                            strokeOpacity={0.7}
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                          />
+                        );
+                      })()
                     )}
                     
                     <ReferenceLine y={1200} yAxisId="energy" stroke="#ef4444" strokeDasharray="4 4" label={{ position: 'right', value: '超容阈值 (1200kW)', fill: '#ef4444', fontSize: 9, fontWeight: 'bold' }} />
@@ -1130,7 +1323,7 @@ const AlgorithmMonitoringPage: React.FC = () => {
                     <Line yAxisId="energy" name="AI 预测优化" type="monotone" dataKey="gridForecast" stroke="#2468f2" strokeWidth={2} strokeDasharray="6 6" dot={false} legendType="none" hide={!visibleSeries["电网功率"]} />
 
                     {/* Diagnostic Calibration Pins Draw Directly on Curves */}
-                    {calibrationDots.map((pt) => (
+                    {filteredCalibrationDots.map((pt) => (
                       <ReferenceDot
                         key={pt.id}
                         x={pt.x}
@@ -1140,19 +1333,23 @@ const AlgorithmMonitoringPage: React.FC = () => {
                           const { cx, cy } = props;
                           if (!cx || !cy) return null;
                           const isHovered = hoveredCalibration === pt.id;
-                          const dotStroke = pt.dotColor === 'bg-indigo-500' ? '#6366f1' : pt.dotColor === 'bg-rose-500' ? '#f43f5e' : pt.dotColor === 'bg-amber-500' ? '#f59e0b' : pt.dotColor === 'bg-orange-500' ? '#f97316' : '#10b981';
+                          const dotStroke = 
+                            pt.dotColor === 'bg-blue-500' ? '#3b82f6' : 
+                            pt.dotColor === 'bg-rose-500' ? '#f43f5e' : 
+                            pt.dotColor === 'bg-orange-500' ? '#f97316' : 
+                            pt.dotColor === 'bg-purple-500' ? '#a855f7' : 
+                            pt.dotColor === 'bg-emerald-500' ? '#10b981' : 
+                            '#6366f1';
                           
                           return (
                             <g
                               onMouseEnter={() => {
                                 setHoveredCalibration(pt.id);
                                 setHighlightRange({ start: pt.start, end: pt.end });
-                                setHoveredCoords({ x: cx, y: cy });
                               }}
                               onMouseLeave={() => {
                                 setHoveredCalibration(null);
                                 setHighlightRange(null);
-                                setHoveredCoords(null);
                               }}
                               className="cursor-pointer"
                             >
@@ -1169,61 +1366,65 @@ const AlgorithmMonitoringPage: React.FC = () => {
                               <circle
                                 cx={cx}
                                 cy={cy}
-                                r={isHovered ? 14 : 7}
+                                r={isHovered ? 18 : 10}
                                 fill={dotStroke}
-                                fillOpacity={0.2}
+                                fillOpacity={isHovered ? 0.25 : 0.4}
                                 className="transition-all duration-300"
                               />
                               
-                              {/* Animated pulse ring */}
-                              <circle
-                                cx={cx}
-                                cy={cy}
-                                r={isHovered ? 10 : 6}
-                                fill="none"
-                                stroke={dotStroke}
-                                strokeWidth={isHovered ? 2 : 1}
-                                strokeOpacity={0.8}
-                                className="animate-ping"
-                                style={{ transformOrigin: `${cx}px ${cy}px` }}
-                              />
+                              {/* Animated pulse ring - ONLY when hovered to prevent visual clutter and CPU lag */}
+                              {isHovered && (
+                                <circle
+                                  cx={cx}
+                                  cy={cy}
+                                  r={12}
+                                  fill="none"
+                                  stroke={dotStroke}
+                                  strokeWidth={2}
+                                  strokeOpacity={0.8}
+                                  className="animate-ping"
+                                  style={{ transformOrigin: `${cx}px ${cy}px` }}
+                                />
+                              )}
 
                               {/* Target Point Dot */}
                               <circle
                                 cx={cx}
                                 cy={cy}
-                                r={5}
+                                r={isHovered ? 8 : 5.5}
                                 fill="#ffffff"
                                 stroke={dotStroke}
-                                strokeWidth={2.5}
+                                strokeWidth={isHovered ? 3.5 : 2.5}
                                 className="transition-all duration-300"
                               />
                               
-                              {/* Label Banner directly above pinpoint */}
-                              <g 
-                                transform={`translate(0, ${isHovered ? -16 : -13})`}
-                                className="transition-all duration-300 pointer-events-none"
-                              >
-                                <rect
-                                  x={-35}
-                                  y={-10}
-                                  width={70}
-                                  height={15}
-                                  rx={4}
-                                  fill="#1e293b"
-                                  fillOpacity={0.85}
-                                />
-                                <text
-                                  y={1}
-                                  textAnchor="middle"
-                                  fill="#ffffff"
-                                  fontSize={7.5}
-                                  fontWeight="bold"
-                                  style={{ letterSpacing: '0.05em' }}
+                              {/* Label Banner directly above pinpoint on hover */}
+                              {isHovered && (
+                                <g 
+                                  transform="translate(0, -16)"
+                                  className="transition-all duration-300 pointer-events-none"
                                 >
-                                  {pt.title}
-                                </text>
-                              </g>
+                                  <rect
+                                    x={-40}
+                                    y={-10}
+                                    width={80}
+                                    height={15}
+                                    rx={4}
+                                    fill="#1e293b"
+                                    fillOpacity={0.85}
+                                  />
+                                  <text
+                                    y={1.5}
+                                    textAnchor="middle"
+                                    fill="#ffffff"
+                                    fontSize={7.5}
+                                    fontWeight="bold"
+                                    style={{ letterSpacing: '0.05em' }}
+                                  >
+                                    {pt.title}
+                                  </text>
+                                </g>
+                              )}
                             </g>
                           );
                         }}
