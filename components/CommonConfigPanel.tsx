@@ -193,15 +193,7 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold font-mono text-slate-400">kW</span>
               </div>
               <div className="space-y-1.5 pl-1">
-                {demandMode === 'ai' ? (
-                  <div className="text-[11px] text-indigo-500 font-bold flex items-center gap-1.5 animate-in fade-in duration-300">
-                    <span>AI 寻优当前优化值</span>
-                    <span className="text-indigo-700 font-black font-mono">
-                      {(Math.round((parseFloat(initialDemandLimit) || 500) * 1.04 * 10) / 10).toFixed(1)} kW
-                    </span>
-                    <span className="text-slate-400 font-mono pl-2">今日 09:15:00</span>
-                  </div>
-                ) : demandMode === 'dynamic' && (
+                {(demandMode === 'ai' || demandMode === 'dynamic') && (
                   <div className="text-[11px] text-slate-500 font-bold flex items-center gap-1.5">
                     <span>本月最大需量</span>
                     <span className="text-slate-700 font-black font-mono">90 kW</span>
@@ -247,7 +239,7 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
               <div className="space-y-1.5 pl-1">
                 {demandMode === 'ai' ? (
                   <div className="text-[11px] text-indigo-500 font-bold flex items-center gap-1.5 animate-in fade-in duration-300">
-                    <span>AI 寻优当前优化值</span>
+                    <span>AI寻优超限阈值</span>
                     <span className="text-indigo-700 font-black font-mono">
                       {(Math.round((parseFloat(baselineOvercapacity) || 470) * 0.996 * 10) / 10).toFixed(1)} kW
                     </span>

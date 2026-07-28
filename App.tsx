@@ -95,7 +95,7 @@ const App: React.FC = () => {
     if (currentPage === '策略运行') {
       return <StrategySchedulePage2 />;
     }
-    if (currentPage === '主接线图') {
+    if (currentPage === '组态监控') {
       return <MainWiringDiagramPage />;
     }
     if (currentPage === '储能监控') {
@@ -194,37 +194,40 @@ const App: React.FC = () => {
             <div 
               className={`relative h-full flex flex-col transition-all duration-500 ease-in-out ${isLeftPanelOpen ? '' : 'pl-8'} ${isRightPanelOpen ? '' : 'pr-8'}`} 
             >
-              {/* Segmented control for switching diagrams */}
-              <div className="absolute top-6 left-6 z-30 flex items-center gap-1.5 bg-white/90 backdrop-blur-md p-1.5 rounded-full shadow-sm border border-slate-100">
-                <button
-                  onClick={() => setOverviewDiagramType('flow')}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                    overviewDiagramType === 'flow'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
+              {/* Header control bar for diagram switching */}
+              <div className="flex items-center justify-between mb-2.5 bg-white/90 backdrop-blur-md px-3 py-2 rounded-2xl border border-slate-200/80 shadow-sm">
+                <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl">
+                  <button
+                    onClick={() => setOverviewDiagramType('flow')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      overviewDiagramType === 'flow'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    3D光储能流图
+                  </button>
+                  <button
+                    onClick={() => setOverviewDiagramType('wiring')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      overviewDiagramType === 'wiring'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    电气组态监控
+                  </button>
+                </div>
+
+                <button 
+                  onClick={() => setCurrentPage('策略监控')}
+                  className="bg-emerald-50 hover:bg-emerald-100/80 px-4 py-1.5 rounded-xl text-xs font-bold text-emerald-700 transition-all border border-emerald-200/80 flex items-center gap-1 cursor-pointer"
                 >
-                  3D光储能流图
-                </button>
-                <button
-                  onClick={() => setOverviewDiagramType('wiring')}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                    overviewDiagramType === 'wiring'
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  10kV主接线潮流图
+                  点击查看策略监控 &rarr;
                 </button>
               </div>
 
-              <button 
-                onClick={() => setCurrentPage('策略监控')}
-                className="absolute top-6 right-6 z-30 bg-white/90 backdrop-blur px-4 py-2 rounded-full text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition-all shadow-sm border border-emerald-100 flex items-center gap-1 cursor-pointer hover:shadow-md"
-              >
-                点击查看策略监控 &rarr;
-              </button>
-              <div className="h-full flex-1">
+              <div className="h-full flex-1 min-h-0">
                 {overviewDiagramType === 'flow' ? (
                   <EnergyFlowDiagram alarms={alarms} onNavigate={setCurrentPage} />
                 ) : (

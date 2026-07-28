@@ -27,7 +27,8 @@ import {
   Wrench,
   Info,
   Undo,
-  Redo
+  Redo,
+  MousePointer
 } from 'lucide-react';
 
 // Electrical symbols render functions
@@ -1209,31 +1210,6 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         >
-          {/* Status Overlay */}
-          <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm border border-slate-200/80 p-3 rounded-xl shadow-md z-10 max-w-xs">
-            <h4 className="text-slate-800 text-xs font-bold mb-1.5 border-b border-slate-100 pb-1 flex items-center gap-1">
-              <Info className="w-3.5 h-3.5 text-indigo-500" />
-              图例与潮流
-            </h4>
-            <div className="space-y-1 text-[10px]">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-0.5 border-t-2 border-dashed border-[#10b981] flow-line"></div>
-                <span className="text-slate-500">动态虚线：电能传输与负荷潮流</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-slate-500">绿色指示灯：测点数据浮动正常</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-[#ef4444] rounded-sm"></div>
-                <span className="text-slate-500">红色开关：断路器合闸 (Closed)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-[#22c55e] rounded-sm"></div>
-                <span className="text-slate-500">绿色开关：断路器分闸 (Open)</span>
-              </div>
-            </div>
-          </div>
 
           {/* SVG Canvas Area */}
           <div className="flex-1 flex items-center justify-center p-4">
@@ -1883,174 +1859,16 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
               </button>
             </div>
           ) : (
-            /* TELEMETRY POINT SIMULATOR PANEL (WHEN NOTHING IS SELECTED) */
-            <div className="p-4 flex flex-col gap-4">
-              <div className="border-b border-slate-100 pb-2">
-                <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Sliders className="w-4 h-4 text-emerald-500 animate-pulse" />
-                  <span>电网测点实时模拟器</span>
-                </h3>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  拖拽滑块或切换开关，画布上所有与之<b>绑定</b>的监测仪表和潮流动画将实时更新！
-                </p>
+            /* EDIT MODE EMPTY STATE GUIDE PANEL (WHEN NOTHING IS SELECTED IN EDIT MODE) */
+            <div className="p-6 flex flex-col items-center justify-center h-full text-center text-slate-400 gap-3 my-auto">
+              <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shadow-sm">
+                <MousePointer className="w-6 h-6 text-indigo-500" />
               </div>
-
-              {/* Categorised parameters simulation */}
-              <div className="space-y-4">
-                {/* 1. Switch States (开关遥信) */}
-                <div className="space-y-2 border-b border-slate-100 pb-3">
-                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                    <ToggleLeft className="w-3.5 h-3.5 text-indigo-500" /> 配电开关分合闸
-                  </span>
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    {[
-                      { key: 'breaker_1ah1', name: '10kV 进线 AH1' },
-                      { key: 'breaker_1aa1', name: '0.4kV 进线 AA1' },
-                      { key: 'breaker_pv', name: '光伏分支柜' },
-                      { key: 'breaker_bess', name: '储能分支柜' },
-                      { key: 'breaker_ev', name: '充电桩分支柜' },
-                      { key: 'breaker_load', name: '常规负荷柜' }
-                    ].map((sw) => {
-                      const isClosed = telemetry[sw.key]?.value === 'closed';
-                      return (
-                        <div key={sw.key} className="p-1.5 border border-slate-100 rounded-lg bg-slate-50/50 flex flex-col justify-between items-center gap-1 text-center">
-                          <span className="text-[9px] text-slate-500 font-medium truncate w-full">{sw.name}</span>
-                          <button
-                            onClick={() => handleTelemetryChange(sw.key, isClosed ? 'open' : 'closed')}
-                            className={`w-full py-1 rounded text-[9.5px] font-bold transition-all ${
-                              isClosed
-                                ? 'bg-rose-500 text-white shadow-sm shadow-rose-100'
-                                : 'bg-emerald-500 text-white shadow-sm shadow-emerald-100'
-                            }`}
-                          >
-                            {isClosed ? '合闸 (Closed)' : '分闸 (Open)'}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 2. Power Flows & Storage */}
-                <div className="space-y-3 border-b border-slate-100 pb-3">
-                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                    <BatteryCharging className="w-3.5 h-3.5 text-emerald-500" /> 储能与光伏出力调控
-                  </span>
-
-                  {/* BESS Power */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-medium text-slate-600">
-                      <span>储能系统功率 (bess_power)</span>
-                      <span className="font-bold text-emerald-600">{telemetry.bess_power?.value || '0'} kW</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="-500"
-                      max="500"
-                      step="10"
-                      value={parseFloat(telemetry.bess_power?.value || '0')}
-                      onChange={(e) => handleTelemetryChange('bess_power', e.target.value)}
-                      className="w-full accent-emerald-500 cursor-pointer h-1 bg-slate-200 rounded-lg appearance-none"
-                    />
-                    <div className="flex justify-between text-[8px] text-slate-400 px-0.5">
-                      <span>-500kW (充电中)</span>
-                      <span>0kW (静止)</span>
-                      <span>500kW (放电中)</span>
-                    </div>
-                  </div>
-
-                  {/* BESS SOC */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-medium text-slate-600">
-                      <span>储能电池电量 SOC</span>
-                      <span className="font-bold text-emerald-600">{parseFloat(telemetry.bess_soc?.value || '0').toFixed(1)} %</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="0.5"
-                      value={parseFloat(telemetry.bess_soc?.value || '0')}
-                      onChange={(e) => handleTelemetryChange('bess_soc', e.target.value)}
-                      className="w-full accent-emerald-500 cursor-pointer h-1 bg-slate-200 rounded-lg appearance-none"
-                    />
-                  </div>
-
-                  {/* PV1 Power */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-medium text-slate-600">
-                      <span>1#光伏当前发电功率</span>
-                      <span className="font-bold text-blue-600">{telemetry.pv1_power?.value || '0'} kW</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="500"
-                      step="5"
-                      value={parseFloat(telemetry.pv1_power?.value || '0')}
-                      onChange={(e) => handleTelemetryChange('pv1_power', e.target.value)}
-                      className="w-full accent-blue-500 cursor-pointer h-1 bg-slate-200 rounded-lg appearance-none"
-                    />
-                  </div>
-
-                  {/* PV2 Power */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-medium text-slate-600">
-                      <span>2#光伏当前发电功率</span>
-                      <span className="font-bold text-blue-600">{telemetry.pv2_power?.value || '0'} kW</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="500"
-                      step="5"
-                      value={parseFloat(telemetry.pv2_power?.value || '0')}
-                      onChange={(e) => handleTelemetryChange('pv2_power', e.target.value)}
-                      className="w-full accent-blue-500 cursor-pointer h-1 bg-slate-200 rounded-lg appearance-none"
-                    />
-                  </div>
-
-                  {/* PV3 Power */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-medium text-slate-600">
-                      <span>3#光伏当前发电功率</span>
-                      <span className="font-bold text-blue-600">{telemetry.pv3_power?.value || '0'} kW</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="500"
-                      step="5"
-                      value={parseFloat(telemetry.pv3_power?.value || '0')}
-                      onChange={(e) => handleTelemetryChange('pv3_power', e.target.value)}
-                      className="w-full accent-blue-500 cursor-pointer h-1 bg-slate-200 rounded-lg appearance-none"
-                    />
-                  </div>
-                </div>
-
-                {/* 3. Bus Power & Load */}
-                <div className="space-y-3">
-                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                    <Zap className="w-3.5 h-3.5 text-sky-500" /> 绿色制氢系统调控
-                  </span>
-
-                  {/* Hydrogen Power */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-medium text-slate-600">
-                      <span>制氢设备用电功率</span>
-                      <span className="font-bold text-sky-600">{telemetry.h2_power?.value || '0'} kW</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1000"
-                      step="10"
-                      value={parseFloat(telemetry.h2_power?.value || '0')}
-                      onChange={(e) => handleTelemetryChange('h2_power', e.target.value)}
-                      className="w-full accent-sky-500 cursor-pointer h-1 bg-slate-200 rounded-lg appearance-none"
-                    />
-                  </div>
-                </div>
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold text-slate-700">图元与测点组态编辑模式</h4>
+                <p className="text-[11px] text-slate-400 leading-relaxed max-w-[220px] mx-auto">
+                  请在左侧侧边栏中拖拽图元添加至画布，或在组态图中点击选择任意图元，配置其属性与绑定的遥测遥信测点。
+                </p>
               </div>
             </div>
           )}
