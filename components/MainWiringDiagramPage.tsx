@@ -13,23 +13,77 @@ import {
   GitCommit,
   Minus,
   Settings,
-  Play,
   Save,
-  RotateCcw,
   Trash2,
   Plus,
-  ChevronDown,
-  ChevronUp,
-  Check,
   X,
   Sliders,
   Eye,
   Wrench,
-  Info,
   Undo,
   Redo,
-  MousePointer
+  MousePointer,
+  Check,
+  Search,
+  Upload,
+  Copy,
+  FolderPlus,
+  Shield,
+  User,
+  AlertCircle,
+  HelpCircle,
+  Building,
+  CheckCircle2,
+  List,
+  ChevronDown
 } from 'lucide-react';
+import { 
+  getConfigs, 
+  getConfigById, 
+  createConfig, 
+  updateConfig, 
+  updateConfigStatus,
+  deleteConfig, 
+  copyConfig, 
+  SiteConfig 
+} from '../lib/configApi';
+import { 
+  getCurrentRole, 
+  setCurrentRole, 
+  hasButtonPermission, 
+  UserRole 
+} from '../lib/permission';
+
+// Direction Rule Interface
+export interface DirectionRule {
+  mode: 'sign' | 'threshold' | 'enum';
+  positiveThreshold?: number;
+  negativeThreshold?: number;
+  positiveValue?: string;
+  negativeValue?: string;
+}
+
+// Diagram Element Interface
+export interface DiagramElement {
+  id: string;
+  type: 'Grid' | 'Transformer' | 'Meter' | 'Breaker' | 'Inverter' | 'PV' | 'Battery' | 'EVCharger' | 'Load' | 'DataBox' | 'FlowLine' | 'Busbar' | 'Hydrogen' | 'CustomDevice';
+  x?: number;
+  y?: number;
+  x1?: number;
+  y1?: number;
+  x2?: number;
+  y2?: number;
+  label?: string;
+  title?: string;
+  color?: string;
+  active?: boolean;
+  powerPointKey?: string;
+  directionRule?: DirectionRule;
+  customIconUrl?: string;
+  data?: { label: string; value: string; pointKey?: string }[];
+  attachedStartId?: string;
+  attachedEndId?: string;
+}
 
 // Electrical symbols render functions
 const ElectricalSymbols = {
@@ -53,11 +107,11 @@ const ElectricalSymbols = {
       </g>
     );
   },
-  Grid: ({ x, y, label = "10kV 市电网" }: any) => (
+  Grid: ({ x, y, label = "市电网" }: any) => (
     <g transform={`translate(${x}, ${y})`}>
       <circle cx="0" cy="0" r="15" fill="#ffffff" stroke="#10b981" strokeWidth="2.5" />
       <path d="M -10 0 Q -5 -10 0 0 T 10 0" fill="none" stroke="#10b981" strokeWidth="2.5" />
-      <text x="24" y="5" fill="#10b981" fontSize="13" fontWeight="bold">{label}</text>
+      {label && <text x="24" y="5" fill="#10b981" fontSize="13" fontWeight="bold">{label}</text>}
     </g>
   ),
   Meter: ({ x, y, label }: any) => (
@@ -71,12 +125,12 @@ const ElectricalSymbols = {
     <g transform={`translate(${x}, ${y})`}>
       <circle cx="0" cy="-9" r="12" fill="#ffffff" stroke="#3b82f6" strokeWidth="2" />
       <circle cx="0" cy="9" r="12" fill="#ffffff" stroke="#3b82f6" strokeWidth="2" />
-      <text x="24" y="4" fill="#3b82f6" fontSize="11" fontWeight="500">{label}</text>
+      {label && <text x="24" y="4" fill="#3b82f6" fontSize="11" fontWeight="500">{label}</text>}
     </g>
   ),
-  Breaker: ({ x, y, status = 'closed', label }: any) => (
+  Breaker: ({ x, y, label }: any) => (
     <g transform={`translate(${x}, ${y})`}>
-      <rect x="-7" y="-7" width="14" height="14" fill={status === 'closed' ? '#ef4444' : '#22c55e'} stroke="#fff" strokeWidth="1" rx="1" />
+      <rect x="-7" y="-7" width="14" height="14" fill="#ef4444" stroke="#fff" strokeWidth="1" rx="1" />
       {label && <text x="14" y="4" fill="#64748b" fontSize="10">{label}</text>}
     </g>
   ),
@@ -136,6 +190,16 @@ const ElectricalSymbols = {
       <text x="0" y="34" fill="#0284c7" fontSize="11" textAnchor="middle" fontWeight="bold">{label}</text>
     </g>
   ),
+  CustomDevice: ({ x, y, label = "自定义设备", customIconUrl }: any) => (
+    <g transform={`translate(${x}, ${y})`}>
+      {customIconUrl ? (
+        <image href={customIconUrl} x="-18" y="-18" width="36" height="36" />
+      ) : (
+        <rect x="-18" y="-18" width="36" height="36" fill="#ffffff" stroke="#6366f1" strokeWidth="2" rx="6" />
+      )}
+      <text x="0" y="30" fill="#4338ca" fontSize="11" textAnchor="middle" fontWeight="bold">{label}</text>
+    </g>
+  ),
   DataBox: ({ x, y, title, data = [], color = '#3b82f6', active = true }: any) => (
     <g transform={`translate(${x}, ${y})`}>
       <rect x="0" y="0" width="160" height={24 + data.length * 20} fill="#ffffff" stroke={color} strokeWidth="1.5" rx="6" opacity="0.98" className="shadow-sm" />
@@ -152,362 +216,278 @@ const ElectricalSymbols = {
   )
 };
 
-interface DiagramElement {
-  id: string;
-  type: 'Grid' | 'Transformer' | 'Meter' | 'Breaker' | 'Inverter' | 'PV' | 'Battery' | 'EVCharger' | 'Load' | 'DataBox' | 'FlowLine' | 'Busbar' | 'Hydrogen';
-  x?: number;
-  y?: number;
-  x1?: number;
-  y1?: number;
-  x2?: number;
-  y2?: number;
-  label?: string;
-  title?: string;
-  color?: string;
-  active?: boolean;
-  boundPoint?: string;
-  powerPointKey?: string;
-  data?: { label: string; value: string; pointKey?: string }[];
-  attachedStartId?: string;
-  attachedEndId?: string;
-}
-
-const DEFAULT_ELEMENTS: DiagramElement[] = [
-  { id: 'grid-1', type: 'Grid', x: 500, y: 30, label: '10kV 高压进线' },
-  { id: 'meter-1', type: 'Meter', x: 500, y: 100, label: '关口电表' },
-
-  // Busbar
-  { id: 'busbar-10kv', type: 'Busbar', x1: 100, y1: 180, x2: 900, y2: 180, color: '#d946ef', label: '10kV 母线' },
-
-  // Branch 1: 1# PV
-  { id: 'trans-pv1', type: 'Transformer', x: 180, y: 310, label: '10/0.8kV 变压器' },
-  { id: 'dev-pv1', type: 'PV', x: 180, y: 460, label: '1#光伏' },
-
-  // Branch 2: 2# PV
-  { id: 'trans-pv2', type: 'Transformer', x: 340, y: 310, label: '10/0.8kV 变压器' },
-  { id: 'dev-pv2', type: 'PV', x: 340, y: 460, label: '2#光伏' },
-
-  // Branch 3: 3# PV
-  { id: 'trans-pv3', type: 'Transformer', x: 500, y: 310, label: '10/0.8kV 变压器' },
-  { id: 'dev-pv3', type: 'PV', x: 500, y: 460, label: '3#光伏' },
-
-  // Branch 4: BESS
-  { id: 'trans-bess', type: 'Transformer', x: 660, y: 310, label: '10/0.4kV 变压器' },
-  { id: 'dev-bess', type: 'Battery', x: 660, y: 472, label: '储能' },
-
-  // Branch 5: Hydrogen
-  { id: 'trans-h2', type: 'Transformer', x: 820, y: 310, label: '10/0.69kV 变压器' },
-  { id: 'dev-h2', type: 'Hydrogen', x: 820, y: 460, label: '制氢设备' },
-
-  // Connections
-  // Top-level incoming
-  { id: 'conn-top-1', type: 'FlowLine', x1: 500, y1: 45, x2: 500, y2: 88, color: '#d946ef', attachedStartId: 'grid-1', attachedEndId: 'meter-1' },
-  { id: 'conn-top-2', type: 'FlowLine', x1: 500, y1: 112, x2: 500, y2: 180, color: '#d946ef', attachedStartId: 'meter-1' },
-
-  // Branch 1
-  { id: 'conn-pv1-1', type: 'FlowLine', x1: 180, y1: 180, x2: 180, y2: 298, color: '#d946ef', attachedEndId: 'trans-pv1' },
-  { id: 'conn-pv1-2', type: 'FlowLine', x1: 180, y1: 322, x2: 180, y2: 449, color: '#3b82f6', powerPointKey: 'pv1_power', attachedStartId: 'trans-pv1', attachedEndId: 'dev-pv1' },
-
-  // Branch 2
-  { id: 'conn-pv2-1', type: 'FlowLine', x1: 340, y1: 180, x2: 340, y2: 298, color: '#d946ef', attachedEndId: 'trans-pv2' },
-  { id: 'conn-pv2-2', type: 'FlowLine', x1: 340, y1: 322, x2: 340, y2: 449, color: '#3b82f6', powerPointKey: 'pv2_power', attachedStartId: 'trans-pv2', attachedEndId: 'dev-pv2' },
-
-  // Branch 3
-  { id: 'conn-pv3-1', type: 'FlowLine', x1: 500, y1: 180, x2: 500, y2: 298, color: '#d946ef', attachedEndId: 'trans-pv3' },
-  { id: 'conn-pv3-2', type: 'FlowLine', x1: 500, y1: 322, x2: 500, y2: 449, color: '#3b82f6', powerPointKey: 'pv3_power', attachedStartId: 'trans-pv3', attachedEndId: 'dev-pv3' },
-
-  // Branch 4
-  { id: 'conn-bess-1', type: 'FlowLine', x1: 660, y1: 180, x2: 660, y2: 298, color: '#d946ef', attachedEndId: 'trans-bess' },
-  { id: 'conn-bess-2', type: 'FlowLine', x1: 660, y1: 322, x2: 660, y2: 452, color: '#10b981', powerPointKey: 'bess_power', attachedStartId: 'trans-bess', attachedEndId: 'dev-bess' },
-
-  // Branch 5
-  { id: 'conn-h2-1', type: 'FlowLine', x1: 820, y1: 180, x2: 820, y2: 298, color: '#d946ef', attachedEndId: 'trans-h2' },
-  { id: 'conn-h2-2', type: 'FlowLine', x1: 820, y1: 322, x2: 820, y2: 442, color: '#0284c7', powerPointKey: 'h2_power', attachedStartId: 'trans-h2', attachedEndId: 'dev-h2' },
-
-  // Monitoring Boxes
-  {
-    id: 'box-gateway',
-    type: 'DataBox',
-    x: 60,
-    y: 40,
-    title: '10kV 进线关口表监测',
-    color: '#8b5cf6',
-    active: true,
-    data: [
-      { label: '有功功率', value: '450.5 kW', pointKey: 'meter_active_power' },
-      { label: '无功功率', value: '-85 kvar', pointKey: 'meter_reactive_power' },
-      { label: '功率因数', value: '0.98', pointKey: 'meter_pf' },
-      { label: '正向有功电量', value: '45200 kWh', pointKey: 'meter_forward_active' },
-      { label: '反向有功电量', value: '1250 kWh', pointKey: 'meter_reverse_active' }
-    ]
-  },
-  {
-    id: 'box-summary',
-    type: 'DataBox',
-    x: 740,
-    y: 40,
-    title: '微电网潮流汇总',
-    color: '#d946ef',
-    active: true,
-    data: [
-      { label: '光伏总出力', value: '451.5 kW', pointKeys: ['pv1_power', 'pv2_power', 'pv3_power'] },
-      { label: '储能当前功率', value: '-110.0 kW', pointKey: 'bess_power' },
-      { label: '制氢用电功率', value: '250.0 kW', pointKey: 'h2_power' }
-    ]
-  },
-  {
-    id: 'box-pv1',
-    type: 'DataBox',
-    x: 60,
-    y: 535,
-    title: '1#光伏系统',
-    color: '#3b82f6',
-    active: true,
-    data: [
-      { label: '当前功率', value: '120.5 kW', pointKey: 'pv1_power' },
-      { label: '日发电量', value: '540 kWh', pointKey: 'pv1_daily_gen' },
-      { label: '累计发电量', value: '18.4 MWh', pointKey: 'pv1_total_gen' }
-    ]
-  },
-  {
-    id: 'box-pv2',
-    type: 'DataBox',
-    x: 230,
-    y: 535,
-    title: '2#光伏系统',
-    color: '#3b82f6',
-    active: true,
-    data: [
-      { label: '当前功率', value: '150.2 kW', pointKey: 'pv2_power' },
-      { label: '日发电量', value: '680 kWh', pointKey: 'pv2_daily_gen' },
-      { label: '累计发电量', value: '22.1 MWh', pointKey: 'pv2_total_gen' }
-    ]
-  },
-  {
-    id: 'box-pv3',
-    type: 'DataBox',
-    x: 400,
-    y: 535,
-    title: '3#光伏系统',
-    color: '#3b82f6',
-    active: true,
-    data: [
-      { label: '当前功率', value: '180.8 kW', pointKey: 'pv3_power' },
-      { label: '日发电量', value: '810 kWh', pointKey: 'pv3_daily_gen' },
-      { label: '累计发电量', value: '28.6 MWh', pointKey: 'pv3_total_gen' }
-    ]
-  },
-  {
-    id: 'box-bess',
-    type: 'DataBox',
-    x: 570,
-    y: 535,
-    title: '储能系统',
-    color: '#10b981',
-    active: true,
-    data: [
-      { label: '当前功率', value: '-110.0 kW', pointKey: 'bess_power' },
-      { label: '电池SOC', value: '68.5 %', pointKey: 'bess_soc' },
-      { label: '电池SOH', value: '98.8 %', pointKey: 'bess_soh' },
-      { label: '当日充电量', value: '1250 kWh', pointKey: 'bess_charge_daily' },
-      { label: '当日放电量', value: '850 kWh', pointKey: 'bess_discharge_daily' }
-    ]
-  },
-  {
-    id: 'box-h2',
-    type: 'DataBox',
-    x: 740,
-    y: 535,
-    title: '制氢系统',
-    color: '#0284c7',
-    active: true,
-    data: [
-      { label: '用电功率', value: '250.0 kW', pointKey: 'h2_power' },
-      { label: '产氢速率', value: '50.0 Nm³/h', pointKey: 'h2_rate' },
-      { label: '当日产氢量', value: '420 Nm³', pointKey: 'h2_daily_prod' },
-      { label: '当日用电量', value: '2050 kWh', pointKey: 'h2_daily_power' }
-    ]
-  }
-];
-
-const DEFAULT_TELEMETRY = {
-  // Grid / Meter
-  'meter_active_power': { name: '关口表有功功率', value: '450.5', unit: 'kW' },
-  'meter_reactive_power': { name: '关口表无功功率', value: '-85', unit: 'kvar' },
-  'meter_pf': { name: '关口表功率因数', value: '0.98', unit: '' },
-  'meter_forward_active': { name: '正向有功电量', value: '45200', unit: 'kWh' },
-  'meter_reverse_active': { name: '反向有功电量', value: '1250', unit: 'kWh' },
-
-  // PV 1
-  'pv1_power': { name: '1#光伏当前功率', value: '120.5', unit: 'kW' },
-  'pv1_daily_gen': { name: '1#光伏当日发电量', value: '540', unit: 'kWh' },
-  'pv1_total_gen': { name: '1#光伏累计发电量', value: '18.4', unit: 'MWh' },
-
-  // PV 2
-  'pv2_power': { name: '2#光伏当前功率', value: '150.2', unit: 'kW' },
-  'pv2_daily_gen': { name: '2#光伏当日发电量', value: '680', unit: 'kWh' },
-  'pv2_total_gen': { name: '2#光伏累计发电量', value: '22.1', unit: 'MWh' },
-
-  // PV 3
-  'pv3_power': { name: '3#光伏当前功率', value: '180.8', unit: 'kW' },
-  'pv3_daily_gen': { name: '3#光伏当日发电量', value: '810', unit: 'kWh' },
-  'pv3_total_gen': { name: '3#光伏累计发电量', value: '28.6', unit: 'MWh' },
-
-  // BESS
-  'bess_power': { name: '储能系统当前功率', value: '-110.0', unit: 'kW' },
-  'bess_soc': { name: '储能电池 SOC', value: '68.5', unit: '%' },
-  'bess_soh': { name: '储能电池 SOH', value: '98.8', unit: '%' },
-  'bess_charge_daily': { name: '储能当日充电量', value: '1250', unit: 'kWh' },
-  'bess_discharge_daily': { name: '储能当日放电量', value: '850', unit: 'kWh' },
-
-  // Hydrogen
-  'h2_power': { name: '制氢设备用电功率', value: '250.0', unit: 'kW' },
-  'h2_rate': { name: '实时产氢速率', value: '50.0', unit: 'Nm³/h' },
-  'h2_daily_prod': { name: '当日产氢量', value: '420', unit: 'Nm³' },
-  'h2_daily_power': { name: '当日制氢用电量', value: '2050', unit: 'kWh' }
-};
-
+// Standard Asset Library
 const ASSET_LIBRARY = [
   { type: 'Grid', name: '电网', icon: Zap, desc: '接入电力线路' },
   { type: 'Transformer', name: '变压器', icon: Cpu, desc: '降压变配电变压器' },
   { type: 'Meter', name: '关口表', icon: Activity, desc: '多功能关口电能计量表' },
-  { type: 'Breaker', name: '断路器', icon: ToggleLeft, desc: '物理分合闸或断路保护' },
+  { type: 'Breaker', name: '断路器', icon: ToggleLeft, desc: '物理开关断路保护' },
   { type: 'Inverter', name: '变流器', icon: RefreshCw, desc: '双向储能变流器 (PCS)' },
   { type: 'PV', name: '光伏', icon: Sun, desc: '分布式光伏发电组件' },
   { type: 'Battery', name: '储能', icon: BatteryCharging, desc: '高压储能电池系统' },
-  { type: 'Hydrogen', name: '制氢设备', icon: RefreshCw, desc: '绿色制氢碱性/PEM电解槽' },
+  { type: 'Hydrogen', name: '制氢设备', icon: RefreshCw, desc: '电解水制氢设备' },
   { type: 'EVCharger', name: '充电桩', icon: ZapOff, desc: '充电设施终端用电设备' },
   { type: 'Load', name: '常规负荷', icon: ArrowDown, desc: '常规电力消费负荷' },
-  { type: 'DataBox', name: '数据箱', icon: Database, desc: '多行遥测参数监视数据箱' },
+  { type: 'DataBox', name: '数据箱', icon: Database, desc: '遥测参数监视数据箱' },
   { type: 'FlowLine', name: '连线', icon: GitCommit, desc: '带潮流方向的拓扑连接线' },
-  { type: 'Busbar', name: '母线', icon: Minus, desc: '高载流低压侧汇流铜母线' },
+  { type: 'Busbar', name: '母线', icon: Minus, desc: '高载流汇流铜母线' },
 ];
 
-const TELEMETRY_DEVICES = [
+// Device & Telemetry Data Structures (Prompt 10: 1.1 Device binding with name/SN search; 1.2 Site-level metrics)
+export interface DeviceInfo {
+  id: string;
+  name: string;
+  sn: string;
+  category: string;
+  location?: string;
+  points: { key: string; name: string; unit: string }[];
+}
+
+export interface SiteMetricInfo {
+  key: string;
+  name: string;
+  unit: string;
+  category: string;
+}
+
+export const DEVICE_LIST: DeviceInfo[] = [
   {
-    name: '10kV 进线关口表柜',
+    id: 'dev_meter_01',
+    name: '1# 高压关口表',
+    sn: 'METER-2026-001',
+    category: '电能计量仪表',
+    location: '10kV 进线配电房',
     points: [
-      { key: 'meter_active_power', name: '有功功率 (kW)' },
-      { key: 'meter_reactive_power', name: '无功功率 (kvar)' },
-      { key: 'meter_pf', name: '功率因数' },
-      { key: 'meter_forward_active', name: '正向有功电量 (kWh)' },
-      { key: 'meter_reverse_active', name: '反向有功电量 (kWh)' }
+      { key: 'meter_active_power', name: '关口表有功功率', unit: 'kW' },
+      { key: 'meter_reactive_power', name: '关口表无功功率', unit: 'kvar' },
+      { key: 'meter_pf', name: '关口表功率因数', unit: '' },
+      { key: 'meter_forward_active', name: '关口表正向有功电量', unit: 'kWh' },
+      { key: 'meter_reverse_active', name: '关口表反向有功电量', unit: 'kWh' },
     ]
   },
   {
-    name: '1#光伏发电系统',
+    id: 'dev_pv_inv_01',
+    name: '1# 光伏逆变器 (500kW)',
+    sn: 'PV-INV-2026-01',
+    category: '光伏发电设备',
+    location: '1# 厂房屋顶',
     points: [
-      { key: 'pv1_power', name: '当前功率 (kW)' },
-      { key: 'pv1_daily_gen', name: '当日发电量 (kWh)' },
-      { key: 'pv1_total_gen', name: '累计发电量 (MWh)' }
+      { key: 'pv1_power', name: '1# 光伏当前发电功率', unit: 'kW' },
+      { key: 'pv1_daily_gen', name: '1# 光伏当日发电量', unit: 'kWh' },
+      { key: 'pv1_total_gen', name: '1# 光伏累计发电量', unit: 'MWh' },
     ]
   },
   {
-    name: '2#光伏发电系统',
+    id: 'dev_pv_inv_02',
+    name: '2# 光伏逆变器 (500kW)',
+    sn: 'PV-INV-2026-02',
+    category: '光伏发电设备',
+    location: '2# 厂房屋顶',
     points: [
-      { key: 'pv2_power', name: '当前功率 (kW)' },
-      { key: 'pv2_daily_gen', name: '当日发电量 (kWh)' },
-      { key: 'pv2_total_gen', name: '累计发电量 (MWh)' }
+      { key: 'pv2_power', name: '2# 光伏当前发电功率', unit: 'kW' },
+      { key: 'pv2_daily_gen', name: '2# 光伏当日发电量', unit: 'kWh' },
+      { key: 'pv2_total_gen', name: '2# 光伏累计发电量', unit: 'MWh' },
     ]
   },
   {
-    name: '3#光伏发电系统',
+    id: 'dev_pv_inv_03',
+    name: '3# 光伏逆变器 (500kW)',
+    sn: 'PV-INV-2026-03',
+    category: '光伏发电设备',
+    location: '3# 车间屋顶',
     points: [
-      { key: 'pv3_power', name: '当前功率 (kW)' },
-      { key: 'pv3_daily_gen', name: '当日发电量 (kWh)' },
-      { key: 'pv3_total_gen', name: '累计发电量 (MWh)' }
+      { key: 'pv3_power', name: '3# 光伏当前发电功率', unit: 'kW' },
+      { key: 'pv3_daily_gen', name: '3# 光伏当日发电量', unit: 'kWh' },
+      { key: 'pv3_total_gen', name: '3# 光伏累计发电量', unit: 'MWh' },
     ]
   },
   {
-    name: '储能电池系统',
+    id: 'dev_bess_pcs_01',
+    name: '1# 储能变流器 (PCS 1MW)',
+    sn: 'BESS-PCS-2026-A1',
+    category: '储能变流系统',
+    location: '储能集装箱 A 区',
     points: [
-      { key: 'bess_power', name: '输出功率 (kW)' },
-      { key: 'bess_soc', name: '电池 SOC (%)' },
-      { key: 'bess_soh', name: '电池 SOH (%)' },
-      { key: 'bess_charge_daily', name: '当日充电 (kWh)' },
-      { key: 'bess_discharge_daily', name: '当日放电 (kWh)' }
+      { key: 'bess_power', name: '储能当前充放功率', unit: 'kW' },
+      { key: 'bess_pcs_freq', name: 'PCS 输出频率', unit: 'Hz' },
     ]
   },
   {
-    name: '制氢设备系统',
+    id: 'dev_bess_bms_01',
+    name: '1# 储能电池堆 (BMS)',
+    sn: 'BESS-BMS-2026-B1',
+    category: '电池管理系统',
+    location: '储能集装箱 A 区',
     points: [
-      { key: 'h2_power', name: '用电功率 (kW)' },
-      { key: 'h2_rate', name: '实时产氢速率 (Nm³/h)' },
-      { key: 'h2_daily_prod', name: '当日产氢量 (Nm³)' },
-      { key: 'h2_daily_power', name: '当日用电量 (kWh)' }
+      { key: 'bess_soc', name: '储能电池 SOC 电量', unit: '%' },
+      { key: 'bess_soh', name: '储能电池 SOH 健康度', unit: '%' },
+      { key: 'bess_charge_daily', name: '储能当日充电量', unit: 'kWh' },
+      { key: 'bess_discharge_daily', name: '储能当日放电量', unit: 'kWh' },
+    ]
+  },
+  {
+    id: 'dev_h2_01',
+    name: '1# 电解水制氢系统',
+    sn: 'H2-EL-2026-H1',
+    category: '制氢设备',
+    location: '制氢车间',
+    points: [
+      { key: 'h2_power', name: '制氢用电功率', unit: 'kW' },
+      { key: 'h2_rate', name: '实时产氢速率', unit: 'Nm³/h' },
+      { key: 'h2_daily_prod', name: '当日累计产氢量', unit: 'Nm³' },
+      { key: 'h2_daily_power', name: '当日制氢用电量', unit: 'kWh' },
+    ]
+  },
+  {
+    id: 'dev_ev_charger_01',
+    name: '1# 直流快充桩群',
+    sn: 'EV-CHG-2026-C1',
+    category: '充电基础设施',
+    location: '园区地面停车场',
+    points: [
+      { key: 'ev_power', name: '充电桩群总功率', unit: 'kW' },
+      { key: 'ev_daily_energy', name: '充电桩当日充电量', unit: 'kWh' },
+    ]
+  },
+  {
+    id: 'dev_trans_01',
+    name: '1# 车间配电变压器',
+    sn: 'TRANS-2026-T1',
+    category: '变配电设备',
+    location: '变电所 1# 变压器室',
+    points: [
+      { key: 'load_power', name: '厂区常规负荷功率', unit: 'kW' },
+      { key: 'trans_load_rate', name: '变压器实时负荷率', unit: '%' },
     ]
   }
 ];
 
-const TELEMETRY_INDICATORS = [
-  {
-    name: '功率与出力指标 (Active Power / Output)',
-    points: [
-      { key: 'meter_active_power', name: '关口表有功功率 (kW)' },
-      { key: 'pv1_power', name: '1#光伏当前功率 (kW)' },
-      { key: 'pv2_power', name: '2#光伏当前功率 (kW)' },
-      { key: 'pv3_power', name: '3#光伏当前功率 (kW)' },
-      { key: 'bess_power', name: '储能系统当前功率 (kW)' },
-      { key: 'h2_power', name: '制氢设备用电功率 (kW)' }
-    ]
-  },
-  {
-    name: '累计与当日电量指标 (Energy Generation / Usage)',
-    points: [
-      { key: 'meter_forward_active', name: '正向有功电量 (kWh)' },
-      { key: 'meter_reverse_active', name: '反向有功电量 (kWh)' },
-      { key: 'pv1_daily_gen', name: '1#光伏当日发电量 (kWh)' },
-      { key: 'pv1_total_gen', name: '1#光伏累计发电量 (MWh)' },
-      { key: 'pv2_daily_gen', name: '2#光伏当日发电量 (kWh)' },
-      { key: 'pv2_total_gen', name: '2#光伏累计发电量 (MWh)' },
-      { key: 'pv3_daily_gen', name: '3#光伏当日发电量 (kWh)' },
-      { key: 'pv3_total_gen', name: '3#光伏累计发电量 (MWh)' },
-      { key: 'bess_charge_daily', name: '储能当日充电量 (kWh)' },
-      { key: 'bess_discharge_daily', name: '储能当日放电量 (kWh)' },
-      { key: 'h2_daily_power', name: '当日制氢用电量 (kWh)' }
-    ]
-  },
-  {
-    name: '储能电池健康/电量 (Battery SOC / SOH)',
-    points: [
-      { key: 'bess_soc', name: '储能电池 SOC (%)' },
-      { key: 'bess_soh', name: '储能电池 SOH (%)' }
-    ]
-  },
-  {
-    name: '氢能系统运行状态 (Hydrogen Rate / Production)',
-    points: [
-      { key: 'h2_rate', name: '实时产氢速率 (Nm³/h)' },
-      { key: 'h2_daily_prod', name: '当日产氢量 (Nm³)' }
-    ]
-  },
-  {
-    name: '其他电网品质参数 (Other Electrical Metrics)',
-    points: [
-      { key: 'meter_reactive_power', name: '关口表无功功率 (kvar)' },
-      { key: 'meter_pf', name: '关口表功率因数' }
-    ]
-  }
+export const SITE_LEVEL_METRICS: SiteMetricInfo[] = [
+  { key: 'site_active_power', name: '站点关口下网总功率', unit: 'kW', category: '总体负荷与功率' },
+  { key: 'site_pv_total_power', name: '站点光伏实时总发功率', unit: 'kW', category: '总体负荷与功率' },
+  { key: 'site_bess_total_power', name: '站点储能实时充放总功率', unit: 'kW', category: '总体负荷与功率' },
+  { key: 'site_load_total_power', name: '站点全厂负荷总消耗功率', unit: 'kW', category: '总体负荷与功率' },
+  { key: 'site_monthly_max_demand', name: '站点月度最大需量', unit: 'kW', category: '电量与需量' },
+  { key: 'site_daily_green_ratio', name: '站点当日绿电消纳率', unit: '%', category: '电量与需量' },
+  { key: 'site_daily_co2_reduction', name: '站点当日碳减排量', unit: 'kg', category: '能效与碳排' },
+  { key: 'site_overall_revenue', name: '站点当日综合经济收益', unit: '元', category: '能效与碳排' },
+  { key: 'site_transformer_load_rate', name: '站点主变压器平均负载率', unit: '%', category: '设备运行健康' },
 ];
+
+export const UNIFIED_TELEMETRY_POINTS = [
+  ...DEVICE_LIST.flatMap(dev =>
+    dev.points.map(pt => ({
+      key: pt.key,
+      name: `[${dev.name}] ${pt.name}`,
+      unit: pt.unit,
+      category: dev.category
+    }))
+  ),
+  ...SITE_LEVEL_METRICS.map(m => ({
+    key: m.key,
+    name: `[站点指标] ${m.name}`,
+    unit: m.unit,
+    category: m.category
+  }))
+];
+
+export const getPointDisplayName = (pointKey?: string): string => {
+  if (!pointKey) return '-- 未绑定 --';
+  
+  // 1. Search in Device Points
+  for (const dev of DEVICE_LIST) {
+    const pt = dev.points.find(p => p.key === pointKey);
+    if (pt) {
+      return `[${dev.name}] ${pt.name}`;
+    }
+  }
+
+  // 2. Search in Site Level Metrics
+  const sitePt = SITE_LEVEL_METRICS.find(m => m.key === pointKey);
+  if (sitePt) {
+    return `[站点指标] ${sitePt.name}`;
+  }
+
+  return pointKey;
+};
 
 interface MainWiringDiagramPageProps {
   isEmbedded?: boolean;
 }
 
 const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedded = false }) => {
+  // Role & Permissions State
+  const [userRole, setUserRole] = useState<UserRole>(getCurrentRole());
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (isEmbedded) {
-      setIsEditMode(false);
-    }
-  }, [isEmbedded]);
+  // Site Configurations Management State
+  const [configsList, setConfigsList] = useState<SiteConfig[]>([]);
+  const [currentConfigId, setCurrentConfigId] = useState<string>('');
+  const [isLoadingConfigs, setIsLoadingConfigs] = useState<boolean>(true);
+
+  // Modals & Menus state
+  const [showConfigManagerModal, setShowConfigManagerModal] = useState<boolean>(false);
+  const [showConfigActionsMenu, setShowConfigActionsMenu] = useState<boolean>(false);
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [newConfigName, setNewConfigName] = useState<string>('');
+  const [showCustomDeviceModal, setShowCustomDeviceModal] = useState<boolean>(false);
+  const [customDevName, setCustomDevName] = useState<string>('');
+  const [customDevIconUrl, setCustomDevIconUrl] = useState<string>('');
+
+  // Diagram Elements state (Initial state empty array as per Prompt 1)
   const [elements, setElements] = useState<DiagramElement[]>([]);
-  const [telemetry, setTelemetry] = useState<Record<string, { name: string; value: string; unit: string }>>(DEFAULT_TELEMETRY);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showSaveToast, setShowSaveToast] = useState<boolean>(false);
-  const [expandedRowIdx, setExpandedRowIdx] = useState<number | null>(null);
-  const [bindCategoryTab, setBindCategoryTab] = useState<'device' | 'indicator'>('device');
+  const [toastMsg, setToastMsg] = useState<string>('组态已保存至服务端');
+
+  // Telemetry Binding Modal States (Prompt 10)
+  const [showPointModal, setShowPointModal] = useState<boolean>(false);
+  const [pointModalTarget, setPointModalTarget] = useState<{
+    type: 'flowline' | 'databox_row';
+    rowIndex?: number;
+  } | null>(null);
+  const [modalTab, setModalTab] = useState<'device' | 'site'>('device');
+  const [deviceSearchQuery, setDeviceSearchQuery] = useState<string>('');
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('dev_meter_01');
+  const [siteMetricSearchQuery, setSiteMetricSearchQuery] = useState<string>('');
+
+  // Telemetry real-time values (independent random fluctuations as per Prompt 6)
+  const [telemetry, setTelemetry] = useState<Record<string, { name: string; value: string; unit: string }>>({
+    'meter_active_power': { name: '关口表有功功率', value: '450.5', unit: 'kW' },
+    'meter_reactive_power': { name: '关口表无功功率', value: '-85', unit: 'kvar' },
+    'meter_pf': { name: '关口表功率因数', value: '0.98', unit: '' },
+    'meter_forward_active': { name: '关口表正向有功电量', value: '45200', unit: 'kWh' },
+    'meter_reverse_active': { name: '关口表反向有功电量', value: '1250', unit: 'kWh' },
+    'pv1_power': { name: '1#光伏当前发电功率', value: '120.5', unit: 'kW' },
+    'pv1_daily_gen': { name: '1#光伏当日发电量', value: '540', unit: 'kWh' },
+    'pv1_total_gen': { name: '1#光伏累计发电量', value: '18.4', unit: 'MWh' },
+    'pv2_power': { name: '2#光伏当前发电功率', value: '150.2', unit: 'kW' },
+    'pv2_daily_gen': { name: '2#光伏当日发电量', value: '680', unit: 'kWh' },
+    'pv2_total_gen': { name: '2#光伏累计发电量', value: '22.1', unit: 'MWh' },
+    'pv3_power': { name: '3#光伏当前发电功率', value: '180.8', unit: 'kW' },
+    'pv3_daily_gen': { name: '3#光伏当日发电量', value: '810', unit: 'kWh' },
+    'pv3_total_gen': { name: '3#光伏累计发电量', value: '28.6', unit: 'MWh' },
+    'bess_power': { name: '储能系统当前充放功率', value: '-110.0', unit: 'kW' },
+    'bess_soc': { name: '储能电池 SOC 电量', value: '68.5', unit: '%' },
+    'bess_soh': { name: '储能电池 SOH 健康度', value: '98.8', unit: '%' },
+    'bess_charge_daily': { name: '储能当日充电量', value: '1250', unit: 'kWh' },
+    'bess_discharge_daily': { name: '储能当日放电量', value: '850', unit: 'kWh' },
+    'h2_power': { name: '制氢设备用电功率', value: '250.0', unit: 'kW' },
+    'h2_rate': { name: '制氢设备实时产氢速率', value: '50.0', unit: 'Nm³/h' },
+    'h2_daily_prod': { name: '制氢设备当日产氢量', value: '420', unit: 'Nm³' },
+    'h2_daily_power': { name: '制氢设备当日用电量', value: '2050', unit: 'kWh' },
+    'ev_power': { name: '充电桩群总功率', value: '85.0', unit: 'kW' },
+    'load_power': { name: '厂区常规负荷功率', value: '310.0', unit: 'kW' },
+    'site_active_power': { name: '站点关口下网总功率', value: '1280.0', unit: 'kW' },
+    'site_pv_total_power': { name: '站点光伏实时总发功率', value: '451.5', unit: 'kW' },
+    'site_bess_total_power': { name: '站点储能实时充放总功率', value: '-110.0', unit: 'kW' },
+    'site_load_total_power': { name: '站点全厂负荷总消耗功率', value: '645.0', unit: 'kW' },
+    'site_monthly_max_demand': { name: '站点月度最大需量', value: '1520.0', unit: 'kW' },
+    'site_daily_green_ratio': { name: '站点当日绿电消纳率', value: '82.4', unit: '%' },
+    'site_daily_co2_reduction': { name: '站点当日碳减排量', value: '3420', unit: 'kg' },
+    'site_overall_revenue': { name: '站点当日综合经济收益', value: '2860.5', unit: '元' },
+    'site_transformer_load_rate': { name: '站点主变压器平均负载率', value: '58.2', unit: '%' }
+  });
 
   const svgRef = useRef<SVGSVGElement | null>(null);
 
@@ -531,100 +511,202 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
   const [future, setFuture] = useState<DiagramElement[][]>([]);
   const originalElementsRef = useRef<DiagramElement[] | null>(null);
 
-  // Load configuration
+  // Listener for prototype role changes
   useEffect(() => {
-    const saved = localStorage.getItem('wiring_diagram_v2_elements');
-    const savedTel = localStorage.getItem('wiring_diagram_v2_telemetry');
-    if (saved) {
-      try {
-        setElements(JSON.parse(saved));
-      } catch (e) {
-        setElements(DEFAULT_ELEMENTS);
+    const handleRoleChange = () => {
+      const role = getCurrentRole();
+      setUserRole(role);
+      if (role === 'viewer') {
+        setIsEditMode(false);
       }
-    } else {
-      setElements(DEFAULT_ELEMENTS);
-    }
-
-    if (savedTel) {
-      try {
-        setTelemetry(JSON.parse(savedTel));
-      } catch (e) {
-        setTelemetry(DEFAULT_TELEMETRY);
-      }
-    }
-
-    // Reset history
-    setHistory([]);
-    setFuture([]);
+    };
+    window.addEventListener('role_changed', handleRoleChange);
+    return () => window.removeEventListener('role_changed', handleRoleChange);
   }, []);
 
-  // Auto simulation for active monitoring with real-time physical balance calculation
+  // Fetch initial configs list (Prompt 14, 16)
+  useEffect(() => {
+    async function loadInitialData() {
+      setIsLoadingConfigs(true);
+      try {
+        const configs = await getConfigs('site-1');
+        setConfigsList(configs);
+        if (configs.length > 0) {
+          const inUse = configs.find(c => c.status === 'in_use') || configs[0];
+          setCurrentConfigId(inUse.id);
+          setElements(inUse.elements || []);
+        } else {
+          setElements([]);
+        }
+      } catch (err) {
+        console.error('Failed to load site configs', err);
+      } finally {
+        setIsLoadingConfigs(false);
+      }
+    }
+    loadInitialData();
+  }, []);
+
+  // Switch active config
+  const handleSwitchConfig = async (configId: string) => {
+    if (!configId) return;
+    setIsLoadingConfigs(true);
+    try {
+      const config = await getConfigById(configId);
+      if (config) {
+        setCurrentConfigId(config.id);
+        setElements(config.elements || []);
+        setSelectedId(null);
+        setHistory([]);
+        setFuture([]);
+      }
+    } catch (e) {
+      alert('切换组态失败');
+    } finally {
+      setIsLoadingConfigs(false);
+    }
+  };
+
+  // Create new config (Prompt 13)
+  const handleConfirmCreateConfig = async () => {
+    if (!newConfigName.trim()) {
+      alert('请输入组态名称');
+      return;
+    }
+    try {
+      const created = await createConfig(newConfigName.trim());
+      const updatedList = await getConfigs('site-1');
+      setConfigsList(updatedList);
+      setCurrentConfigId(created.id);
+      setElements([]); // New config starts empty as per Prompt 1, 13
+      setShowCreateModal(false);
+      setNewConfigName('');
+      setIsEditMode(true);
+      setSelectedId(null);
+      setHistory([]);
+      setFuture([]);
+    } catch (e) {
+      alert('创建新组态失败');
+    }
+  };
+
+  // Copy current config (Prompt 13)
+  const handleCopyCurrentConfig = async () => {
+    if (!currentConfigId) return;
+    try {
+      const copy = await copyConfig(currentConfigId);
+      const updatedList = await getConfigs('site-1');
+      setConfigsList(updatedList);
+      setCurrentConfigId(copy.id);
+      setElements(copy.elements || []);
+      setToastMsg('已基于当前组态成功创建副本！');
+      setShowSaveToast(true);
+      setTimeout(() => setShowSaveToast(false), 2000);
+    } catch (e: any) {
+      alert(e.message || '复制组态失败');
+    }
+  };
+
+  // Switch status for a specific config or current config
+  const handleStatusChange = async (targetConfigId: string, newStatus: 'in_use' | 'editing' | 'unused') => {
+    if (!targetConfigId) return;
+    const curr = configsList.find(c => c.id === targetConfigId);
+    if (!curr) return;
+    if (curr.status === newStatus) return;
+
+    try {
+      setIsLoadingConfigs(true);
+      await updateConfigStatus(targetConfigId, newStatus);
+      const updatedList = await getConfigs('site-1');
+      setConfigsList(updatedList);
+      
+      const statusText = newStatus === 'in_use' ? '【使用中】主接线' : newStatus === 'editing' ? '【编辑中】' : '【未使用】';
+      setToastMsg(`已将“${curr.name}”成功切换为 ${statusText}`);
+      setShowSaveToast(true);
+      setTimeout(() => setShowSaveToast(false), 2500);
+
+      if (newStatus === 'in_use' && targetConfigId !== currentConfigId) {
+        handleSwitchConfig(targetConfigId);
+      }
+    } catch (e: any) {
+      alert(e.message || '状态切换失败');
+    } finally {
+      setIsLoadingConfigs(false);
+    }
+  };
+
+  // Delete current config or target config
+  const handleDeleteConfigById = async (targetConfigId?: string) => {
+    const idToDelete = targetConfigId || currentConfigId;
+    if (!idToDelete) return;
+    const curr = configsList.find(c => c.id === idToDelete);
+    if (!curr) return;
+
+    const confirmText = curr.status === 'in_use' && configsList.length > 1
+      ? `确定要删除组态“${curr.name}”吗？\n该组态当前处于【使用中】状态，删除后系统将自动把另一个组态切换为【使用中】。`
+      : `确定要删除组态“${curr.name}”吗？此操作无法撤销。`;
+
+    if (window.confirm(confirmText)) {
+      try {
+        setIsLoadingConfigs(true);
+        await deleteConfig(idToDelete);
+        const updatedList = await getConfigs('site-1');
+        setConfigsList(updatedList);
+        setToastMsg(`已成功删除组态“${curr.name}”`);
+        setShowSaveToast(true);
+        setTimeout(() => setShowSaveToast(false), 2500);
+
+        if (idToDelete === currentConfigId) {
+          if (updatedList.length > 0) {
+            const nextConfig = updatedList.find(c => c.status === 'in_use') || updatedList[0];
+            setCurrentConfigId(nextConfig.id);
+            setElements(nextConfig.elements || []);
+          } else {
+            setCurrentConfigId('');
+            setElements([]);
+          }
+        }
+      } catch (e: any) {
+        alert(e.message || '删除失败');
+      } finally {
+        setIsLoadingConfigs(false);
+      }
+    }
+  };
+
+  // Save current config to mock backend API (Prompt 14)
+  const handleSaveToBackend = async () => {
+    if (!currentConfigId) return;
+    try {
+      await updateConfig(currentConfigId, { elements });
+      const updatedList = await getConfigs('site-1');
+      setConfigsList(updatedList);
+      setToastMsg('组态已成功保存至服务端！');
+      setShowSaveToast(true);
+      setTimeout(() => setShowSaveToast(false), 2000);
+    } catch (e) {
+      alert('保存失败，请重试');
+    }
+  };
+
+  // Telemetry Auto Simulation: Independent fluctuations (Prompt 6)
   useEffect(() => {
     if (isEditMode) return;
     const interval = setInterval(() => {
       setTelemetry(prev => {
         const next = { ...prev };
-        
-        // Fluctuate PV power slightly
-        if (next['pv1_power']) {
-          const val = parseFloat(next['pv1_power'].value);
-          const delta = (Math.random() - 0.5) * 2;
-          next['pv1_power'].value = Math.max(10, parseFloat((val + delta).toFixed(1))).toString();
-        }
-        if (next['pv2_power']) {
-          const val = parseFloat(next['pv2_power'].value);
-          const delta = (Math.random() - 0.5) * 2.5;
-          next['pv2_power'].value = Math.max(10, parseFloat((val + delta).toFixed(1))).toString();
-        }
-        if (next['pv3_power']) {
-          const val = parseFloat(next['pv3_power'].value);
-          const delta = (Math.random() - 0.5) * 3;
-          next['pv3_power'].value = Math.max(10, parseFloat((val + delta).toFixed(1))).toString();
-        }
-
-        // Fluctuate BESS power slightly
-        if (next['bess_power']) {
-          const val = parseFloat(next['bess_power'].value);
-          const delta = (Math.random() - 0.5) * 1.5;
-          next['bess_power'].value = parseFloat((val + delta).toFixed(1)).toString();
-          
-          // Slowly adjust SOC based on power (negative means charging, positive means discharging)
-          if (next['bess_soc']) {
-            const soc = parseFloat(next['bess_soc'].value);
-            const socDelta = -val * 0.0001; 
-            next['bess_soc'].value = Math.max(0, Math.min(100, parseFloat((soc + socDelta).toFixed(3)))).toString();
+        Object.keys(next).forEach(k => {
+          const item = next[k];
+          const val = parseFloat(item.value);
+          if (!isNaN(val)) {
+            // Independent random fluctuation
+            const delta = (Math.random() - 0.5) * (Math.abs(val) * 0.02 || 1);
+            next[k] = {
+              ...item,
+              value: (val + delta).toFixed(1)
+            };
           }
-        }
-
-        // Fluctuate Hydrogen power and rate
-        if (next['h2_power']) {
-          const val = parseFloat(next['h2_power'].value);
-          const delta = (Math.random() - 0.5) * 4;
-          const nextPower = Math.max(10, parseFloat((val + delta).toFixed(1)));
-          next['h2_power'].value = nextPower.toString();
-          
-          // Rate is proportional to power
-          if (next['h2_rate']) {
-            next['h2_rate'].value = (nextPower * 0.2).toFixed(1);
-          }
-        }
-
-        // Gateway power is sum of devices (PV output - BESS output - H2 load)
-        // PV is generation (positive), BESS negative is charging (load), H2 load is positive (load)
-        if (next['meter_active_power'] && next['pv1_power'] && next['pv2_power'] && next['pv3_power'] && next['bess_power'] && next['h2_power']) {
-          const pvSum = parseFloat(next['pv1_power'].value) + parseFloat(next['pv2_power'].value) + parseFloat(next['pv3_power'].value);
-          const bess = parseFloat(next['bess_power'].value); // negative if charging
-          const h2 = parseFloat(next['h2_power'].value);
-          
-          // Net grid power
-          const netGrid = pvSum + bess - h2;
-          next['meter_active_power'].value = netGrid.toFixed(1);
-          
-          if (next['meter_pf']) {
-            next['meter_pf'].value = (0.95 + Math.random() * 0.04).toFixed(2);
-          }
-        }
-
+        });
         return next;
       });
     }, 3000);
@@ -659,55 +741,48 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
     setSelectedId(null);
   };
 
-  const handleSave = () => {
-    localStorage.setItem('wiring_diagram_v2_elements', JSON.stringify(elements));
-    localStorage.setItem('wiring_diagram_v2_telemetry', JSON.stringify(telemetry));
-    setShowSaveToast(true);
-    setTimeout(() => setShowSaveToast(false), 2000);
-  };
-
-  const handleReset = () => {
-    if (window.confirm('确定要恢复到默认的河北国杉10kV主接线图吗？自定义修改将被覆盖。')) {
-      localStorage.removeItem('wiring_diagram_v2_elements');
-      localStorage.removeItem('wiring_diagram_v2_telemetry');
-      setElements(DEFAULT_ELEMENTS);
-      setTelemetry(DEFAULT_TELEMETRY);
-      setSelectedId(null);
-      setHistory([]);
-      setFuture([]);
-    }
-  };
-
-  const handleClear = () => {
-    if (window.confirm('确定要清空画布吗？您可以重新添加设备素材重新组态连线。')) {
+  const handleClearCanvas = () => {
+    if (window.confirm('确定要清空当前画布中的所有元件吗？')) {
       pushToHistory(elements);
       setElements([]);
       setSelectedId(null);
     }
   };
 
-  const handleAddElement = (type: string) => {
+  // Add Element at Canvas Center with Offset (Prompt 11)
+  const handleAddElement = (type: string, customIcon?: string, customLabel?: string) => {
     const id = `${type.toLowerCase()}-${Date.now()}`;
     let newEl: DiagramElement;
+
+    // Center calculation logic
+    let cx = 500;
+    let cy = 300;
+
+    // Offset if near existing center
+    while (elements.some(e => e.x !== undefined && e.y !== undefined && Math.abs(e.x - cx) < 15 && Math.abs(e.y - cy) < 15)) {
+      cx += 20;
+      cy += 20;
+    }
 
     if (type === 'FlowLine' || type === 'Busbar') {
       newEl = {
         id,
         type: type as any,
-        x1: 500,
-        y1: 400,
-        x2: 700,
-        y2: 400,
+        x1: cx - 100,
+        y1: cy,
+        x2: cx + 100,
+        y2: cy,
         color: type === 'Busbar' ? '#94a3b8' : '#10b981',
         label: type === 'Busbar' ? '母线' : undefined,
-        powerPointKey: ''
+        powerPointKey: '',
+        directionRule: { mode: 'sign' }
       };
     } else if (type === 'DataBox') {
       newEl = {
         id,
         type: 'DataBox',
-        x: 520,
-        y: 350,
+        x: cx - 80,
+        y: cy - 40,
         title: '数据监控',
         color: '#3b82f6',
         active: true,
@@ -716,19 +791,52 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
           { label: '电压', value: '400 V', pointKey: '' }
         ]
       };
+    } else if (type === 'CustomDevice') {
+      newEl = {
+        id,
+        type: 'CustomDevice',
+        x: cx,
+        y: cy,
+        label: customLabel || '自定义设备',
+        customIconUrl: customIcon
+      };
     } else {
       newEl = {
         id,
         type: type as any,
-        x: 550,
-        y: 380,
+        x: cx,
+        y: cy,
         label: type === 'Breaker' ? '断路器' : type === 'Transformer' ? '变压器' : type === 'Inverter' ? '变流器' : type === 'Grid' ? '电网' : type === 'Meter' ? '关口表' : ''
       };
     }
 
     pushToHistory(elements);
     setElements(prev => [...prev, newEl]);
-    setSelectedId(id);
+    setSelectedId(id); // Auto select new element (Prompt 11)
+  };
+
+  // Upload Custom Icon & Add Custom Device (Prompt 10)
+  const handleCustomIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        const result = uploadEvent.target?.result as string;
+        setCustomDevIconUrl(result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleConfirmAddCustomDevice = () => {
+    if (!customDevName.trim()) {
+      alert('请输入设备名称');
+      return;
+    }
+    handleAddElement('CustomDevice', customDevIconUrl, customDevName.trim());
+    setShowCustomDeviceModal(false);
+    setCustomDevName('');
+    setCustomDevIconUrl('');
   };
 
   const handleRemoveElement = (id: string) => {
@@ -822,14 +930,12 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
     const svgRect = svgRef.current?.getBoundingClientRect();
     if (!svgRect) return;
 
-    // Viewbox is fixed 1200x850
     const scaleX = 1200 / svgRect.width;
     const scaleY = 850 / svgRect.height;
 
     const deltaX = Math.round(dx * scaleX);
     const deltaY = Math.round(dy * scaleY);
 
-    // Snap to 5px grid
     const snapX = Math.round(deltaX / 5) * 5;
     const snapY = Math.round(deltaY / 5) * 5;
 
@@ -844,7 +950,6 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
       let snapCandidate: { x: number; y: number; name: string; targetId?: string } | null = null;
       let closestDist = Infinity;
 
-      // 1. Try snapping to standard components (highest priority)
       elements.forEach(el => {
         if (el.id === dragging.id) return;
         if (el.x !== undefined && el.y !== undefined) {
@@ -856,7 +961,6 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
         }
       });
 
-      // 2. Try snapping to other lines' endpoints (second priority)
       if (!snapCandidate) {
         elements.forEach(el => {
           if (el.id === dragging.id) return;
@@ -879,51 +983,10 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
         });
       }
 
-      // 3. Try snapping to busbar lines (third priority)
-      if (!snapCandidate) {
-        elements.forEach(el => {
-          if (el.id === dragging.id) return;
-          if (el.type === 'Busbar' && el.x1 !== undefined && el.y1 !== undefined && el.x2 !== undefined && el.y2 !== undefined) {
-            // Horizontal busbar
-            if (Math.abs(el.y1 - el.y2) < 2) {
-              if (Math.abs(rawTargetY - el.y1) < 20 && rawTargetX >= Math.min(el.x1, el.x2) - 15 && rawTargetX <= Math.max(el.x1, el.x2) + 15) {
-                snapCandidate = { x: rawTargetX, y: el.y1, name: el.label || '主母排' };
-              }
-            }
-            // Vertical busbar
-            else if (Math.abs(el.x1 - el.x2) < 2) {
-              if (Math.abs(rawTargetX - el.x1) < 20 && rawTargetY >= Math.min(el.y1, el.y2) - 15 && rawTargetY <= Math.max(el.y1, el.y2) + 15) {
-                snapCandidate = { x: el.x1, y: rawTargetY, name: el.label || '主母排' };
-              }
-            }
-          }
-        });
-      }
-
       if (snapCandidate) {
         targetX = snapCandidate.x;
         targetY = snapCandidate.y;
         activeSnapObj = snapCandidate;
-      } else {
-        // 4. Try horizontal/vertical self-alignment (lowest priority, only if no other snaps happened)
-        const currentEl = elements.find(el => el.id === dragging.id);
-        if (currentEl) {
-          if (dragging.type === 'line-start' && currentEl.x2 !== undefined && currentEl.y2 !== undefined) {
-            if (Math.abs(rawTargetX - currentEl.x2) < 15) {
-              targetX = currentEl.x2;
-            }
-            if (Math.abs(rawTargetY - currentEl.y2) < 15) {
-              targetY = currentEl.y2;
-            }
-          } else if (dragging.type === 'line-end' && currentEl.x1 !== undefined && currentEl.y1 !== undefined) {
-            if (Math.abs(rawTargetX - currentEl.x1) < 15) {
-              targetX = currentEl.x1;
-            }
-            if (Math.abs(rawTargetY - currentEl.y1) < 15) {
-              targetY = currentEl.y1;
-            }
-          }
-        }
       }
 
       setActiveSnap(activeSnapObj);
@@ -956,12 +1019,10 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
         elements.forEach(el => {
           if (el.id === dragging.id) return;
           if (el.x !== undefined && el.y !== undefined) {
-            // Check X alignment (vertical guide line at el.x)
             if (Math.abs(el.x - targetX) < 10) {
               targetX = el.x;
               alignmentGuides.push({ type: 'vertical', value: el.x });
             }
-            // Check Y alignment (horizontal guide line at el.y)
             if (Math.abs(el.y - targetY) < 10) {
               targetY = el.y;
               alignmentGuides.push({ type: 'horizontal', value: el.y });
@@ -973,7 +1034,6 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
       setActiveAlignmentLines(alignmentGuides);
 
       setElements(prev => {
-        // 1. Move the dragged item first
         const nextElements = prev.map(el => {
           if (el.id !== dragging.id) return el;
           if (dragging.type === 'component') {
@@ -996,7 +1056,6 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
           return el;
         });
 
-        // 2. If a component was dragged, update any attached lines
         if (dragging.type === 'component') {
           return nextElements.map(el => {
             if (el.type === 'FlowLine' || el.type === 'Busbar') {
@@ -1042,76 +1101,169 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
     }
   };
 
-  // Telemetry updates
-  const handleTelemetryChange = (key: string, value: string) => {
-    setTelemetry(prev => ({
-      ...prev,
-      [key]: { ...prev[key], value }
-    }));
-  };
-
   const selectedElement = elements.find(el => el.id === selectedId);
+  const currentConfig = configsList.find(c => c.id === currentConfigId);
 
   return (
     <div className={`flex flex-col h-full bg-slate-50 overflow-hidden ${isEmbedded ? 'rounded-[2.5rem] border border-slate-50 p-6' : 'rounded-2xl shadow-lg border border-slate-200'}`} id="wiring-diagram-page">
-      {/* Dynamic Saving Notification */}
+      {/* Toast Alert */}
       {showSaveToast && (
         <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white font-bold text-sm py-2.5 px-6 rounded-full shadow-2xl flex items-center gap-2 z-50 animate-bounce">
           <Check className="w-4 h-4 text-emerald-400" />
-          <span>电气拓扑组态与测点数据保存成功!</span>
+          <span>{toastMsg}</span>
         </div>
       )}
 
-      {/* Top Controls Header */}
+      {/* Top Header Controls Bar */}
       {!isEmbedded && (
-        <div className="p-4 bg-white border-b border-slate-200 flex flex-wrap justify-between items-center gap-4">
-          <div>
-            <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <Zap className="w-5 h-5 text-indigo-600 fill-indigo-100" />
-              <span>10kV/0.4kV 电网主接线拓扑与测点配置系统</span>
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">河北国杉用户侧储能微电网主接线组态工作台</p>
-          </div>
+        <div className="p-3.5 bg-white border-b border-slate-200 flex flex-wrap justify-between items-center gap-3">
+          {/* Left: Site Configurations Selector & Simplified Icon Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Unified Capsule: Config Picker + Status Switcher */}
+            <div className="flex items-center gap-1.5 bg-slate-100/90 p-1.5 rounded-xl border border-slate-200">
+              <FolderPlus className="w-4 h-4 text-indigo-600 ml-1 shrink-0" />
+              <select
+                value={currentConfigId}
+                onChange={(e) => handleSwitchConfig(e.target.value)}
+                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:outline-indigo-500 shadow-2xs max-w-[210px] truncate cursor-pointer"
+              >
+                {configsList.map(cfg => (
+                  <option key={cfg.id} value={cfg.id}>
+                    {cfg.name} {cfg.status === 'in_use' ? ' (🟢使用中)' : cfg.status === 'editing' ? ' (🟡编辑中)' : ' (⚪未使用)'}
+                  </option>
+                ))}
+              </select>
 
-          {/* Action controls */}
-          <div className="flex items-center gap-3">
-            {/* Mode switch */}
-            <div className="bg-slate-100 p-1 rounded-xl border border-slate-200 flex">
+              {/* Compact Status Switch Selector */}
+              {currentConfig && (
+                <select
+                  value={currentConfig.status}
+                  onChange={(e) => handleStatusChange(currentConfig.id, e.target.value as 'in_use' | 'editing' | 'unused')}
+                  className={`text-xs font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-hidden transition-all ${
+                    currentConfig.status === 'in_use'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : currentConfig.status === 'editing'
+                      ? 'bg-amber-100 text-amber-800 border-amber-300'
+                      : 'bg-slate-200 text-slate-700 border-slate-300'
+                  }`}
+                  title="点击直接切换当前组态的使用状态"
+                >
+                  <option value="in_use">🟢 使用中</option>
+                  <option value="editing">🟡 编辑中</option>
+                  <option value="unused">⚪ 未使用</option>
+                </select>
+              )}
+            </div>
+
+            {/* Icon Button Group: Create, Copy, Delete, List */}
+            <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200/80">
+              {/* 新建图标按钮 */}
+              {hasButtonPermission('config_create') && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-2xs cursor-pointer"
+                  title="新建空白组态"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* 复制图标按钮 */}
               <button
-                onClick={() => { setIsEditMode(false); setSelectedId(null); }}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  !isEditMode
-                    ? 'bg-white text-slate-800 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
+                onClick={handleCopyCurrentConfig}
+                disabled={!currentConfigId}
+                className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg transition-all cursor-pointer disabled:opacity-40"
+                title="复制当前组态副本"
               >
-                <Eye className="w-3.5 h-3.5" />
-                运行监视
+                <Copy className="w-4 h-4 text-slate-600" />
               </button>
+
+              {/* 删除图标按钮 */}
+              {hasButtonPermission('config_delete') && (
+                <button
+                  onClick={() => handleDeleteConfigById(currentConfigId)}
+                  disabled={!currentConfigId}
+                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg transition-all cursor-pointer disabled:opacity-40"
+                  title="删除当前组态"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* 列表管理图标按钮 */}
               <button
-                onClick={() => setIsEditMode(true)}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  isEditMode
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
+                onClick={() => setShowConfigManagerModal(true)}
+                className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg transition-all cursor-pointer flex items-center gap-1 text-xs font-bold"
+                title="查看与管理全站组态列表"
               >
-                <Wrench className="w-3.5 h-3.5" />
-                拓扑编辑
+                <List className="w-4 h-4" />
+                <span className="text-[10px] text-indigo-600 font-mono">({configsList.length})</span>
               </button>
             </div>
+          </div>
+
+          {/* Right: Prototype Role Switcher & Edit Controls */}
+          <div className="flex items-center gap-3">
+            {/* Prototype Role Switcher */}
+            <div className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200 text-xs font-bold text-slate-600">
+              <Shield className="w-3.5 h-3.5 text-indigo-500" />
+              <span className="text-[11px]">原型角色:</span>
+              <button
+                onClick={() => setCurrentRole(userRole === 'admin' ? 'viewer' : 'admin')}
+                className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition-all ${
+                  userRole === 'admin'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                }`}
+              >
+                {userRole === 'admin' ? '系统管理员 (Admin)' : '普通观察员 (Viewer)'}
+              </button>
+            </div>
+
+            {/* View / Edit Mode Switch (Controlled by config_edit permission) */}
+            {hasButtonPermission('config_edit') ? (
+              <div className="bg-slate-100 p-1 rounded-xl border border-slate-200 flex">
+                <button
+                  onClick={() => { setIsEditMode(false); setSelectedId(null); }}
+                  className={`flex items-center gap-1.5 px-3.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    !isEditMode
+                      ? 'bg-white text-slate-800 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  运行监视
+                </button>
+                <button
+                  onClick={() => setIsEditMode(true)}
+                  className={`flex items-center gap-1.5 px-3.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    isEditMode
+                      ? 'bg-indigo-600 text-white shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <Wrench className="w-3.5 h-3.5" />
+                  拓扑编辑
+                </button>
+              </div>
+            ) : (
+              <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200 flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5 text-slate-400" />
+                仅监视权限
+              </span>
+            )}
 
             {isEditMode && (
               <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
                 <button
                   onClick={handleUndo}
                   disabled={history.length === 0}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
                     history.length > 0
                       ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 cursor-pointer'
                       : 'bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed'
                   }`}
-                  title="撤销最后一步操作"
+                  title="撤销"
                 >
                   <Undo className="w-3.5 h-3.5" />
                   撤销 ({history.length})
@@ -1119,12 +1271,12 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
                 <button
                   onClick={handleRedo}
                   disabled={future.length === 0}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
                     future.length > 0
                       ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 cursor-pointer'
                       : 'bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed'
                   }`}
-                  title="重做撤销的操作"
+                  title="重做"
                 >
                   <Redo className="w-3.5 h-3.5" />
                   重做
@@ -1132,29 +1284,24 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
 
                 <div className="h-5 w-px bg-slate-200 mx-1" />
 
+                {hasButtonPermission('config_save') && (
+                  <button
+                    onClick={handleSaveToBackend}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 px-3.5 py-1 rounded-lg text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                    title="保存组态至服务端"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    保存组态
+                  </button>
+                )}
+
                 <button
-                  onClick={handleSave}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors"
-                  title="保存电气图布局及测点绑定"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  保存
-                </button>
-                <button
-                  onClick={handleReset}
-                  className="bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                  title="恢复默认接线图"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  重置
-                </button>
-                <button
-                  onClick={handleClear}
-                  className="bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                  title="清空所有元素"
+                  onClick={handleClearCanvas}
+                  className="bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  title="清空当前画布"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  清空
+                  清空画布
                 </button>
               </div>
             )}
@@ -1162,33 +1309,43 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
         </div>
       )}
 
+      {/* Main Working Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* LEFT PANEL: Asset Library (素材库) */}
+        {/* LEFT PANEL: Asset Library (素材库 - Clean click to add without hover tooltip as per Prompt 12) */}
         {isEditMode && (
           <div className="w-60 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
-            <div className="p-3 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Database className="w-3.5 h-3.5 text-indigo-500" />
-                素材库 / 组态设备
-              </h3>
-              <p className="text-[10px] text-slate-400 mt-0.5">点击元件卡片将其添加到当前画布</p>
+            <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+              <div>
+                <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-indigo-500" />
+                  元件素材库
+                </h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">点击元件直接添加至画布中央</p>
+              </div>
+              <button
+                onClick={() => setShowCustomDeviceModal(true)}
+                className="text-[10px] text-indigo-600 font-bold bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg border border-indigo-200 flex items-center gap-0.5 cursor-pointer"
+                title="上传或自定义新设备"
+              >
+                <Plus className="w-3 h-3" /> 自定义
+              </button>
             </div>
 
-            <div className="p-3 grid grid-cols-1 gap-2">
+            <div className="p-2.5 grid grid-cols-1 gap-1.5">
               {ASSET_LIBRARY.map((item) => {
                 const IconComponent = item.icon;
                 return (
                   <button
                     key={item.type}
                     onClick={() => handleAddElement(item.type)}
-                    className="flex items-start gap-2.5 p-2 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 text-left transition-all group"
+                    className="flex items-center gap-2.5 p-2 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 text-left transition-all cursor-pointer group"
                   >
                     <div className="p-2 rounded-lg bg-slate-50 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-all shadow-inner">
                       <IconComponent className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-bold text-slate-700 group-hover:text-indigo-900">{item.name}</div>
-                      <div className="text-[9px] text-slate-400 truncate mt-0.5">{item.desc}</div>
+                      <div className="text-[9.5px] text-slate-400 truncate mt-0.5">{item.desc}</div>
                     </div>
                   </button>
                 );
@@ -1197,7 +1354,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
           </div>
         )}
 
-        {/* CENTER: Canvas */}
+        {/* CENTER: Canvas or Empty States */}
         <div 
           className={`flex-1 relative overflow-hidden flex flex-col ${
             isEditMode ? 'edit-grid bg-slate-100/50' : 'bg-slate-50'
@@ -1210,671 +1367,1208 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         >
+          {/* Loading Skeleton */}
+          {isLoadingConfigs ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3">
+              <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin" />
+              <p className="text-xs font-bold text-slate-500">正在同步服务端组态数据...</p>
+            </div>
+          ) : configsList.length === 0 ? (
+            /* Prompt 16: No Configurations Exist Empty State */
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center my-auto">
+              <div className="w-20 h-20 rounded-3xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-md mb-4">
+                <FolderPlus className="w-10 h-10" />
+              </div>
+              <h3 className="text-base font-bold text-slate-800 mb-1">暂无组态，请创建第一个组态</h3>
+              <p className="text-xs text-slate-500 max-w-sm mb-5 leading-relaxed">
+                当前站点下尚未创建任何电气拓扑组态，您可以点击下方按钮创建一个全新的空白组态项目。
+              </p>
+              {hasButtonPermission('config_create') && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  新建第一个组态
+                </button>
+              )}
+            </div>
+          ) : elements.length === 0 ? (
+            /* Prompt 1: Config exists but elements array is empty */
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center my-auto border-2 border-dashed border-slate-200 rounded-3xl m-6 bg-white/60">
+              <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+                <MousePointer className="w-8 h-8 text-slate-400" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-700 mb-1">请从左侧素材库添加元件或选择已有组态</h3>
+              <p className="text-xs text-slate-400 max-w-sm">
+                当前组态画布为空白状态。请点击左侧素材库卡片将电气元件添加至画布，或通过顶部菜单切换组态。
+              </p>
+            </div>
+          ) : (
+            /* Canvas Render Area */
+            <div className="flex-1 flex items-center justify-center p-4">
+              <svg
+                ref={svgRef}
+                viewBox="0 0 1200 850"
+                preserveAspectRatio="xMidYMid meet"
+                className="max-w-full max-h-full drop-shadow-md select-none bg-white rounded-2xl border border-slate-200"
+                onClick={() => setSelectedId(null)}
+              >
+                <g transform="translate(100, 30)">
+                  <style>
+                    {`
+                      @keyframes flow { to { stroke-dashoffset: -16; } }
+                      .flow-line { animation: flow 0.8s linear infinite; }
+                      @keyframes bus-glow { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.35; } }
+                      .bus-glow { animation: bus-glow 2.5s ease-in-out infinite; }
+                    `}
+                  </style>
 
-          {/* SVG Canvas Area */}
-          <div className="flex-1 flex items-center justify-center p-4">
-            <svg
-              ref={svgRef}
-              viewBox="0 0 1200 850"
-              preserveAspectRatio="xMidYMid meet"
-              className="max-w-full max-h-full drop-shadow-md select-none bg-white rounded-2xl border border-slate-200"
-              onClick={() => setSelectedId(null)}
-            >
-              <g transform="translate(100, 30)">
-                <style>
-                  {`
-                    @keyframes flow { to { stroke-dashoffset: -16; } }
-                    .flow-line { animation: flow 0.8s linear infinite; }
-                    @keyframes bus-glow { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.35; } }
-                    .bus-glow { animation: bus-glow 2.5s ease-in-out infinite; }
-                  `}
-                </style>
+                  {/* Render FlowLines first */}
+                  {elements.filter(el => el.type === 'FlowLine').map(el => {
+                    const isSelected = selectedId === el.id;
+                    
+                    // Direction Rule Evaluation (Prompt 8)
+                    let isStopped = false;
+                    let isReversed = false;
+                    if (el.powerPointKey && telemetry[el.powerPointKey]) {
+                      const telItem = telemetry[el.powerPointKey];
+                      const val = parseFloat(telItem.value);
+                      const rule = el.directionRule || { mode: 'sign' };
 
-                {/* Render Connections first so they remain underneath */}
-                {elements.filter(el => el.type === 'FlowLine').map(el => {
-                  const isSelected = selectedId === el.id;
-                  
-                  // Resolve power for flow direction
-                  let isStopped = false;
-                  let isReversed = false;
-                  if (el.powerPointKey && telemetry[el.powerPointKey]) {
-                    const powerVal = parseFloat(telemetry[el.powerPointKey].value);
-                    if (isNaN(powerVal) || powerVal === 0) {
-                      isStopped = true;
-                    } else if (powerVal < 0) {
-                      isReversed = true;
-                    }
-                  }
-
-                  return (
-                    <g 
-                      key={el.id}
-                      onClick={(e) => { e.stopPropagation(); setSelectedId(el.id); }}
-                      onMouseDown={(e) => handleMouseDownLineWhole(e, el.id, el.x1 || 0, el.y1 || 0, el.x2 || 0, el.y2 || 0)}
-                      className={isEditMode ? "cursor-move group" : "group"}
-                    >
-                      <line 
-                        x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} 
-                        stroke="transparent" strokeWidth="12" 
-                        className="cursor-pointer"
-                      />
-                      <ElectricalSymbols.FlowLine 
-                        x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} 
-                        color={el.color} 
-                        isStopped={isStopped} 
-                        isReversed={isReversed} 
-                      />
-
-                      {/* Endpoint adjustment handles in edit mode */}
-                      {isSelected && isEditMode && (
-                        <g>
-                          <line x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="3 3" />
-                          <circle 
-                            cx={el.x1} cy={el.y1} r="6.5" 
-                            fill="#3b82f6" stroke="#ffffff" strokeWidth="1.5" 
-                            className="cursor-pointer hover:scale-125 transition-transform"
-                            onMouseDown={(e) => handleMouseDownAnchor(e, el.id, 'line-start', el.x1 || 0, el.y1 || 0)}
-                          />
-                          <circle 
-                            cx={el.x2} cy={el.y2} r="6.5" 
-                            fill="#3b82f6" stroke="#ffffff" strokeWidth="1.5" 
-                            className="cursor-pointer hover:scale-125 transition-transform"
-                            onMouseDown={(e) => handleMouseDownAnchor(e, el.id, 'line-end', el.x2 || 0, el.y2 || 0)}
-                          />
-                        </g>
-                      )}
-                    </g>
-                  );
-                })}
-
-                {/* Render Busbars */}
-                {elements.filter(el => el.type === 'Busbar').map(el => {
-                  const isSelected = selectedId === el.id;
-                  return (
-                    <g 
-                      key={el.id}
-                      onClick={(e) => { e.stopPropagation(); setSelectedId(el.id); }}
-                      onMouseDown={(e) => handleMouseDownLineWhole(e, el.id, el.x1 || 0, el.y1 || 0, el.x2 || 0, el.y2 || 0)}
-                      className={isEditMode ? "cursor-move" : ""}
-                    >
-                      <line x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} stroke={el.color || '#94a3b8'} strokeWidth="10" strokeLinecap="round" className="bus-glow" opacity="0.3" />
-                      <line x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} stroke={el.color || '#64748b'} strokeWidth="6" strokeLinecap="round" />
-                      {el.label && (
-                        <text x={(el.x1 || 0) + 15} y={(el.y1 || 0) - 10} fill="#475569" fontSize="11" fontWeight="bold">
-                          {el.label}
-                        </text>
-                      )}
-
-                      {/* Adjust endpoints */}
-                      {isSelected && isEditMode && (
-                        <g>
-                          <circle 
-                            cx={el.x1} cy={el.y1} r="7" 
-                            fill="#3b82f6" stroke="#ffffff" strokeWidth="2" 
-                            className="cursor-pointer"
-                            onMouseDown={(e) => handleMouseDownAnchor(e, el.id, 'line-start', el.x1 || 0, el.y1 || 0)}
-                          />
-                          <circle 
-                            cx={el.x2} cy={el.y2} r="7" 
-                            fill="#3b82f6" stroke="#ffffff" strokeWidth="2" 
-                            className="cursor-pointer"
-                            onMouseDown={(e) => handleMouseDownAnchor(e, el.id, 'line-end', el.x2 || 0, el.y2 || 0)}
-                          />
-                        </g>
-                      )}
-                    </g>
-                  );
-                })}
-
-                {/* Render standard nodes and instruments */}
-                {elements.filter(el => el.type !== 'FlowLine' && el.type !== 'Busbar').map(el => {
-                  const isSelected = selectedId === el.id;
-                  
-                  // Calculate dynamic state for Breakers
-                  let breakerStatus: 'closed' | 'open' = 'closed';
-                  if (el.type === 'Breaker' && el.boundPoint && telemetry[el.boundPoint]) {
-                    breakerStatus = telemetry[el.boundPoint].value === 'open' ? 'open' : 'closed';
-                  }
-
-                  // Resolve DataBox readings dynamically
-                  let resolvedRows = el.data || [];
-                  if (el.type === 'DataBox') {
-                    resolvedRows = (el.data || []).map(row => {
-                      const keys = row.pointKeys && row.pointKeys.length > 0 
-                        ? row.pointKeys 
-                        : (row.pointKey ? [row.pointKey] : []);
-
-                      if (keys.length > 0) {
-                        let sum = 0;
-                        let unit = '';
-                        let hasNumeric = false;
-                        let nonNumericValue = '';
-
-                        keys.forEach(k => {
-                          if (telemetry[k]) {
-                            const telItem = telemetry[k];
-                            const val = parseFloat(telItem.value);
-                            if (!isNaN(val)) {
-                              sum += val;
-                              hasNumeric = true;
-                            } else {
-                              nonNumericValue = telItem.value;
-                            }
-                            if (telItem.unit) {
-                              unit = telItem.unit;
-                            }
+                      if (rule.mode === 'threshold') {
+                        const posTh = rule.positiveThreshold ?? 5.0;
+                        const negTh = rule.negativeThreshold ?? -5.0;
+                        if (!isNaN(val)) {
+                          if (val > posTh) {
+                            isReversed = false;
+                            isStopped = false;
+                          } else if (val < negTh) {
+                            isReversed = true;
+                            isStopped = false;
+                          } else {
+                            isStopped = true;
                           }
-                        });
-
-                        if (hasNumeric) {
-                          const formattedSum = Number(sum.toFixed(1)).toString();
-                          return {
-                            ...row,
-                            value: `${formattedSum} ${unit}`.trim()
-                          };
-                        } else if (nonNumericValue) {
-                          return {
-                            ...row,
-                            value: `${nonNumericValue} ${unit}`.trim()
-                          };
+                        } else {
+                          isStopped = true;
+                        }
+                      } else if (rule.mode === 'enum') {
+                        const strVal = telItem.value.trim();
+                        if (strVal === (rule.positiveValue || '1')) {
+                          isReversed = false;
+                          isStopped = false;
+                        } else if (strVal === (rule.negativeValue || '2')) {
+                          isReversed = true;
+                          isStopped = false;
+                        } else {
+                          isStopped = true;
+                        }
+                      } else {
+                        // Default Sign Mode: value > 0 positive, value < 0 reverse
+                        if (isNaN(val) || Math.abs(val) < 0.01) {
+                          isStopped = true;
+                        } else if (val < 0) {
+                          isReversed = true;
                         }
                       }
-                      return row;
-                    });
-                  }
+                    }
 
-                  return (
-                    <g
-                      key={el.id}
-                      onClick={(e) => { 
-                        if (!isEditMode) return;
-                        e.stopPropagation(); 
-                        setSelectedId(el.id); 
-                      }}
-                      onMouseDown={(e) => handleMouseDownComp(e, el.id, el.x || 0, el.y || 0)}
-                      className={isEditMode ? "cursor-move" : ""}
-                    >
-                      {/* Selection Box Underlay */}
-                      {isSelected && isEditMode && (
-                        <g>
-                          {el.type === 'DataBox' ? (
-                            <rect 
-                              x={(el.x || 0) - 5} 
-                              y={(el.y || 0) - 5} 
-                              width="170" 
-                              height={34 + resolvedRows.length * 20} 
-                              fill="none" 
-                              stroke="#4f46e5" 
-                              strokeWidth="1.5" 
-                              strokeDasharray="4 4" 
-                              rx="8" 
-                            />
-                          ) : (
-                            <circle cx={el.x} cy={el.y} r="32" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeDasharray="4 4" />
-                          )}
-                        </g>
-                      )}
-
-                      {/* Render SVG Primitive based on component type */}
-                      {el.type === 'Grid' && <ElectricalSymbols.Grid x={el.x} y={el.y} label={el.label} />}
-                      {el.type === 'Transformer' && <ElectricalSymbols.Transformer x={el.x} y={el.y} label={el.label} />}
-                      {el.type === 'Meter' && <ElectricalSymbols.Meter x={el.x} y={el.y} label={el.label} />}
-                      {el.type === 'Breaker' && <ElectricalSymbols.Breaker x={el.x} y={el.y} status={breakerStatus} label={el.label} />}
-                      {el.type === 'Inverter' && <ElectricalSymbols.Inverter x={el.x} y={el.y} label={el.label} />}
-                      {el.type === 'PV' && <ElectricalSymbols.PV x={el.x} y={el.y} label={el.label} />}
-                      {el.type === 'Battery' && <ElectricalSymbols.Battery x={el.x} y={el.y} label={el.label} />}
-                      {el.type === 'EVCharger' && <ElectricalSymbols.EVCharger x={el.x} y={el.y} label={el.label} />}
-                      {el.type === 'Load' && <ElectricalSymbols.Load x={el.x} y={el.y} label={el.label} />}
-                      {el.type === 'Hydrogen' && <ElectricalSymbols.Hydrogen x={el.x} y={el.y} label={el.label} />}
-                      {el.type === 'DataBox' && (
-                        <ElectricalSymbols.DataBox 
-                          x={el.x} y={el.y} 
-                          title={el.title} 
-                          color={el.color} 
-                          active={el.active} 
-                          data={resolvedRows} 
+                    return (
+                      <g 
+                        key={el.id}
+                        onClick={(e) => { e.stopPropagation(); setSelectedId(el.id); }}
+                        onMouseDown={(e) => handleMouseDownLineWhole(e, el.id, el.x1 || 0, el.y1 || 0, el.x2 || 0, el.y2 || 0)}
+                        className={isEditMode ? "cursor-move group" : "group"}
+                      >
+                        <line 
+                          x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} 
+                          stroke="transparent" strokeWidth="12" 
+                          className="cursor-pointer"
                         />
-                      )}
-                    </g>
-                  );
-                })}
+                        <ElectricalSymbols.FlowLine 
+                          x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} 
+                          color={el.color} 
+                          isStopped={isStopped} 
+                          isReversed={isReversed} 
+                        />
 
-                {/* Active Magnetic Snap Visualization Feedback */}
-                {isEditMode && activeSnap && (
-                  <g style={{ pointerEvents: 'none' }}>
-                    <circle 
-                      cx={activeSnap.x} 
-                      cy={activeSnap.y} 
-                      r="12" 
-                      fill="none" 
-                      stroke="#6366f1" 
-                      strokeWidth="1.5" 
-                      strokeDasharray="3 3" 
-                      className="animate-spin" 
-                      style={{ 
-                        transformOrigin: `${activeSnap.x}px ${activeSnap.y}px`, 
-                        animationDuration: '6s' 
-                      }} 
-                    />
-                    <circle 
-                      cx={activeSnap.x} 
-                      cy={activeSnap.y} 
-                      r="6" 
-                      fill="#6366f1" 
-                      stroke="#ffffff" 
-                      strokeWidth="1.5" 
-                      className="animate-ping" 
-                      style={{ 
-                        transformOrigin: `${activeSnap.x}px ${activeSnap.y}px`, 
-                        animationDuration: '1.5s' 
-                      }} 
-                    />
-                    <circle 
-                      cx={activeSnap.x} 
-                      cy={activeSnap.y} 
-                      r="5" 
-                      fill="#6366f1" 
-                      stroke="#ffffff" 
-                      strokeWidth="1.5" 
-                    />
-                    <g transform={`translate(${activeSnap.x + 12}, ${activeSnap.y - 12})`}>
-                      <rect 
-                        x="0" 
-                        y="-14" 
-                        width={activeSnap.name.length * 11 + 65} 
-                        height="20" 
-                        fill="#1e1b4b" 
-                        rx="4" 
-                        opacity="0.9" 
-                      />
-                      <text x="8" y="0" fill="#a5b4fc" fontSize="9" fontWeight="bold">磁性吸附:</text>
-                      <text x="48" y="0" fill="#ffffff" fontSize="9" fontWeight="bold">{activeSnap.name}</text>
-                    </g>
-                  </g>
-                )}
+                        {isSelected && isEditMode && (
+                          <g>
+                            <line x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="3 3" />
+                            <circle 
+                              cx={el.x1} cy={el.y1} r="6.5" 
+                              fill="#3b82f6" stroke="#ffffff" strokeWidth="1.5" 
+                              className="cursor-pointer hover:scale-125 transition-transform"
+                              onMouseDown={(e) => handleMouseDownAnchor(e, el.id, 'line-start', el.x1 || 0, el.y1 || 0)}
+                            />
+                            <circle 
+                              cx={el.x2} cy={el.y2} r="6.5" 
+                              fill="#3b82f6" stroke="#ffffff" strokeWidth="1.5" 
+                              className="cursor-pointer hover:scale-125 transition-transform"
+                              onMouseDown={(e) => handleMouseDownAnchor(e, el.id, 'line-end', el.x2 || 0, el.y2 || 0)}
+                            />
+                          </g>
+                        )}
+                      </g>
+                    );
+                  })}
 
-                {/* Active Alignment Guidelines */}
-                {isEditMode && activeAlignmentLines.map((line, idx) => {
-                  if (line.type === 'horizontal') {
+                  {/* Render Busbars (Standard "母线" without voltage prefix - Prompt 7) */}
+                  {elements.filter(el => el.type === 'Busbar').map(el => {
+                    const isSelected = selectedId === el.id;
                     return (
-                      <line
-                        key={`align-h-${idx}`}
-                        x1="0"
-                        y1={line.value}
-                        x2="1200"
-                        y2={line.value}
-                        stroke="#f43f5e"
-                        strokeWidth="1"
-                        strokeDasharray="4 4"
-                        style={{ pointerEvents: 'none' }}
-                      />
+                      <g 
+                        key={el.id}
+                        onClick={(e) => { e.stopPropagation(); setSelectedId(el.id); }}
+                        onMouseDown={(e) => handleMouseDownLineWhole(e, el.id, el.x1 || 0, el.y1 || 0, el.x2 || 0, el.y2 || 0)}
+                        className={isEditMode ? "cursor-move" : ""}
+                      >
+                        <line x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} stroke={el.color || '#94a3b8'} strokeWidth="10" strokeLinecap="round" className="bus-glow" opacity="0.3" />
+                        <line x1={el.x1} y1={el.y1} x2={el.x2} y2={el.y2} stroke={el.color || '#64748b'} strokeWidth="6" strokeLinecap="round" />
+                        {el.label && (
+                          <text x={(el.x1 || 0) + 15} y={(el.y1 || 0) - 10} fill="#475569" fontSize="11" fontWeight="bold">
+                            {el.label}
+                          </text>
+                        )}
+
+                        {isSelected && isEditMode && (
+                          <g>
+                            <circle 
+                              cx={el.x1} cy={el.y1} r="7" 
+                              fill="#3b82f6" stroke="#ffffff" strokeWidth="2" 
+                              className="cursor-pointer"
+                              onMouseDown={(e) => handleMouseDownAnchor(e, el.id, 'line-start', el.x1 || 0, el.y1 || 0)}
+                            />
+                            <circle 
+                              cx={el.x2} cy={el.y2} r="7" 
+                              fill="#3b82f6" stroke="#ffffff" strokeWidth="2" 
+                              className="cursor-pointer"
+                              onMouseDown={(e) => handleMouseDownAnchor(e, el.id, 'line-end', el.x2 || 0, el.y2 || 0)}
+                            />
+                          </g>
+                        )}
+                      </g>
                     );
-                  } else {
+                  })}
+
+                  {/* Render standard nodes & custom devices */}
+                  {elements.filter(el => el.type !== 'FlowLine' && el.type !== 'Busbar').map(el => {
+                    const isSelected = selectedId === el.id;
+
+                    // Resolve DataBox single point values (Prompt 4)
+                    let resolvedRows = el.data || [];
+                    if (el.type === 'DataBox') {
+                      resolvedRows = (el.data || []).map(row => {
+                        if (row.pointKey && telemetry[row.pointKey]) {
+                          const telItem = telemetry[row.pointKey];
+                          return {
+                            ...row,
+                            value: `${telItem.value} ${telItem.unit}`.trim()
+                          };
+                        }
+                        return row;
+                      });
+                    }
+
                     return (
-                      <line
-                        key={`align-v-${idx}`}
-                        x1={line.value}
-                        y1="0"
-                        x2={line.value}
-                        y2="850"
-                        stroke="#f43f5e"
-                        strokeWidth="1"
-                        strokeDasharray="4 4"
-                        style={{ pointerEvents: 'none' }}
-                      />
+                      <g
+                        key={el.id}
+                        onClick={(e) => { 
+                          if (!isEditMode) return;
+                          e.stopPropagation(); 
+                          setSelectedId(el.id); 
+                        }}
+                        onMouseDown={(e) => handleMouseDownComp(e, el.id, el.x || 0, el.y || 0)}
+                        className={isEditMode ? "cursor-move" : ""}
+                      >
+                        {isSelected && isEditMode && (
+                          <g>
+                            {el.type === 'DataBox' ? (
+                              <rect 
+                                x={(el.x || 0) - 5} 
+                                y={(el.y || 0) - 5} 
+                                width="170" 
+                                height={34 + resolvedRows.length * 20} 
+                                fill="none" 
+                                stroke="#4f46e5" 
+                                strokeWidth="1.5" 
+                                strokeDasharray="4 4" 
+                                rx="8" 
+                              />
+                            ) : (
+                              <circle cx={el.x} cy={el.y} r="32" fill="none" stroke="#4f46e5" strokeWidth="1.5" strokeDasharray="4 4" />
+                            )}
+                          </g>
+                        )}
+
+                        {el.type === 'Grid' && <ElectricalSymbols.Grid x={el.x} y={el.y} label={el.label} />}
+                        {el.type === 'Transformer' && <ElectricalSymbols.Transformer x={el.x} y={el.y} label={el.label} />}
+                        {el.type === 'Meter' && <ElectricalSymbols.Meter x={el.x} y={el.y} label={el.label} />}
+                        {el.type === 'Breaker' && <ElectricalSymbols.Breaker x={el.x} y={el.y} label={el.label} />}
+                        {el.type === 'Inverter' && <ElectricalSymbols.Inverter x={el.x} y={el.y} label={el.label} />}
+                        {el.type === 'PV' && <ElectricalSymbols.PV x={el.x} y={el.y} label={el.label} />}
+                        {el.type === 'Battery' && <ElectricalSymbols.Battery x={el.x} y={el.y} label={el.label} />}
+                        {el.type === 'EVCharger' && <ElectricalSymbols.EVCharger x={el.x} y={el.y} label={el.label} />}
+                        {el.type === 'Load' && <ElectricalSymbols.Load x={el.x} y={el.y} label={el.label} />}
+                        {el.type === 'Hydrogen' && <ElectricalSymbols.Hydrogen x={el.x} y={el.y} label={el.label} />}
+                        {el.type === 'CustomDevice' && <ElectricalSymbols.CustomDevice x={el.x} y={el.y} label={el.label} customIconUrl={el.customIconUrl} />}
+                        {el.type === 'DataBox' && (
+                          <ElectricalSymbols.DataBox 
+                            x={el.x} y={el.y} 
+                            title={el.title} 
+                            color={el.color} 
+                            active={el.active} 
+                            data={resolvedRows} 
+                          />
+                        )}
+                      </g>
                     );
-                  }
-                })}
-              </g>
-            </svg>
-          </div>
+                  })}
+
+                  {/* Active Magnetic Snap Feedback */}
+                  {isEditMode && activeSnap && (
+                    <g style={{ pointerEvents: 'none' }}>
+                      <circle cx={activeSnap.x} cy={activeSnap.y} r="12" fill="none" stroke="#6366f1" strokeWidth="1.5" strokeDasharray="3 3" className="animate-spin" />
+                      <circle cx={activeSnap.x} cy={activeSnap.y} r="5" fill="#6366f1" stroke="#ffffff" strokeWidth="1.5" />
+                    </g>
+                  )}
+
+                  {/* Alignment Guides */}
+                  {isEditMode && activeAlignmentLines.map((line, idx) => (
+                    <line
+                      key={idx}
+                      x1={line.type === 'vertical' ? line.value : 0}
+                      y1={line.type === 'horizontal' ? line.value : 0}
+                      x2={line.type === 'vertical' ? line.value : 1200}
+                      y2={line.type === 'horizontal' ? line.value : 850}
+                      stroke="#f43f5e" strokeWidth="1" strokeDasharray="4 4"
+                      style={{ pointerEvents: 'none' }}
+                    />
+                  ))}
+                </g>
+              </svg>
+            </div>
+          )}
         </div>
 
-        {/* RIGHT PANEL: Properties / Telemetry Simulator */}
+        {/* RIGHT PANEL: Property & Telemetry Inspector */}
         {isEditMode && (
           <div className="w-80 bg-white border-l border-slate-200 flex flex-col overflow-y-auto">
-          {selectedElement ? (
-            /* COMPONENT PROPERTY & DATA BINDING PANEL */
-            <div className="p-4 flex flex-col gap-4">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                  <Settings className="w-4 h-4 text-indigo-500" />
-                  <span>元件属性 & 测点绑定</span>
-                </h3>
-                <button
-                  onClick={() => setSelectedId(null)}
-                  className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+            {selectedElement ? (
+              <div className="p-4 flex flex-col gap-4">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                  <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                    <Settings className="w-4 h-4 text-indigo-500" />
+                    <span>元件属性配置</span>
+                  </h3>
+                  <button
+                    onClick={() => setSelectedId(null)}
+                    className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-xl text-[11px] text-slate-500 border border-slate-100 space-y-1">
-                <div><span className="font-semibold text-slate-700">唯一标识 ID:</span> {selectedElement.id}</div>
-                <div><span className="font-semibold text-slate-700">元件类型 Type:</span> {selectedElement.type}</div>
-              </div>
+                <div className="bg-slate-50 p-2.5 rounded-xl text-[11px] text-slate-500 border border-slate-100 space-y-1">
+                  <div><span className="font-semibold text-slate-700">唯一标识 ID:</span> {selectedElement.id}</div>
+                  <div><span className="font-semibold text-slate-700">元件类型 Type:</span> {selectedElement.type}</div>
+                </div>
 
-              {/* Coordinates block replaced with a clean align helper block */}
-              <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-xl space-y-1.5">
-                <span className="text-xs font-bold text-indigo-800 flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>位置自动对齐中</span>
-                </span>
-                <p className="text-[10px] text-indigo-950 leading-relaxed">
-                  在画布中拖动元件时，系统将自动检测与其他元件的水平或垂直对齐状态，并以 <span className="text-rose-500 font-bold">红色虚线对齐辅助线</span> 实时显示，您无需手动修改 X/Y 位置坐标。
-                </p>
-              </div>
+                <div className="space-y-3">
+                  <span className="text-xs font-bold text-slate-700 block border-t border-slate-100 pt-3">业务参数设置</span>
 
-              {/* Element custom edits */}
-              <div className="space-y-3">
-                <span className="text-xs font-bold text-slate-700 block border-t border-slate-100 pt-3">业务参数配置</span>
-
-                {selectedElement.label !== undefined && (
-                  <div>
-                    <label className="text-[10px] text-slate-400 font-bold block mb-1">标签名称 / 编号</label>
-                    <input
-                      type="text"
-                      value={selectedElement.label || ''}
-                      onChange={(e) => updateSelectedElement({ label: e.target.value })}
-                      className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 font-semibold focus:outline-indigo-500"
-                    />
-                  </div>
-                )}
-
-                {selectedElement.type === 'Breaker' && (
-                  <div>
-                    <label className="text-[10px] text-slate-400 font-bold block mb-1">绑定开关遥信测点</label>
-                    <select
-                      value={selectedElement.boundPoint || ''}
-                      onChange={(e) => updateSelectedElement({ boundPoint: e.target.value })}
-                      className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 font-semibold focus:outline-indigo-500"
-                    >
-                      <option value="">-- 未绑定 (默认合闸) --</option>
-                      {Object.entries(telemetry)
-                        .filter(([_, pt]) => pt.name.includes('开关') || pt.value === 'closed' || pt.value === 'open')
-                        .map(([key, pt]) => (
-                          <option key={key} value={key}>{pt.name} ({key})</option>
-                        ))
-                      }
-                    </select>
-                  </div>
-                )}
-
-                {selectedElement.type === 'FlowLine' && (
-                  <div>
-                    <label className="text-[10px] text-slate-400 font-bold block mb-1">绑定功率测点 (控制潮流方向)</label>
-                    <select
-                      value={selectedElement.powerPointKey || ''}
-                      onChange={(e) => updateSelectedElement({ powerPointKey: e.target.value })}
-                      className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 font-semibold focus:outline-indigo-500"
-                    >
-                      <option value="">-- 不绑定 (无源) --</option>
-                      {Object.entries(telemetry)
-                        .filter(([_, pt]) => pt.name.includes('功率'))
-                        .map(([key, pt]) => (
-                          <option key={key} value={key}>{pt.name} ({key})</option>
-                        ))
-                      }
-                    </select>
-                    <p className="text-[9px] text-slate-400 mt-1">💡 绑定后：功率为正虚线向前流动，功率为负虚线反向流动，为0潮流静止。</p>
-                  </div>
-                )}
-
-                {/* DataBox customization */}
-                {selectedElement.type === 'DataBox' && (
-                  <div className="space-y-3">
+                  {selectedElement.label !== undefined && (
                     <div>
-                      <label className="text-[10px] text-slate-400 font-bold block mb-1">标题</label>
+                      <label className="text-[10px] text-slate-400 font-bold block mb-1">名称 / 编号</label>
                       <input
                         type="text"
-                        value={selectedElement.title || ''}
-                        onChange={(e) => updateSelectedElement({ title: e.target.value })}
+                        value={selectedElement.label || ''}
+                        onChange={(e) => updateSelectedElement({ label: e.target.value })}
                         className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 font-semibold focus:outline-indigo-500"
                       />
                     </div>
+                  )}
 
-                    <div>
-                      <label className="text-[10px] text-slate-400 font-bold block mb-1">主题色调</label>
-                      <div className="flex gap-2">
-                        {[
-                          { val: '#3b82f6', name: '经典蓝' },
-                          { val: '#10b981', name: '储能绿' },
-                          { val: '#f59e0b', name: '桩群黄' },
-                          { val: '#8b5cf6', name: '关口紫' },
-                          { val: '#64748b', name: '暗灰色' }
-                        ].map((c) => (
+                  {/* FlowLine Custom Direction Rule Configuration (Prompt 8) */}
+                  {selectedElement.type === 'FlowLine' && (
+                    <div className="space-y-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                      <label className="text-[11px] text-indigo-900 font-bold block">潮流流动规则配置</label>
+
+                      {/* FlowLine Telemetry Point Selector Trigger (Prompt 10) */}
+                      <div>
+                        <label className="text-[10px] text-slate-500 block mb-1 font-semibold">绑定潮流功率/状态测点</label>
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex-1 p-2 rounded-xl border border-slate-200 bg-white space-y-0.5 min-w-0">
+                            {selectedElement.powerPointKey ? (
+                              <>
+                                <div className="text-xs font-bold text-indigo-900 truncate">
+                                  {getPointDisplayName(selectedElement.powerPointKey)}
+                                </div>
+                                <div className="text-[9.5px] font-mono text-slate-400 truncate">
+                                  Key: {selectedElement.powerPointKey}
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-xs font-semibold text-slate-400">-- 未绑定潮流测点 (无流动) --</div>
+                            )}
+                          </div>
                           <button
-                            key={c.val}
-                            onClick={() => updateSelectedElement({ color: c.val })}
-                            className={`w-5 h-5 rounded-full border border-white ring-1 transition-transform ${
-                              selectedElement.color === c.val ? 'ring-slate-900 scale-110' : 'ring-slate-200'
-                            }`}
-                            style={{ backgroundColor: c.val }}
-                            title={c.name}
-                          />
-                        ))}
+                            onClick={() => {
+                              setPointModalTarget({ type: 'flowline' });
+                              setShowPointModal(true);
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-2 rounded-xl shadow-2xs transition-all cursor-pointer shrink-0 flex items-center gap-1"
+                          >
+                            <Sliders className="w-3.5 h-3.5" />
+                            选择测点
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Direction Rule Mode Selection */}
+                      <div>
+                        <label className="text-[10px] text-slate-500 block mb-1 font-semibold">流动方向规则模式</label>
+                        <div className="grid grid-cols-3 gap-1 bg-white p-1 rounded-lg border border-slate-200 text-[10px]">
+                          {(['sign', 'threshold', 'enum'] as const).map((mode) => (
+                            <button
+                              key={mode}
+                              onClick={() => {
+                                updateSelectedElement({
+                                  directionRule: {
+                                    ...selectedElement.directionRule,
+                                    mode
+                                  }
+                                });
+                              }}
+                              className={`py-1 rounded font-bold transition-all ${
+                                (selectedElement.directionRule?.mode || 'sign') === mode
+                                  ? 'bg-indigo-600 text-white shadow-xs'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              {mode === 'sign' ? '正负模式' : mode === 'threshold' ? '阈值模式' : '枚举模式'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Detailed Mode Settings */}
+                      {(selectedElement.directionRule?.mode || 'sign') === 'sign' && (
+                        <p className="text-[9.5px] text-slate-500 leading-normal">
+                          💡 正负模式：测点值 &gt; 0 时正向流动，值 &lt; 0 时反向流动，值 = 0 时潮流静止。
+                        </p>
+                      )}
+
+                      {selectedElement.directionRule?.mode === 'threshold' && (
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-600 font-bold w-16">正向阈值:</span>
+                            <input
+                              type="number"
+                              value={selectedElement.directionRule?.positiveThreshold ?? 5.0}
+                              onChange={(e) => updateSelectedElement({
+                                directionRule: { ...selectedElement.directionRule, mode: 'threshold', positiveThreshold: parseFloat(e.target.value) || 0 }
+                              })}
+                              className="flex-1 p-1 border border-slate-200 rounded text-xs bg-white font-bold"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-600 font-bold w-16">反向阈值:</span>
+                            <input
+                              type="number"
+                              value={selectedElement.directionRule?.negativeThreshold ?? -5.0}
+                              onChange={(e) => updateSelectedElement({
+                                directionRule: { ...selectedElement.directionRule, mode: 'threshold', negativeThreshold: parseFloat(e.target.value) || 0 }
+                              })}
+                              className="flex-1 p-1 border border-slate-200 rounded text-xs bg-white font-bold"
+                            />
+                          </div>
+                          <p className="text-[9px] text-slate-400">💡 处于正负阈值之间时，潮流保持静止。</p>
+                        </div>
+                      )}
+
+                      {selectedElement.directionRule?.mode === 'enum' && (
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-600 font-bold w-16">正向匹配值:</span>
+                            <input
+                              type="text"
+                              value={selectedElement.directionRule?.positiveValue ?? '1'}
+                              onChange={(e) => updateSelectedElement({
+                                directionRule: { ...selectedElement.directionRule, mode: 'enum', positiveValue: e.target.value }
+                              })}
+                              className="flex-1 p-1 border border-slate-200 rounded text-xs bg-white font-bold"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-600 font-bold w-16">反向匹配值:</span>
+                            <input
+                              type="text"
+                              value={selectedElement.directionRule?.negativeValue ?? '2'}
+                              onChange={(e) => updateSelectedElement({
+                                directionRule: { ...selectedElement.directionRule, mode: 'enum', negativeValue: e.target.value }
+                              })}
+                              className="flex-1 p-1 border border-slate-200 rounded text-xs bg-white font-bold"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
+                  )}
 
-                    {/* Telemetry data rows table */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <label className="text-[10px] text-slate-400 font-bold">测点遥测绑定项目 ({selectedElement.data?.length || 0})</label>
-                        <button
-                          onClick={() => {
-                            const current = selectedElement.data || [];
-                            updateSelectedElement({
-                              data: [...current, { label: '新遥测项', value: '0.0', pointKeys: [] }]
-                            });
-                          }}
-                          className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-0.5"
-                        >
-                          <Plus className="w-3 h-3" /> 增加行
-                        </button>
+                  {/* DataBox Data Rows Configuration (Single Point Binding & Max 10 Limit - Prompts 4, 9) */}
+                  {selectedElement.type === 'DataBox' && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[10px] text-slate-400 font-bold block mb-1">标题</label>
+                        <input
+                          type="text"
+                          value={selectedElement.title || ''}
+                          onChange={(e) => updateSelectedElement({ title: e.target.value })}
+                          className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 font-semibold focus:outline-indigo-500"
+                        />
                       </div>
 
-                      <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                        {(selectedElement.data || []).map((row, idx) => {
-                          const currentKeys = row.pointKeys || (row.pointKey ? [row.pointKey] : []);
-                          const isExpanded = expandedRowIdx === idx;
+                      <div>
+                        <label className="text-[10px] text-slate-400 font-bold block mb-1">主题色调</label>
+                        <div className="flex gap-2">
+                          {[
+                            { val: '#3b82f6', name: '经典蓝' },
+                            { val: '#10b981', name: '储能绿' },
+                            { val: '#f59e0b', name: '桩群黄' },
+                            { val: '#8b5cf6', name: '关口紫' },
+                            { val: '#64748b', name: '暗灰色' }
+                          ].map((c) => (
+                            <button
+                              key={c.val}
+                              onClick={() => updateSelectedElement({ color: c.val })}
+                              className={`w-5 h-5 rounded-full border border-white ring-1 transition-transform cursor-pointer ${
+                                selectedElement.color === c.val ? 'ring-slate-900 scale-110' : 'ring-slate-200'
+                              }`}
+                              style={{ backgroundColor: c.val }}
+                              title={c.name}
+                            />
+                          ))}
+                        </div>
+                      </div>
 
-                          return (
-                            <div key={idx} className="p-2 border border-slate-100 rounded-lg bg-slate-50 space-y-1.5 text-[10px]">
-                              <div className="flex justify-between items-center gap-1">
+                      {/* Telemetry rows list with 10 rows limit (Prompt 9) */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] text-slate-500 font-bold">
+                            数据项目列表 ({selectedElement.data?.length || 0}/10)
+                          </label>
+                          <button
+                            onClick={() => {
+                              const current = selectedElement.data || [];
+                              if (current.length >= 10) return;
+                              updateSelectedElement({
+                                data: [...current, { label: '新遥测项', value: '0.0', pointKey: '' }]
+                              });
+                            }}
+                            disabled={(selectedElement.data?.length || 0) >= 10}
+                            className={`text-[10px] font-bold flex items-center gap-0.5 px-2 py-0.5 rounded transition-all ${
+                              (selectedElement.data?.length || 0) >= 10
+                                ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                : 'text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 cursor-pointer'
+                            }`}
+                            title={(selectedElement.data?.length || 0) >= 10 ? '最多添加 10 条数据行' : '添加数据行'}
+                          >
+                            <Plus className="w-3 h-3" />
+                            {(selectedElement.data?.length || 0) >= 10 ? '已达上限 10 条' : '添加数据行'}
+                          </button>
+                        </div>
+
+                        <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                          {(selectedElement.data || []).map((row, idx) => (
+                            <div key={idx} className="p-2 border border-slate-200 rounded-xl bg-slate-50 space-y-1.5 text-[10px]">
+                              <div className="flex items-center justify-between gap-1">
                                 <input
                                   type="text"
                                   value={row.label}
-                                  placeholder="监测参数名"
+                                  placeholder="参数显示名"
                                   onChange={(e) => {
                                     const updated = [...(selectedElement.data || [])];
                                     updated[idx] = { ...row, label: e.target.value };
                                     updateSelectedElement({ data: updated });
                                   }}
-                                  className="w-1/2 p-1 border border-slate-200 rounded font-bold"
+                                  className="flex-1 p-1 border border-slate-200 rounded bg-white font-bold text-xs"
                                 />
-                                
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => setExpandedRowIdx(isExpanded ? null : idx)}
-                                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition-colors ${
-                                      currentKeys.length > 0 
-                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700' 
-                                        : 'bg-white border-slate-200 text-slate-600'
-                                    }`}
-                                  >
-                                    🔗 绑定 ({currentKeys.length})
-                                  </button>
+                                <button
+                                  onClick={() => {
+                                    const updated = (selectedElement.data || []).filter((_, i) => i !== idx);
+                                    updateSelectedElement({ data: updated });
+                                  }}
+                                  className="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              {/* Single Point Selector Trigger (Prompt 10) */}
+                              <div>
+                                <label className="text-[9.5px] text-slate-400 font-bold block mb-0.5">绑定测点项目</label>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="flex-1 p-1.5 border border-slate-200 rounded-lg bg-white min-w-0">
+                                    {row.pointKey ? (
+                                      <div className="text-[11px] font-bold text-indigo-900 truncate">
+                                        {getPointDisplayName(row.pointKey)}
+                                      </div>
+                                    ) : (
+                                      <div className="text-[10.5px] font-semibold text-slate-400">-- 静态默认值模式 --</div>
+                                    )}
+                                  </div>
                                   <button
                                     onClick={() => {
-                                      const updated = (selectedElement.data || []).filter((_, i) => i !== idx);
-                                      updateSelectedElement({ data: updated });
-                                      if (expandedRowIdx === idx) setExpandedRowIdx(null);
+                                      setPointModalTarget({ type: 'databox_row', rowIndex: idx });
+                                      setShowPointModal(true);
                                     }}
-                                    className="text-rose-500 hover:text-rose-700 p-0.5"
+                                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-[10.5px] px-2.5 py-1.5 rounded-lg transition-all cursor-pointer shrink-0 flex items-center gap-1"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Sliders className="w-3 h-3" />
+                                    {row.pointKey ? '更换' : '绑定测点'}
                                   </button>
                                 </div>
                               </div>
 
-                              {/* If NOT expanded and not bound, show simple default value input */}
-                              {!isExpanded && currentKeys.length === 0 && (
+                              {!row.pointKey && (
                                 <div>
-                                  <label className="text-[9px] text-slate-400 block mb-0.5">静态默认值 (未绑定时)</label>
                                   <input
                                     type="text"
                                     value={row.value}
-                                    placeholder="220 V"
+                                    placeholder="默认显示数值 (如 220 V)"
                                     onChange={(e) => {
                                       const updated = [...(selectedElement.data || [])];
                                       updated[idx] = { ...row, value: e.target.value };
                                       updateSelectedElement({ data: updated });
                                     }}
-                                    className="w-full p-1 border border-slate-200 rounded bg-white"
+                                    className="w-full p-1 border border-slate-200 rounded bg-white text-[10px]"
                                   />
                                 </div>
                               )}
-
-                              {/* If bound but not expanded, show a small badge list of selected keys */}
-                              {!isExpanded && currentKeys.length > 0 && (
-                                <div className="bg-white p-1 rounded border border-slate-100 flex flex-wrap gap-1">
-                                  {currentKeys.map(k => (
-                                    <span key={k} className="bg-indigo-50 text-indigo-700 text-[8.5px] px-1 py-0.2 rounded font-medium border border-indigo-100">
-                                      {telemetry[k]?.name.split(' ').pop() || k}
-                                    </span>
-                                  ))}
-                                  {currentKeys.length > 1 && (
-                                    <span className="text-emerald-600 text-[8.5px] font-bold self-center ml-1">
-                                      (多点汇总求和)
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Binding Expandable section with checklists grouped by device or indicator */}
-                              {isExpanded && (
-                                <div className="bg-white p-2 rounded border border-slate-200 space-y-2 mt-1.5 max-h-64 overflow-y-auto">
-                                  <div className="flex justify-between items-center border-b border-slate-100 pb-1">
-                                    <span className="font-bold text-slate-700 text-[9px]">选择测点绑定 (可多选汇总)</span>
-                                    <button 
-                                      onClick={() => {
-                                        const updated = [...(selectedElement.data || [])];
-                                        updated[idx] = { ...row, pointKeys: [], pointKey: undefined };
-                                        updateSelectedElement({ data: updated });
-                                      }}
-                                      className="text-slate-400 hover:text-slate-600 text-[8.5px]"
-                                    >
-                                      清空选择
-                                    </button>
-                                  </div>
-
-                                  {/* Classification tabs */}
-                                  <div className="flex gap-1 bg-slate-50 p-0.5 rounded border border-slate-100">
-                                    <button
-                                      type="button"
-                                      onClick={() => setBindCategoryTab('device')}
-                                      className={`flex-1 py-1 rounded text-[8.5px] font-bold text-center transition-all ${
-                                        bindCategoryTab === 'device'
-                                          ? 'bg-white text-indigo-700 shadow-xs'
-                                          : 'text-slate-500 hover:text-slate-800'
-                                      }`}
-                                    >
-                                      选择设备测点
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setBindCategoryTab('indicator')}
-                                      className={`flex-1 py-1 rounded text-[8.5px] font-bold text-center transition-all ${
-                                        bindCategoryTab === 'indicator'
-                                          ? 'bg-white text-indigo-700 shadow-xs'
-                                          : 'text-slate-500 hover:text-slate-800'
-                                      }`}
-                                    >
-                                      选择指标分类
-                                    </button>
-                                  </div>
-
-                                  <div className="space-y-2.5">
-                                    {(bindCategoryTab === 'device' ? TELEMETRY_DEVICES : TELEMETRY_INDICATORS).map((group) => (
-                                      <div key={group.name} className="space-y-1">
-                                        <div className="text-[8.5px] font-bold text-indigo-500 bg-indigo-50/50 px-1 py-0.5 rounded flex items-center justify-between">
-                                          <span>{group.name}</span>
-                                          <span className="text-[7.5px] text-slate-400 font-normal">
-                                            ({group.points.filter(pt => currentKeys.includes(pt.key)).length}已选)
-                                          </span>
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-0.5 pl-1">
-                                          {group.points.map((pt) => {
-                                            const checked = currentKeys.includes(pt.key);
-                                            return (
-                                              <label key={pt.key} className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 p-0.5 rounded text-[8.5px] transition-colors">
-                                                <input
-                                                  type="checkbox"
-                                                  checked={checked}
-                                                  onChange={(e) => {
-                                                    let newKeys = [...currentKeys];
-                                                    if (e.target.checked) {
-                                                      if (!newKeys.includes(pt.key)) newKeys.push(pt.key);
-                                                    } else {
-                                                      newKeys = newKeys.filter(k => k !== pt.key);
-                                                    }
-                                                    const updated = [...(selectedElement.data || [])];
-                                                    updated[idx] = { 
-                                                      ...row, 
-                                                      pointKeys: newKeys,
-                                                      pointKey: newKeys.length === 1 ? newKeys[0] : undefined
-                                                    };
-                                                    updateSelectedElement({ data: updated });
-                                                  }}
-                                                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3 h-3"
-                                                />
-                                                <span className={checked ? "font-bold text-indigo-900" : "text-slate-600"}>
-                                                  {pt.name}
-                                                </span>
-                                              </label>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
                             </div>
-                          );
-                        })}
+                          ))}
+                        </div>
                       </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => handleRemoveElement(selectedElement.id)}
+                  className="mt-4 w-full bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-600 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  删除该元件
+                </button>
+              </div>
+            ) : (
+              <div className="p-6 flex flex-col items-center justify-center h-full text-center text-slate-400 gap-3 my-auto">
+                <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-indigo-500 shadow-xs">
+                  <MousePointer className="w-6 h-6 text-indigo-500" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-700">拓扑与测点组态模式</h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed max-w-[220px] mx-auto">
+                    点击左侧素材库元件添加至画布，或在组态图中选择任意元件以配置其名称、规则或绑定的测点。
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Modal 1: Create New Configuration Dialog (Prompt 13) */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <FolderPlus className="w-4 h-4 text-indigo-600" />
+                新建组态拓扑
+              </h3>
+              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1.5">组态名称</label>
+              <input
+                type="text"
+                value={newConfigName}
+                placeholder="如: 三期微电网扩展组态"
+                onChange={(e) => setNewConfigName(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-indigo-500"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 transition-all cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmCreateConfig}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all cursor-pointer"
+              >
+                确认创建
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Create Custom Device Dialog with Image Upload (Prompt 10) */}
+      {showCustomDeviceModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-indigo-600" />
+                创建自定义图元设备
+              </h3>
+              <button onClick={() => setShowCustomDeviceModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">设备显示名称</label>
+                <input
+                  type="text"
+                  value={customDevName}
+                  placeholder="如: 补电柴发机组"
+                  onChange={(e) => setCustomDevName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">上传自定义图标 (PNG/JPG/SVG)</label>
+                <div className="border-2 border-dashed border-slate-200 hover:border-indigo-400 p-4 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-colors bg-slate-50/50">
+                  <input
+                    type="file"
+                    accept="image/png, image/jpeg, image/svg+xml"
+                    onChange={handleCustomIconUpload}
+                    className="hidden"
+                    id="custom-icon-upload-input"
+                  />
+                  <label htmlFor="custom-icon-upload-input" className="cursor-pointer flex flex-col items-center">
+                    {customDevIconUrl ? (
+                      <div className="space-y-1">
+                        <img src={customDevIconUrl} alt="Preview" className="w-12 h-12 object-contain mx-auto rounded border p-1 bg-white" />
+                        <span className="text-[10px] text-emerald-600 font-bold block">✓ 图标上传成功，点击可更换</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="w-6 h-6 text-indigo-500 mb-1" />
+                        <span className="text-xs font-bold text-slate-700">点击或拖拽图片至此处</span>
+                        <span className="text-[10px] text-slate-400">支持 PNG, JPG, SVG 格式</span>
+                      </>
+                    )}
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setShowCustomDeviceModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 transition-all cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmAddCustomDevice}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all cursor-pointer"
+              >
+                添加至画布
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal 3: Telemetry Point Binding Modal (Prompt 10: 1.1 Device telemetry points with name/SN search; 1.2 Site-level metrics) */}
+      {showPointModal && (() => {
+        const filteredDevices = DEVICE_LIST.filter(dev => {
+          if (!deviceSearchQuery.trim()) return true;
+          const q = deviceSearchQuery.toLowerCase();
+          return dev.name.toLowerCase().includes(q) || dev.sn.toLowerCase().includes(q) || dev.category.toLowerCase().includes(q);
+        });
+
+        const selectedDevice = DEVICE_LIST.find(d => d.id === selectedDeviceId) || filteredDevices[0] || DEVICE_LIST[0];
+
+        const filteredSiteMetrics = SITE_LEVEL_METRICS.filter(m => {
+          if (!siteMetricSearchQuery.trim()) return true;
+          const q = siteMetricSearchQuery.toLowerCase();
+          return m.name.toLowerCase().includes(q) || m.key.toLowerCase().includes(q) || m.category.toLowerCase().includes(q);
+        });
+
+        const isPointCurrentlyBound = (key: string) => {
+          if (!pointModalTarget || !selectedElement) return false;
+          if (pointModalTarget.type === 'flowline') {
+            return selectedElement.powerPointKey === key;
+          }
+          if (pointModalTarget.type === 'databox_row' && pointModalTarget.rowIndex !== undefined) {
+            const row = (selectedElement.data || [])[pointModalTarget.rowIndex];
+            return row?.pointKey === key;
+          }
+          return false;
+        };
+
+        const handleApplyBind = (pointKey: string, pointName: string, pointUnit: string) => {
+          if (!pointModalTarget || !selectedElement) {
+            setShowPointModal(false);
+            return;
+          }
+
+          if (pointModalTarget.type === 'flowline') {
+            updateSelectedElement({ powerPointKey: pointKey });
+            setToastMsg(pointKey ? `已成功绑定潮流测点` : '已解绑潮流测点');
+            setShowSaveToast(true);
+            setTimeout(() => setShowSaveToast(false), 2500);
+          } else if (pointModalTarget.type === 'databox_row' && pointModalTarget.rowIndex !== undefined) {
+            const idx = pointModalTarget.rowIndex;
+            const currentRows = [...(selectedElement.data || [])];
+            if (currentRows[idx]) {
+              const liveItem = pointKey ? telemetry[pointKey] : null;
+              const newValue = liveItem ? `${liveItem.value} ${liveItem.unit}` : currentRows[idx].value;
+              const newLabel = pointName ? pointName : currentRows[idx].label;
+              
+              currentRows[idx] = {
+                ...currentRows[idx],
+                pointKey: pointKey,
+                label: newLabel,
+                value: newValue
+              };
+              updateSelectedElement({ data: currentRows });
+              setToastMsg(pointKey ? `已成功绑定数据项目` : '已清除测点绑定');
+              setShowSaveToast(true);
+              setTimeout(() => setShowSaveToast(false), 2500);
+            }
+          }
+
+          setShowPointModal(false);
+        };
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full flex flex-col max-h-[88vh] overflow-hidden animate-in fade-in zoom-in duration-150">
+              {/* Header */}
+              <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/70">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-indigo-600" />
+                    测点数据绑定中心
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">选择具体设备测点或绑定全站级别 KPI 统计数据指标</p>
+                </div>
+                <button onClick={() => setShowPointModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg hover:bg-slate-100">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Top Mode Segmented Switcher */}
+              <div className="p-2.5 bg-slate-100/80 border-b border-slate-200 flex gap-2">
+                <button
+                  onClick={() => setModalTab('device')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    modalTab === 'device'
+                      ? 'bg-white text-indigo-700 shadow-sm border border-indigo-200'
+                      : 'text-slate-600 hover:bg-slate-200/60'
+                  }`}
+                >
+                  <Cpu className="w-4 h-4" />
+                  1. 绑定设备测点
+                </button>
+                <button
+                  onClick={() => setModalTab('site')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    modalTab === 'site'
+                      ? 'bg-white text-indigo-700 shadow-sm border border-indigo-200'
+                      : 'text-slate-600 hover:bg-slate-200/60'
+                  }`}
+                >
+                  <Building className="w-4 h-4 text-amber-500" />
+                  2. 选择站点级指标数据
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-4 flex-1 overflow-y-auto space-y-4">
+                {modalTab === 'device' ? (
+                  /* TAB 1: 绑定设备测点 */
+                  <div className="space-y-4">
+                    {/* 1.1 选择设备与搜索 */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <Search className="w-3.5 h-3.5 text-indigo-500" />
+                          步骤 1.1: 选择目标设备 (支持根据名称、SN 序列号精准搜索)
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-medium">找到 {filteredDevices.length} 台设备</span>
+                      </div>
+                      <div className="relative">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          value={deviceSearchQuery}
+                          onChange={(e) => setDeviceSearchQuery(e.target.value)}
+                          placeholder="输入设备名称或 SN 进行搜索 (如: 高压关口表 / METER-2026-001 / BESS-PCS)..."
+                          className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold focus:outline-indigo-500 bg-slate-50/50"
+                        />
+                        {deviceSearchQuery && (
+                          <button onClick={() => setDeviceSearchQuery('')} className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Devices Grid Selector */}
+                    <div className="grid grid-cols-2 gap-2 max-h-44 overflow-y-auto p-1 bg-slate-50/80 rounded-xl border border-slate-200">
+                      {filteredDevices.map((dev) => {
+                        const isSelected = selectedDevice?.id === dev.id;
+                        return (
+                          <div
+                            key={dev.id}
+                            onClick={() => setSelectedDeviceId(dev.id)}
+                            className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                              isSelected
+                                ? 'bg-indigo-50/90 border-indigo-400 shadow-2xs ring-1 ring-indigo-400'
+                                : 'bg-white border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="text-xs font-bold text-slate-800 truncate">{dev.name}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[9.5px]">
+                              <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200 font-mono font-bold">
+                                SN: {dev.sn}
+                              </span>
+                              <span className="text-slate-400 truncate">{dev.category}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {filteredDevices.length === 0 && (
+                        <div className="col-span-2 p-6 text-center text-xs text-slate-400">
+                          未查找到匹配的设备，请尝试其他关键词或 SN 序列号。
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 1.2 选择测点 */}
+                    {selectedDevice && (
+                      <div className="pt-3 border-t border-slate-100 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                            <Sliders className="w-3.5 h-3.5 text-indigo-500" />
+                            步骤 1.2: 选择设备 [{selectedDevice.name}] 对应测点
+                          </span>
+                          <span className="text-[10px] font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                            SN: {selectedDevice.sn}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          {selectedDevice.points.map((pt) => {
+                            const telVal = telemetry[pt.key];
+                            const isCurrentlyBound = isPointCurrentlyBound(pt.key);
+
+                            return (
+                              <div
+                                key={pt.key}
+                                className={`p-2.5 rounded-xl border flex items-center justify-between transition-all ${
+                                  isCurrentlyBound
+                                    ? 'bg-emerald-50/80 border-emerald-300'
+                                    : 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/20'
+                                }`}
+                              >
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-800">{pt.name}</span>
+                                    <span className="text-[9.5px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded">
+                                      Key: {pt.key}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 flex items-center gap-2">
+                                    <span>当前实时测值:</span>
+                                    <span className="font-bold text-indigo-600">
+                                      {telVal ? `${telVal.value} ${telVal.unit}` : '-'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <button
+                                  onClick={() => handleApplyBind(pt.key, pt.name, pt.unit)}
+                                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                    isCurrentlyBound
+                                      ? 'bg-emerald-600 text-white shadow-xs'
+                                      : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs'
+                                  }`}
+                                >
+                                  {isCurrentlyBound ? '当前已绑定' : '选择绑定'}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* TAB 2: 选择站点级指标数据 */
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-amber-500" />
+                          选择站点级指标数据 (搜索 Key 或名称)
+                        </label>
+                      </div>
+                      <div className="relative">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          value={siteMetricSearchQuery}
+                          onChange={(e) => setSiteMetricSearchQuery(e.target.value)}
+                          placeholder="搜索指标名称，如: 下网总功率、绿电消纳率、月度最大需量..."
+                          className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold focus:outline-indigo-500 bg-slate-50/50"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Metrics List */}
+                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                      {filteredSiteMetrics.map((metric) => {
+                        const telVal = telemetry[metric.key];
+                        const isCurrentlyBound = isPointCurrentlyBound(metric.key);
+
+                        return (
+                          <div
+                            key={metric.key}
+                            className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                              isCurrentlyBound
+                                ? 'bg-emerald-50/80 border-emerald-300'
+                                : 'bg-white border-slate-200 hover:border-amber-300 hover:bg-amber-50/20'
+                            }`}
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-800">{metric.name}</span>
+                                <span className="text-[9.5px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded border border-amber-200">
+                                  {metric.category}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-slate-500 flex items-center gap-3">
+                                <span className="font-mono text-slate-400">Key: {metric.key}</span>
+                                <span>实时指标值: <strong className="text-amber-700">{telVal ? `${telVal.value} ${telVal.unit}` : '-'}</strong></span>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => handleApplyBind(metric.key, metric.name, metric.unit)}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                isCurrentlyBound
+                                  ? 'bg-emerald-600 text-white shadow-xs'
+                                  : 'bg-amber-600 hover:bg-amber-700 text-white shadow-xs'
+                              }`}
+                            >
+                              {isCurrentlyBound ? '当前已绑定' : '选择绑定'}
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Danger Zone: delete */}
+              {/* Modal Footer */}
+              <div className="p-3 border-t border-slate-100 bg-slate-50/70 flex justify-between items-center">
+                <button
+                  onClick={() => handleApplyBind('', '', '')}
+                  className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                >
+                  清除绑定 (置空)
+                </button>
+                <button
+                  onClick={() => setShowPointModal(false)}
+                  className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      {/* Modal 4: All Configurations Manager Modal */}
+      {showConfigManagerModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in zoom-in duration-150">
+            {/* Header */}
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-100 text-indigo-600 rounded-xl">
+                  <FolderPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">组态列表与状态管理</h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">切换运行/编辑状态，或载入其他组态拓扑</p>
+                </div>
+              </div>
               <button
-                onClick={() => handleRemoveElement(selectedElement.id)}
-                className="mt-4 w-full bg-rose-50 border border-rose-100 hover:bg-rose-100 text-rose-600 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+                onClick={() => setShowConfigManagerModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 cursor-pointer transition-colors"
               >
-                <Trash2 className="w-4 h-4" />
-                删除该元件
+                <X className="w-4 h-4" />
               </button>
             </div>
-          ) : (
-            /* EDIT MODE EMPTY STATE GUIDE PANEL (WHEN NOTHING IS SELECTED IN EDIT MODE) */
-            <div className="p-6 flex flex-col items-center justify-center h-full text-center text-slate-400 gap-3 my-auto">
-              <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shadow-sm">
-                <MousePointer className="w-6 h-6 text-indigo-500" />
+
+            {/* List Content */}
+            <div className="p-4 flex-1 overflow-y-auto space-y-2.5">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-bold text-slate-600">全部组态 ({configsList.length})</span>
+                {hasButtonPermission('config_create') && (
+                  <button
+                    onClick={() => {
+                      setShowConfigManagerModal(false);
+                      setShowCreateModal(true);
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    新建组态
+                  </button>
+                )}
               </div>
-              <div className="space-y-1">
-                <h4 className="text-xs font-bold text-slate-700">图元与测点组态编辑模式</h4>
-                <p className="text-[11px] text-slate-400 leading-relaxed max-w-[220px] mx-auto">
-                  请在左侧侧边栏中拖拽图元添加至画布，或在组态图中点击选择任意图元，配置其属性与绑定的遥测遥信测点。
-                </p>
+
+              <div className="space-y-2">
+                {configsList.map((cfg) => {
+                  const isCurrent = cfg.id === currentConfigId;
+
+                  return (
+                    <div
+                      key={cfg.id}
+                      className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                        isCurrent
+                          ? 'bg-indigo-50/60 border-indigo-200 ring-1 ring-indigo-200'
+                          : 'bg-white border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-800 truncate">{cfg.name}</span>
+                          {isCurrent && (
+                            <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.2 rounded-full shrink-0">
+                              当前画布
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] text-slate-400 font-sans">
+                          <span>包含图元: <strong className="text-slate-700">{cfg.elements?.length || 0}</strong> 个</span>
+                          <span>更新时间: {cfg.updatedAt}</span>
+                        </div>
+                      </div>
+
+                      {/* Status Switcher & Actions */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Status Switch Selector */}
+                        <select
+                          value={cfg.status}
+                          onChange={(e) => handleStatusChange(cfg.id, e.target.value as 'in_use' | 'editing' | 'unused')}
+                          className={`text-xs font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-hidden transition-all ${
+                            cfg.status === 'in_use'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : cfg.status === 'editing'
+                              ? 'bg-amber-100 text-amber-800 border-amber-300'
+                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                          }`}
+                          title="切换组态运行使用状态"
+                        >
+                          <option value="in_use">🟢 使用中</option>
+                          <option value="editing">🟡 编辑中</option>
+                          <option value="unused">⚪ 未使用</option>
+                        </select>
+
+                        {/* Switch Active View */}
+                        {!isCurrent && (
+                          <button
+                            onClick={() => {
+                              handleSwitchConfig(cfg.id);
+                              setShowConfigManagerModal(false);
+                            }}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                            title="把当前组态载入到画布"
+                          >
+                            载入
+                          </button>
+                        )}
+
+                        {/* Copy Config */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              const copy = await copyConfig(cfg.id);
+                              const updatedList = await getConfigs('site-1');
+                              setConfigsList(updatedList);
+                              setToastMsg(`已为“${cfg.name}”成功创建副本`);
+                              setShowSaveToast(true);
+                              setTimeout(() => setShowSaveToast(false), 2000);
+                            } catch (e: any) {
+                              alert(e.message || '复制失败');
+                            }
+                          }}
+                          className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                          title="复制组态"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+
+                        {/* Delete Config */}
+                        {hasButtonPermission('config_delete') && (
+                          <button
+                            onClick={() => handleDeleteConfigById(cfg.id)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="删除组态"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {configsList.length === 0 && (
+                  <div className="p-8 text-center text-xs text-slate-400">
+                    暂无任何电气组态配置。
+                  </div>
+                )}
               </div>
             </div>
-          )}
+
+            {/* Footer */}
+            <div className="p-3 border-t border-slate-100 bg-slate-50/70 flex justify-end">
+              <button
+                onClick={() => setShowConfigManagerModal(false)}
+                className="px-4 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
         </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };
