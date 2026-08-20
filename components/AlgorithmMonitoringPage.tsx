@@ -195,46 +195,90 @@ const CustomXAxisTick = (props: any) => {
 
 // --- Sub-Components ---
 
-const ForecastCard = ({ title, icon, value, unit, subValue, data, color, onClick }: any) => (
-  <motion.div 
-    whileHover={{ y: -4, shadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)" }}
+interface ForecastCardProps {
+  title: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  value: string;
+  unit: string;
+  subLabel: string;
+  subValue: string;
+  subColor: string;
+  chartColor: string;
+  gradientId: string;
+  data: { val: number }[];
+  onClick?: () => void;
+}
+
+const ForecastCard: React.FC<ForecastCardProps> = ({
+  title,
+  icon,
+  iconBg,
+  iconColor,
+  value,
+  unit,
+  subLabel,
+  subValue,
+  subColor,
+  chartColor,
+  gradientId,
+  data,
+  onClick
+}) => (
+  <div 
     onClick={onClick}
-    className="bg-white rounded-2xl p-5 border border-slate-100 cursor-pointer transition-all group relative overflow-hidden"
+    className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-300 cursor-pointer group flex flex-col justify-between relative overflow-hidden"
   >
-    <div className={`absolute top-0 right-0 w-24 h-24 blur-3xl opacity-10 pointer-events-none bg-indigo-500`} />
-    <div className="flex items-start justify-between mb-4">
-      <div className={`p-2.5 rounded-xl bg-slate-50 text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white transition-colors`}>
-        {icon}
+    {/* Top Header Row */}
+    <div className="flex items-start justify-between gap-3 mb-2 z-10">
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-xl ${iconBg} ${iconColor} flex items-center justify-center shrink-0 shadow-xs`}>
+          {icon}
+        </div>
+        <div>
+          <span className="text-xs text-slate-500 font-medium block leading-tight mb-1">{title}</span>
+          <div className="flex items-baseline">
+            <span className="text-2xl font-bold text-slate-900 tracking-tight leading-none">{value}</span>
+            <span className="text-xs text-slate-400 font-normal ml-1">{unit}</span>
+          </div>
+        </div>
       </div>
-      <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
-        <Sparkles className="w-3 h-3" />
-        高置信度
+
+      <div className="text-right flex items-baseline gap-1 pt-1">
+        <span className="text-xs text-slate-400 font-medium whitespace-nowrap">{subLabel}</span>
+        <span className={`text-sm font-bold font-mono whitespace-nowrap ${subColor}`}>{subValue}</span>
       </div>
-    </div>
-    
-    <div className="mb-4">
-      <p className="text-xs text-slate-500 font-medium">{title}</p>
-      <div className="flex items-baseline gap-1">
-        <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{value}</h3>
-        <span className="text-xs text-slate-400 font-medium">{unit}</span>
-      </div>
-      <p className={`text-[10px] font-bold mt-1 text-slate-600`}>{subValue}</p>
     </div>
 
-    {/* Sparkline simulation */}
-    <div className="h-12 w-full opacity-60">
+    {/* Sparkline Area Chart */}
+    <div className="h-20 sm:h-24 w-full -mx-1 relative">
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={data.filter((_: any, i: number) => i % 4 === 0)}>
-          <Area type="monotone" dataKey="val" stroke="none" fill={color === 'amber' ? '#FAD000' : color === 'purple' ? '#A985FF' : color === 'blue' ? '#2468f2' : '#10b981'} fillOpacity={0.2} />
-          <Line type="monotone" dataKey="val" stroke={color === 'amber' ? '#FAD000' : color === 'purple' ? '#A985FF' : color === 'blue' ? '#2468f2' : '#10b981'} strokeWidth={2} dot={false} />
+        <ComposedChart data={data} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={chartColor} stopOpacity={0.22} />
+              <stop offset="100%" stopColor={chartColor} stopOpacity={0.01} />
+            </linearGradient>
+          </defs>
+          <Area 
+            type="monotone" 
+            dataKey="val" 
+            stroke={chartColor} 
+            strokeWidth={1.8} 
+            fill={`url(#${gradientId})`} 
+            dot={false}
+            isAnimationActive={false}
+          />
         </ComposedChart>
       </ResponsiveContainer>
+
+      {/* Bottom-right arrow indicator matching screenshot */}
+      <div className="absolute bottom-1 right-2 text-emerald-500 font-bold text-xs opacity-75 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all select-none">
+        →
+      </div>
     </div>
-    
-    <div className="absolute bottom-4 right-4 text-slate-300 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-      <ChevronRight className="w-4 h-4" />
-    </div>
-  </motion.div>
+  </div>
 );
 
 const DetailModal = ({ isOpen, onClose, data, initialType }: { isOpen: boolean, onClose: () => void, data: any[], initialType: 'pv' | 'load' | 'price' | null }) => {
@@ -533,9 +577,10 @@ interface CustomTooltipProps {
   calibrationDots: any[];
   hoveredCalibration: number | null;
   visibleSeries: Record<string, boolean>;
+  hoveredSeries?: string | null;
 }
 
-const CustomTooltip = ({ active, payload, label, calibrationDots, hoveredCalibration, visibleSeries }: CustomTooltipProps) => {
+const CustomTooltip = ({ active, payload, label, calibrationDots, hoveredCalibration, visibleSeries, hoveredSeries }: CustomTooltipProps) => {
   if (!active) return null;
 
   let activeDot = null;
@@ -595,16 +640,26 @@ const CustomTooltip = ({ active, payload, label, calibrationDots, hoveredCalibra
             if (item.value === undefined || item.value === null) return null;
             const isPrice = item.name.includes("电价") || (item.name.includes("预测") && item.name.includes("价"));
             const unit = isPrice ? " 元/kWh" : " kW";
+            const isItemHighlighted = hoveredSeries && (
+              item.name.includes(hoveredSeries) || 
+              (hoveredSeries === "电网功率" && (item.name.includes("电网") || item.name.includes("AI 预测")))
+            );
+            
             return (
-              <div key={idx} className="flex items-center justify-between gap-3 text-[10px]">
+              <div 
+                key={idx} 
+                className={`flex items-center justify-between gap-3 text-[10px] px-1 py-0.5 rounded transition-colors ${
+                  isItemHighlighted ? 'bg-indigo-50/80 font-bold' : ''
+                }`}
+              >
                 <div className="flex items-center gap-1 text-slate-500 font-medium">
                   <span 
-                    className="w-1 h-1 rounded-full shrink-0" 
+                    className={`rounded-full shrink-0 ${isItemHighlighted ? 'w-2 h-2 ring-1 ring-indigo-300' : 'w-1 h-1'}`} 
                     style={{ backgroundColor: item.color || '#94a3b8' }} 
                   />
-                  <span>{item.name}</span>
+                  <span className={isItemHighlighted ? 'text-slate-900 font-bold' : ''}>{item.name}</span>
                 </div>
-                <span className="font-mono font-bold text-slate-700">
+                <span className={`font-mono ${isItemHighlighted ? 'font-heavy text-indigo-700' : 'font-bold text-slate-700'}`}>
                   {typeof item.value === 'number' ? item.value.toFixed(2) : item.value}
                   <span className="text-[8px] text-slate-400 font-normal ml-0.5">{unit}</span>
                 </span>
@@ -627,14 +682,15 @@ const AlgorithmMonitoringPage: React.FC = () => {
   const [highlightRange, setHighlightRange] = useState<{ start: string; end: string } | null>(null);
   const [hoveredCalibration, setHoveredCalibration] = useState<number | null>(null);
   const [hoveredChartTime, setHoveredChartTime] = useState<string | null>(null);
+  const [hoveredSeries, setHoveredSeries] = useState<string | null>(null);
   const [visibleSeries, setVisibleSeries] = useState<Record<string, boolean>>({
-    "购电电价": false,
-    "上网电价": false,
-    "储能排程": false,
-    "负载": true,
-    "光伏功率": true,
+    "电网功率": true,
     "基准电网": true,
-    "电网功率": false
+    "光伏功率": true,
+    "负载": true,
+    "储能排程": true,
+    "购电电价": false,
+    "上网电价": false
   });
 
   const isBasicActive = visibleSeries["基准电网"] && visibleSeries["光伏功率"] && visibleSeries["负载"];
@@ -700,15 +756,15 @@ const AlgorithmMonitoringPage: React.FC = () => {
     const sellPrices = data.map(d => d.sellPrice);
 
     return {
-      pvTotal: pv.toLocaleString(undefined, { maximumFractionDigits: 0 }),
-      loadTotal: load.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+      pvTotal: pv.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 }),
+      loadTotal: load.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 }),
       currentIndex: idx,
       priceRange: {
-        purchaseMin: Math.min(...purchasePrices).toFixed(2),
-        purchaseMax: Math.max(...purchasePrices).toFixed(2),
-        sellMin: Math.min(...sellPrices).toFixed(2),
-        sellMax: Math.max(...sellPrices).toFixed(2),
-        sellAvg: (sellPrices.reduce((a, b) => a + b, 0) / sellPrices.length).toFixed(2)
+        purchaseMin: Math.min(...purchasePrices).toFixed(4),
+        purchaseMax: Math.max(...purchasePrices).toFixed(4),
+        sellMin: Math.min(...sellPrices).toFixed(4),
+        sellMax: Math.max(...sellPrices).toFixed(4),
+        sellAvg: (sellPrices.reduce((a, b) => a + b, 0) / sellPrices.length).toFixed(4)
       }
     };
   }, [data, selectedDate]);
@@ -1132,24 +1188,23 @@ const AlgorithmMonitoringPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full bg-[#f8fafc] font-sans p-4 space-y-4">
+    <div className="w-full space-y-4">
       {/* State Switcher & Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pr-4 border-b border-slate-100 pb-4">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
-            <Zap className="w-5 h-5" />
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-1">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-100">
+            <Zap className="w-4 h-4" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-800">算法监控</h1>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-0.5">AI Global Strategy Optimization</p>
+            <h1 className="text-base font-bold text-slate-800">算法监控</h1>
           </div>
         </div>
 
         {/* Date Selector and Engine Status */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Custom Date Picker Group */}
-          <div className="flex items-center gap-2.5 bg-white border border-slate-200/80 rounded-xl px-3.5 py-2 shadow-sm">
-            <Calendar className="w-4 h-4 text-slate-400" />
+          <div className="flex items-center gap-2.5 bg-white border border-slate-200/80 rounded-xl px-3.5 py-1.5 shadow-xs">
+            <Calendar className="w-3.5 h-3.5 text-slate-400" />
             <div className="relative flex items-center gap-1.5">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">选择日期:</span>
               <input 
@@ -1166,59 +1221,74 @@ const AlgorithmMonitoringPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-100/50 rounded-xl text-emerald-600 shadow-sm">
-            <BrainCircuit className="w-4 h-4 text-emerald-500 animate-pulse" />
-            <span className="text-[12px] font-bold">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-50 border border-emerald-100/50 rounded-xl text-emerald-600 shadow-xs">
+            <BrainCircuit className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+            <span className="text-xs font-bold">
               {selectedDate === getTodayStr() ? "AI 智能调度引擎运行中" : "AI 历史归档数据调度已完成"}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="max-w-[1700px] mx-auto space-y-4">
+      <div className="w-full space-y-4">
         {/* Top Section: Input Source Metrics Cards in a Grid */}
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           <div className="px-1 flex items-center justify-between text-slate-800">
-            <h2 className="text-sm font-bold flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-500" />
-              {selectedDate === getTodayStr() ? "数据输入源 (Forecasting Matrix)" : `历史运行记录 (Archived: ${selectedDate})`}
+            <h2 className="text-xs font-bold flex items-center gap-1.5 text-slate-700">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+              {selectedDate === getTodayStr() ? "数据输入源" : `历史运行记录 (${selectedDate})`}
             </h2>
-            <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-100 rounded-full shadow-sm">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-[10px] font-bold text-slate-500 font-mono tracking-tighter">
-                {selectedDate === getTodayStr() ? `实时更新: ${new Date().toLocaleTimeString()}` : "历史已归档 (Archived)"}
+            <div className="flex items-center gap-2 px-2.5 py-0.5 bg-white border border-slate-100 rounded-full shadow-xs">
+              <Clock className="w-3 h-3 text-slate-400" />
+              <span className="text-[10px] font-bold text-slate-500 font-mono tracking-tight">
+                {selectedDate === getTodayStr() ? `实时更新: ${new Date().toLocaleTimeString()}` : "历史已归档"}
               </span>
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <ForecastCard 
-              title={selectedDate === getTodayStr() ? "光伏发电预测" : "全日实际光伏发电"} 
+              title="光伏发电预测"
               icon={<Sun className="w-5 h-5" />} 
+              iconBg="bg-emerald-50/80 border border-emerald-100/60"
+              iconColor="text-emerald-600"
               value={pvTotal} 
               unit="kWh" 
-              subValue={selectedDate === getTodayStr() ? "预计增长 +12%" : "历史真实出力"} 
-              color="amber" 
+              subLabel="预测增长"
+              subValue="-21.38%"
+              subColor="text-emerald-500"
+              chartColor="#10b981"
+              gradientId="pvSparkGrad"
               data={data.map(d => ({ val: d.pvForecast }))}
               onClick={() => setActiveModal('pv')}
             />
             <ForecastCard 
-              title={selectedDate === getTodayStr() ? "负荷消耗预测" : "全日实际负荷消耗"} 
+              title="负荷消耗预测"
               icon={<BarChart3 className="w-5 h-5" />} 
+              iconBg="bg-sky-50/80 border border-sky-100/60"
+              iconColor="text-sky-500"
               value={loadTotal} 
               unit="kWh" 
-              subValue={selectedDate === getTodayStr() ? "峰值功率: 1,350kW" : "变压器实际负载"} 
-              color="purple" 
+              subLabel="峰值功率"
+              subValue="793.31 kW"
+              subColor="text-sky-500"
+              chartColor="#0ea5e9"
+              gradientId="loadSparkGrad"
               data={data.map(d => ({ val: d.loadCurve }))}
               onClick={() => setActiveModal('load')}
             />
             <ForecastCard 
-              title={selectedDate === getTodayStr() ? "动态电价预测" : "全日电价结算区间"} 
-              icon={<TrendingDown className="w-5 h-5" />} 
+              title="当前电价"
+              icon={<Zap className="w-5 h-5" />} 
+              iconBg="bg-purple-50/80 border border-purple-100/60"
+              iconColor="text-purple-600"
               value={`${priceRange.purchaseMin}-${priceRange.purchaseMax}`} 
               unit="元/kWh" 
-              subValue={`购电: ${priceRange.purchaseMin}-${priceRange.purchaseMax} | 上网: ${priceRange.sellMin}-${priceRange.sellMax}`} 
-              color="blue" 
+              subLabel="上网"
+              subValue={`${priceRange.sellMin}-${priceRange.sellMax} 元/kWh`}
+              subColor="text-purple-600"
+              chartColor="#a855f7"
+              gradientId="priceSparkGrad"
               data={data.map(d => ({ val: d.purchasePrice }))}
               onClick={() => setActiveModal('price')}
             />
@@ -1226,19 +1296,18 @@ const AlgorithmMonitoringPage: React.FC = () => {
         </div>
 
         {/* Main Charts Visualizer */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
           <div className="p-4 pb-3 space-y-4">
             {/* Layer C: Optimized Power Curves */}
-            <div className="relative pt-4 group/layer">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 px-1 border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                  <Workflow className="w-3.5 h-3.5" /> 算法运行监控 (Running Status)
+            <div className="relative pt-2 group/layer">
+              <div className="flex items-center justify-between mb-3 px-1 border-b border-slate-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                  <span className="text-xs font-bold text-slate-800 tracking-wide">算法运行监控</span>
                 </div>
               </div>
 
-
-
-              <div className="h-[420px] w-full">
+              <div className="h-[430px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart 
                     data={processedData}
@@ -1266,7 +1335,7 @@ const AlgorithmMonitoringPage: React.FC = () => {
                     <YAxis yAxisId="price" orientation="right" axisLine={false} tickLine={false} tick={{fill: '#10b981', fontSize: 10}} label={{ value: '电价 (元)', angle: 90, position: 'insideRight', style: { fontSize: '10px', fill: '#10b981' } }} />
                     
                     <Tooltip 
-                      content={<CustomTooltip calibrationDots={calibrationDots} hoveredCalibration={hoveredCalibration} visibleSeries={visibleSeries} />} 
+                      content={<CustomTooltip calibrationDots={calibrationDots} hoveredCalibration={hoveredCalibration} visibleSeries={visibleSeries} hoveredSeries={hoveredSeries} />} 
                     />
                     
                     {/* Render a beautifully styled dynamic shaded background band ONLY when a calibration dot is hovered */}
@@ -1296,31 +1365,226 @@ const AlgorithmMonitoringPage: React.FC = () => {
                       })()
                     )}
                     
-                    <ReferenceLine y={1200} yAxisId="energy" stroke="#ef4444" strokeDasharray="4 4" label={{ position: 'right', value: '超容阈值 (1200kW)', fill: '#ef4444', fontSize: 9, fontWeight: 'bold' }} />
-                    <ReferenceLine y={10} yAxisId="energy" stroke="#f59e0b" strokeDasharray="4 4" label={{ position: 'right', value: '逆流阈值 (10kW)', fill: '#f59e0b', fontSize: 9, fontWeight: 'bold' }} />
+                    {/* Highlighted Thresholds */}
+                    <ReferenceLine y={1200} yAxisId="energy" stroke="#ef4444" strokeWidth={2} strokeDasharray="4 4" label={{ position: 'right', value: '超容阈值 (1200kW)', fill: '#ef4444', fontSize: 10, fontWeight: 'bold' }} />
+                    <ReferenceLine y={10} yAxisId="energy" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" label={{ position: 'right', value: '逆流阈值 (10kW)', fill: '#f59e0b', fontSize: 10, fontWeight: 'bold' }} />
                     
                     <ReferenceLine x={data[currentIndex]?.time} yAxisId="energy" stroke="#6366f1" strokeWidth={2} strokeDasharray="3 3" label={{ position: 'top', value: '当前', fill: '#6366f1', fontSize: 10, fontWeight: 'bold' }} />
                     <ReferenceLine y={0} yAxisId="price" stroke="#cbd5e1" strokeWidth={1} />
 
-                    <Area yAxisId="price" name="购电电价" type="stepAfter" dataKey="purchasePriceActual" fill="#7DADFF" fillOpacity={0.1} stroke="#7DADFF" strokeWidth={1} dot={false} hide={!visibleSeries["购电电价"]} />
-                    <Area yAxisId="price" name="购电预测" type="stepAfter" dataKey="purchasePriceForecast" fill="#7DADFF" fillOpacity={0.05} stroke="#7DADFF" strokeWidth={1} strokeDasharray="3 3" dot={false} legendType="none" hide={!visibleSeries["购电电价"]} />
+                    {/* Price Areas: Subdued by default, highlighted on hover */}
+                    <Area 
+                      yAxisId="price" 
+                      name="购电电价" 
+                      type="stepAfter" 
+                      dataKey="purchasePriceActual" 
+                      fill="#7DADFF" 
+                      fillOpacity={hoveredSeries === "购电电价" ? 0.35 : 0.12} 
+                      stroke="#60a5fa" 
+                      strokeWidth={hoveredSeries === "购电电价" ? 3 : 1.5} 
+                      strokeOpacity={hoveredSeries === "购电电价" ? 1 : (hoveredSeries ? 0.25 : 0.65)}
+                      dot={false} 
+                      hide={!visibleSeries["购电电价"]} 
+                      onMouseEnter={() => setHoveredSeries("购电电价")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <Area 
+                      yAxisId="price" 
+                      name="购电预测" 
+                      type="stepAfter" 
+                      dataKey="purchasePriceForecast" 
+                      fill="#7DADFF" 
+                      fillOpacity={hoveredSeries === "购电电价" ? 0.25 : 0.08} 
+                      stroke="#60a5fa" 
+                      strokeWidth={hoveredSeries === "购电电价" ? 3 : 1.5} 
+                      strokeDasharray="3 3" 
+                      strokeOpacity={hoveredSeries === "购电电价" ? 1 : (hoveredSeries ? 0.25 : 0.6)}
+                      dot={false} 
+                      legendType="none" 
+                      hide={!visibleSeries["购电电价"]} 
+                      onMouseEnter={() => setHoveredSeries("购电电价")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
                     
-                    <Area yAxisId="price" name="上网电价" type="stepAfter" dataKey="sellPriceActual" fill="#FF908C" fillOpacity={0.1} stroke="#FF908C" strokeWidth={1} dot={false} hide={!visibleSeries["上网电价"]} />
-                    <Area yAxisId="price" name="上网预测" type="stepAfter" dataKey="sellPriceForecast" fill="#FF908C" fillOpacity={0.05} stroke="#FF908C" strokeWidth={1} strokeDasharray="3 3" dot={false} legendType="none" hide={!visibleSeries["上网电价"]} />
+                    <Area 
+                      yAxisId="price" 
+                      name="上网电价" 
+                      type="stepAfter" 
+                      dataKey="sellPriceActual" 
+                      fill="#FF908C" 
+                      fillOpacity={hoveredSeries === "上网电价" ? 0.35 : 0.12} 
+                      stroke="#f87171" 
+                      strokeWidth={hoveredSeries === "上网电价" ? 3 : 1.5} 
+                      strokeOpacity={hoveredSeries === "上网电价" ? 1 : (hoveredSeries ? 0.25 : 0.65)}
+                      dot={false} 
+                      hide={!visibleSeries["上网电价"]} 
+                      onMouseEnter={() => setHoveredSeries("上网电价")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <Area 
+                      yAxisId="price" 
+                      name="上网预测" 
+                      type="stepAfter" 
+                      dataKey="sellPriceForecast" 
+                      fill="#FF908C" 
+                      fillOpacity={hoveredSeries === "上网电价" ? 0.25 : 0.08} 
+                      stroke="#f87171" 
+                      strokeWidth={hoveredSeries === "上网电价" ? 3 : 1.5} 
+                      strokeDasharray="3 3" 
+                      strokeOpacity={hoveredSeries === "上网电价" ? 1 : (hoveredSeries ? 0.25 : 0.6)}
+                      dot={false} 
+                      legendType="none" 
+                      hide={!visibleSeries["上网电价"]} 
+                      onMouseEnter={() => setHoveredSeries("上网电价")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
 
-                    <Bar yAxisId="energy" name="储能排程" dataKey="bessAction" barSize={12} fill="#A5E693" fillOpacity={0.4} radius={[4, 4, 0, 0]} hide={!visibleSeries["储能排程"]} />
+                    {/* BESS Action Bar: Subdued by default, highlighted on hover */}
+                    <Bar 
+                      yAxisId="energy" 
+                      name="储能排程" 
+                      dataKey="bessAction" 
+                      barSize={12} 
+                      fill="#10b981" 
+                      fillOpacity={hoveredSeries === "储能排程" ? 0.9 : (hoveredSeries ? 0.2 : 0.55)} 
+                      radius={[4, 4, 0, 0]} 
+                      hide={!visibleSeries["储能排程"]} 
+                      onMouseEnter={() => setHoveredSeries("储能排程")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
                     
-                    <Line yAxisId="energy" name="实际负载" type="monotone" dataKey="loadActualLine" stroke="#A985FF" strokeWidth={1.5} dot={false} legendType="none" hide={!visibleSeries["负载"]} />
-                    <Line yAxisId="energy" name="负载" type="monotone" dataKey="loadForecastLine" stroke="#A985FF" strokeWidth={1.5} strokeDasharray="4 4" dot={false} hide={!visibleSeries["负载"]} />
+                    {/* Load Line: Subdued by default, highlighted on hover */}
+                    <Line 
+                      yAxisId="energy" 
+                      name="实际负载" 
+                      type="monotone" 
+                      dataKey="loadActualLine" 
+                      stroke={hoveredSeries === "负载" ? "#7c3aed" : "#A985FF"} 
+                      strokeWidth={hoveredSeries === "负载" ? 3.5 : 2} 
+                      strokeOpacity={hoveredSeries === "负载" ? 1 : (hoveredSeries ? 0.2 : 0.6)}
+                      dot={false} 
+                      legendType="none" 
+                      hide={!visibleSeries["负载"]} 
+                      onMouseEnter={() => setHoveredSeries("负载")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <Line 
+                      yAxisId="energy" 
+                      name="负载" 
+                      type="monotone" 
+                      dataKey="loadForecastLine" 
+                      stroke={hoveredSeries === "负载" ? "#7c3aed" : "#A985FF"} 
+                      strokeWidth={hoveredSeries === "负载" ? 3.2 : 1.8} 
+                      strokeDasharray="4 4" 
+                      strokeOpacity={hoveredSeries === "负载" ? 1 : (hoveredSeries ? 0.2 : 0.55)}
+                      dot={false} 
+                      hide={!visibleSeries["负载"]} 
+                      onMouseEnter={() => setHoveredSeries("负载")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
                     
-                    <Line yAxisId="energy" name="实际光伏功率" type="monotone" dataKey="pvActualLine" stroke="#FAD000" strokeWidth={2} dot={false} legendType="none" hide={!visibleSeries["光伏功率"]} />
-                    <Line yAxisId="energy" name="光伏功率" type="monotone" dataKey="pvForecastLine" stroke="#FAD000" strokeWidth={1.5} strokeDasharray="4 4" dot={false} hide={!visibleSeries["光伏功率"]} />
+                    {/* PV Line: Subdued by default, highlighted on hover */}
+                    <Line 
+                      yAxisId="energy" 
+                      name="实际光伏功率" 
+                      type="monotone" 
+                      dataKey="pvActualLine" 
+                      stroke={hoveredSeries === "光伏功率" ? "#d97706" : "#F59E0B"} 
+                      strokeWidth={hoveredSeries === "光伏功率" ? 3.5 : 2} 
+                      strokeOpacity={hoveredSeries === "光伏功率" ? 1 : (hoveredSeries ? 0.2 : 0.65)}
+                      dot={false} 
+                      legendType="none" 
+                      hide={!visibleSeries["光伏功率"]} 
+                      onMouseEnter={() => setHoveredSeries("光伏功率")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <Line 
+                      yAxisId="energy" 
+                      name="光伏功率" 
+                      type="monotone" 
+                      dataKey="pvForecastLine" 
+                      stroke={hoveredSeries === "光伏功率" ? "#d97706" : "#F59E0B"} 
+                      strokeWidth={hoveredSeries === "光伏功率" ? 3.2 : 1.8} 
+                      strokeDasharray="4 4" 
+                      strokeOpacity={hoveredSeries === "光伏功率" ? 1 : (hoveredSeries ? 0.2 : 0.6)}
+                      dot={false} 
+                      hide={!visibleSeries["光伏功率"]} 
+                      onMouseEnter={() => setHoveredSeries("光伏功率")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
                     
-                    <Line yAxisId="energy" name="实际基准电网" type="monotone" dataKey="baselineActual" stroke="#94a3b8" strokeWidth={1} dot={false} legendType="none" hide={!visibleSeries["基准电网"]} />
-                    <Line yAxisId="energy" name="基准电网" type="monotone" dataKey="baselineForecast" stroke="#94a3b8" strokeWidth={1} strokeDasharray="6 6" dot={false} hide={!visibleSeries["基准电网"]} />
+                    {/* Highlighted Baseline Grid */}
+                    <Line 
+                      yAxisId="energy" 
+                      name="实际基准电网" 
+                      type="monotone" 
+                      dataKey="baselineActual" 
+                      stroke="#1e293b" 
+                      strokeWidth={hoveredSeries === "基准电网" ? 4 : 2.8} 
+                      strokeOpacity={hoveredSeries === "基准电网" ? 1 : (hoveredSeries ? 0.35 : 1)}
+                      dot={false} 
+                      legendType="none" 
+                      hide={!visibleSeries["基准电网"]} 
+                      onMouseEnter={() => setHoveredSeries("基准电网")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <Line 
+                      yAxisId="energy" 
+                      name="基准电网" 
+                      type="monotone" 
+                      dataKey="baselineForecast" 
+                      stroke="#334155" 
+                      strokeWidth={hoveredSeries === "基准电网" ? 3.5 : 2.4} 
+                      strokeDasharray="6 6" 
+                      strokeOpacity={hoveredSeries === "基准电网" ? 1 : (hoveredSeries ? 0.35 : 0.95)}
+                      dot={false} 
+                      hide={!visibleSeries["基准电网"]} 
+                      onMouseEnter={() => setHoveredSeries("基准电网")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
                     
-                    <Line yAxisId="energy" name="电网功率" type="monotone" dataKey="gridActual" stroke="#2468f2" strokeWidth={3} dot={false} hide={!visibleSeries["电网功率"]} />
-                    <Line yAxisId="energy" name="AI 预测优化" type="monotone" dataKey="gridForecast" stroke="#2468f2" strokeWidth={2} strokeDasharray="6 6" dot={false} legendType="none" hide={!visibleSeries["电网功率"]} />
+                    {/* Highlighted Grid Power (Optimized Grid) */}
+                    <Line 
+                      yAxisId="energy" 
+                      name="电网功率" 
+                      type="monotone" 
+                      dataKey="gridActual" 
+                      stroke="#2563eb" 
+                      strokeWidth={hoveredSeries === "电网功率" ? 4.5 : 3.5} 
+                      strokeOpacity={hoveredSeries === "电网功率" ? 1 : (hoveredSeries ? 0.35 : 1)}
+                      dot={false} 
+                      hide={!visibleSeries["电网功率"]} 
+                      onMouseEnter={() => setHoveredSeries("电网功率")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <Line 
+                      yAxisId="energy" 
+                      name="AI 预测优化" 
+                      type="monotone" 
+                      dataKey="gridForecast" 
+                      stroke="#3b82f6" 
+                      strokeWidth={hoveredSeries === "电网功率" ? 4 : 3} 
+                      strokeDasharray="6 6" 
+                      strokeOpacity={hoveredSeries === "电网功率" ? 1 : (hoveredSeries ? 0.35 : 0.95)}
+                      dot={false} 
+                      legendType="none" 
+                      hide={!visibleSeries["电网功率"]} 
+                      onMouseEnter={() => setHoveredSeries("电网功率")}
+                      onMouseLeave={() => setHoveredSeries(null)}
+                      style={{ cursor: 'pointer' }}
+                    />
 
                     {/* Diagnostic Calibration Pins Draw Directly on Curves */}
                     {filteredCalibrationDots.map((pt) => (
@@ -1439,37 +1703,40 @@ const AlgorithmMonitoringPage: React.FC = () => {
                         const { payload } = props;
                         const categories = [
                           {
-                            title: "关键指标",
-                            items: ["电网功率", "基准电网", "储能排程"],
-                            isBold: true
+                            title: "核心突出",
+                            items: ["基准电网", "电网功率"],
+                            isBold: true,
+                            isCore: true
                           },
                           {
-                            title: "辅助指标",
-                            items: ["光伏功率", "负载"],
-                            isBold: false
+                            title: "辅助曲线(悬停高亮)",
+                            items: ["光伏功率", "负载", "储能排程"],
+                            isBold: false,
+                            isCore: false
                           },
                           {
                             title: "电价指标",
                             items: ["购电电价", "上网电价"],
-                            isBold: false
+                            isBold: false,
+                            isCore: false
                           }
                         ];
 
                         return (
-                          <div className="flex flex-col gap-4 mb-6 px-1">
+                          <div className="flex flex-col gap-3 mb-5 px-1">
                             {/* Combination Buttons (Stackable & Default-selective) */}
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-50 border border-slate-100/50 p-2.5 rounded-2xl">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-50/90 border border-slate-200/60 p-2.5 rounded-xl">
                               <div className="flex items-center gap-2">
                                 <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">视图快捷组合 (View Presets)</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">视图快捷组合</span>
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 <button
                                   type="button"
                                   onClick={() => handleComboClick('basic')}
-                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all duration-200 cursor-pointer shadow-sm ${
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-200 cursor-pointer shadow-xs ${
                                     isBasicActive 
-                                      ? 'bg-slate-800 text-white shadow-slate-100 scale-[1.02] font-heavy' 
+                                      ? 'bg-slate-800 text-white shadow-xs scale-[1.02]' 
                                       : 'bg-white text-slate-500 hover:text-slate-800 border border-slate-200 hover:border-slate-300'
                                   }`}
                                 >
@@ -1481,9 +1748,9 @@ const AlgorithmMonitoringPage: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => handleComboClick('price')}
-                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all duration-200 cursor-pointer shadow-sm ${
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-200 cursor-pointer shadow-xs ${
                                     isPriceActive 
-                                      ? 'bg-slate-800 text-white shadow-slate-100 scale-[1.02] font-heavy' 
+                                      ? 'bg-slate-800 text-white shadow-xs scale-[1.02]' 
                                       : 'bg-white text-slate-500 hover:text-slate-800 border border-slate-200 hover:border-slate-300'
                                   }`}
                                 >
@@ -1495,39 +1762,55 @@ const AlgorithmMonitoringPage: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => handleComboClick('ai')}
-                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all duration-200 cursor-pointer shadow-sm ${
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-200 cursor-pointer shadow-xs ${
                                     isAiActiveSeries 
-                                      ? 'bg-slate-800 text-white shadow-slate-100 scale-[1.02] font-heavy' 
+                                      ? 'bg-slate-800 text-white shadow-xs scale-[1.02]' 
                                       : 'bg-white text-slate-500 hover:text-slate-800 border border-slate-200 hover:border-slate-300'
                                   }`}
                                 >
                                   <BrainCircuit className="w-3 h-3 text-emerald-400" />
-                                  <span>AI策略效果</span>
+                                  <span>储能与电网优化</span>
                                   {isAiActiveSeries && <span className="w-1 h-1 rounded-full bg-emerald-400 ml-0.5 animate-pulse" />}
                                 </button>
                               </div>
                             </div>
 
-                            {/* Original Legend Indicators */}
-                            <div className="flex flex-wrap justify-end gap-x-8 gap-y-3 pr-3">
+                            {/* Original Legend Indicators with Hover Highlighting */}
+                            <div className="flex flex-wrap justify-end gap-x-6 gap-y-2 pr-2">
                               {categories.map((cat, idx) => (
-                                <div key={idx} className="flex items-center gap-2.5">
+                                <div key={idx} className="flex items-center gap-2">
                                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{cat.title}:</span>
-                                  <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-2.5">
                                     {cat.items.map(itemName => {
                                       const item = payload.find((p: any) => p.value === itemName);
                                       if (!item) return null;
                                       const isVisible = visibleSeries[itemName];
+                                      const isHovered = hoveredSeries === itemName;
                                       return (
                                         <div 
                                           key={itemName} 
-                                          className={`flex items-center gap-1.5 cursor-pointer transition-all hover:scale-105 ${isVisible ? 'opacity-100' : 'opacity-30 filter grayscale'}`}
+                                          className={`flex items-center gap-1.5 cursor-pointer transition-all px-1.5 py-0.5 rounded-md ${
+                                            isHovered 
+                                              ? 'bg-slate-100 ring-1 ring-slate-300 scale-105 font-bold' 
+                                              : isVisible 
+                                              ? 'opacity-100 hover:bg-slate-50' 
+                                              : 'opacity-30 filter grayscale'
+                                          }`}
                                           onClick={() => handleLegendClick({ value: itemName })}
+                                          onMouseEnter={() => setHoveredSeries(itemName)}
+                                          onMouseLeave={() => setHoveredSeries(null)}
+                                          title={`点击显示/隐藏，悬停高亮 ${itemName}`}
                                         >
-                                          <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: item.color }} />
-                                          <span className={`text-[10px] ${cat.isBold ? 'font-bold' : 'font-medium'} ${isVisible ? 'text-slate-600' : 'text-slate-400'}`}>
+                                          <div 
+                                            className={`rounded-full shadow-xs transition-all ${
+                                              cat.isCore ? 'w-2.5 h-2.5 ring-1 ring-slate-400' : 'w-2 h-2'
+                                            }`} 
+                                            style={{ backgroundColor: item.color }} 
+                                          />
+                                          <span className={`text-[10px] ${cat.isCore || isHovered ? 'font-bold text-slate-800' : isVisible ? 'text-slate-600' : 'text-slate-400'}`}>
                                             {itemName}
                                           </span>
+                                          {isHovered && <span className="text-[8px] text-indigo-500 font-bold ml-0.5">高亮</span>}
                                         </div>
                                       );
                                     })}
@@ -1557,17 +1840,17 @@ const AlgorithmMonitoringPage: React.FC = () => {
                 <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400">
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-[#2ece8d]" />
-                    <span>充电 (Charging)</span>
+                    <span>充电</span>
                   </div>
                   <div className="h-2 w-[1px] bg-slate-200" />
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-[#ff6b81]" />
-                    <span>放电 (Discharging)</span>
+                    <span>放电</span>
                   </div>
                   <div className="h-2 w-[1px] bg-slate-200" />
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-[#f1f2f6] border border-slate-300" />
-                    <span>待机 (Standby)</span>
+                    <span>待机</span>
                   </div>
                 </div>
               </div>
@@ -1701,7 +1984,6 @@ const AlgorithmMonitoringPage: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-sm font-bold text-slate-800">AI 建议策略明细</h2>
-                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 tracking-wider">Detailed Execution Plan & Reasoning</p>
               </div>
             </div>
             <div className="flex items-center gap-3">

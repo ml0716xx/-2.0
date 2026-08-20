@@ -6,6 +6,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import CommonConfigPanel from './CommonConfigPanel';
+import StrategySimulationConfigPage from './StrategySimulationConfigPage';
 
 interface SubPeriod {
   start: string;
@@ -45,7 +46,7 @@ const StrategyConfigPage: React.FC = () => {
   const [focusedThresholdBlockId, setFocusedThresholdBlockId] = useState<string | null>(null);
 
   // 公共配置状态
-  const [activeTab, setActiveTab] = useState<'common' | 'selfConsumption'>('common');
+  const [activeTab, setActiveTab] = useState<'common' | 'selfConsumption' | 'monthlySchedule'>('monthlySchedule');
 
   const [templates, setTemplates] = useState<StrategyTemplate[]>([
     {
@@ -211,15 +212,18 @@ const StrategyConfigPage: React.FC = () => {
       {/* 顶部标签页切换 */}
       <div className="flex items-center gap-8 border-b border-slate-100 pb-3">
         <button
-          onClick={() => setActiveTab('common')}
+          onClick={() => {
+            setActiveTab('monthlySchedule');
+            setIsEditing(false);
+          }}
           className={`text-base font-bold pb-2 transition-all relative cursor-pointer ${
-            activeTab === 'common' 
+            activeTab === 'monthlySchedule' 
               ? 'text-emerald-600 font-black' 
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >
-          公共配置
-          {activeTab === 'common' && (
+          月度策略排程与模拟看板
+          {activeTab === 'monthlySchedule' && (
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
           )}
         </button>
@@ -239,9 +243,29 @@ const StrategyConfigPage: React.FC = () => {
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
           )}
         </button>
+        <button
+          onClick={() => setActiveTab('common')}
+          className={`text-base font-bold pb-2 transition-all relative cursor-pointer ${
+            activeTab === 'common' 
+              ? 'text-emerald-600 font-black' 
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          公共配置
+          {activeTab === 'common' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
+          )}
+        </button>
       </div>
 
-      {activeTab === 'common' ? (
+      {activeTab === 'monthlySchedule' ? (
+        <StrategySimulationConfigPage 
+          onBack={() => setActiveTab('selfConsumption')}
+          onSaveAndSimulate={() => {
+            alert('月度策略排程与配置已保存！');
+          }}
+        />
+      ) : activeTab === 'common' ? (
         <CommonConfigPanel />
       ) : (
         <div className="flex-1 flex gap-4">
