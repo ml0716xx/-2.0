@@ -15,7 +15,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
     '监控中心': true,
     '策略管理': true,
-    '统计报表': true
+    '统计报表': true,
+    '微网管理': true
   });
 
   const toggleMenu = (menuName: string) => {
@@ -53,7 +54,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
       hasSub: true,
       subItems: ['电量报表', '收益报表']
     },
-    { name: '微网管理', icon: <Settings className="w-5 h-5" /> },
+    { 
+      name: '微网管理', 
+      icon: <Settings className="w-5 h-5" />,
+      hasSub: true,
+      subItems: ['站点管理', '设备管理', '拓扑管理', '电价配置', '指标配置']
+    },
     { name: '系统日志', icon: <ShieldCheck className="w-5 h-5" /> },
   ];
 

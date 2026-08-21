@@ -17,6 +17,10 @@ import {
   X,
   AlertCircle,
   FileSpreadsheet,
+  Sparkles,
+  Coins,
+  BatteryCharging,
+  ArrowDownRight,
 } from "lucide-react";
 
 import {
@@ -248,6 +252,7 @@ const StrategyReportPage: React.FC = () => {
   const [hoveredRevenueIndex, setHoveredRevenueIndex] = useState<number | null>(null);
   const [hoveredPvIndex, setHoveredPvIndex] = useState<number | null>(null);
   const [hoveredEssIndex, setHoveredEssIndex] = useState<number | null>(null);
+  const [hoveredPriceIndex, setHoveredPriceIndex] = useState<number | null>(null);
 
   // Helper: check if a specific day is simulated with an AI strategy (true => dashed grid, false => solid)
   const isDaySimulatedWithAi = (dayNum: number): boolean => {
@@ -500,6 +505,86 @@ const StrategyReportPage: React.FC = () => {
     };
   });
 
+  // 4. Daily ESS Charging Cost & Discharging Price dataset for Charts
+  const chartEssPriceData = Array.from({ length: 31 }, (_, i) => {
+    const dayNum = i + 1;
+    const dRev = dailyRevenueData[i];
+    const originalHasAi = dRev ? dRev.hasAi : false;
+    
+    // 模拟基准策略价格 (常规模板定时充放电)
+    // 基准充电成本：0.370 ~ 0.410 元/kWh；基准放电均价：0.830 ~ 0.865 元/kWh
+    const baseChargePrice = parseFloat((0.382 + Math.sin(i * 0.7) * 0.022).toFixed(3));
+    const baseDischargePrice = parseFloat((0.842 + Math.cos(i * 0.5) * 0.026).toFixed(3));
+    
+    let simulatedChargePrice = baseChargePrice;
+    let simulatedDischargePrice = baseDischargePrice;
+    let aiChargePrice = baseChargePrice;
+    let aiDischargePrice = baseDischargePrice;
+    let isSimulatedDay = false;
+    let hasAi = originalHasAi;
+
+    if (simulationSchedule) {
+      if (originalHasAi) {
+        isSimulatedDay = false;
+        simulatedChargePrice = baseChargePrice;
+        simulatedDischargePrice = baseDischargePrice;
+        // AI 智能全景协同：深谷/光伏入储深度优化，充电均价降低至 0.310 ~ 0.335
+        aiChargePrice = parseFloat((0.315 + Math.sin(i * 0.9) * 0.016).toFixed(3));
+        // 尖峰/高峰极致捕捉，放电均价提升至 0.915 ~ 0.945
+        aiDischargePrice = parseFloat((0.926 + Math.cos(i * 0.8) * 0.020).toFixed(3));
+        hasAi = true;
+      } else {
+        isSimulatedDay = true;
+        simulatedChargePrice = baseChargePrice;
+        simulatedDischargePrice = baseDischargePrice;
+        const isSimAi = isDaySimulatedWithAi(dayNum);
+        hasAi = isSimAi;
+        if (isSimAi) {
+          aiChargePrice = parseFloat((0.312 + Math.sin(i * 0.9) * 0.014).toFixed(3));
+          aiDischargePrice = parseFloat((0.928 + Math.cos(i * 0.8) * 0.018).toFixed(3));
+        } else {
+          aiChargePrice = baseChargePrice;
+          aiDischargePrice = baseDischargePrice;
+        }
+      }
+    } else {
+      isSimulatedDay = false;
+      simulatedChargePrice = baseChargePrice;
+      simulatedDischargePrice = baseDischargePrice;
+      if (originalHasAi) {
+        aiChargePrice = parseFloat((0.320 + Math.sin(i * 0.9) * 0.016).toFixed(3));
+        aiDischargePrice = parseFloat((0.918 + Math.cos(i * 0.8) * 0.020).toFixed(3));
+      } else {
+        aiChargePrice = baseChargePrice;
+        aiDischargePrice = baseDischargePrice;
+      }
+      hasAi = originalHasAi;
+    }
+
+    // 充放价差 (度电利差)
+    const actualSpread = parseFloat((aiDischargePrice - aiChargePrice).toFixed(3));
+    const simulatedSpread = parseFloat((simulatedDischargePrice - simulatedChargePrice).toFixed(3));
+    const diffSpread = parseFloat((actualSpread - simulatedSpread).toFixed(3));
+    const diffSpreadPercent = parseFloat(((diffSpread / simulatedSpread) * 100).toFixed(1));
+    const strategyName = getSimulatedStrategyName(dayNum, originalHasAi);
+
+    return {
+      day: `${dayNum}日`,
+      dayNum,
+      simulatedChargePrice,
+      simulatedDischargePrice,
+      aiChargePrice,
+      aiDischargePrice,
+      simulatedSpread,
+      actualSpread,
+      diffSpread,
+      diffSpreadPercent,
+      isSimulatedDay,
+      hasAi,
+      strategyName,
+    };
+  });
+
   const maxEssVal = Math.max(
     ...chartEssData.map((d) =>
       Math.max(
@@ -656,6 +741,40 @@ const StrategyReportPage: React.FC = () => {
     );
   };
 
+  const renderPriceSpreadDiffLabel = (props: any) => {
+    const { x, y, width, index } = props;
+    if (hoveredPriceIndex !== index) return null;
+    const item = chartEssPriceData[index];
+    if (!item) return null;
+    const diff = item.diffSpread;
+    if (diff <= 0) return null;
+
+    return (
+      <g transform={`translate(${x + width / 2}, ${Math.max(12, y - 8)})`} className="animate-in fade-in zoom-in-90 duration-150 pointer-events-none">
+        <rect 
+          x={-28} 
+          y={-12} 
+          width={56} 
+          height={14} 
+          rx={4} 
+          fill="#6366f1" 
+          stroke="#ffffff" 
+          strokeWidth={1.5} 
+          className="drop-shadow-md"
+        />
+        <text
+          textAnchor="middle"
+          y={-2}
+          fill="#ffffff"
+          fontSize={8.5}
+          fontWeight="bold"
+        >
+          {`+¥${diff.toFixed(3)}`}
+        </text>
+      </g>
+    );
+  };
+
   if (isConfigSubpageOpen) {
     return (
       <StrategySimulationConfigPage
@@ -738,95 +857,470 @@ const StrategyReportPage: React.FC = () => {
         </div>
       </div>
 
-      {/* CORE STATS CARDS & DASHBOARD */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 shrink-0">
-        {/* Card 1: 本月收益 */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.03),0_1px_3px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.07),0_2px_6px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between min-h-[165px]">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold text-slate-800 tracking-tight">本月收益</span>
-              {simulationSchedule && (
-                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[9px] font-extrabold">含排程模拟</span>
-              )}
-            </div>
-            <h3 className="text-[32px] sm:text-[34px] font-black text-slate-900 tracking-tight leading-none mt-2 mb-4 font-sans">
-              {simulationSchedule ? "8.06万元" : "7.79万元"}
-            </h3>
-          </div>
-          <div className="bg-slate-50/90 border border-slate-100/90 rounded-xl px-3.5 py-2.5 flex items-center justify-between text-xs text-slate-600 shadow-[inset_0_1px_2px_rgba(0,0,0,0.015)]">
-            <span className="flex items-center gap-1 font-medium">
-              较基础策略 <span className="font-extrabold text-orange-500">{simulationSchedule ? "+8.33%" : "+4.82%"}</span>
-            </span>
-            <span className="text-slate-700 font-bold">基础 7.44万元</span>
-          </div>
-        </div>
-        
-        {/* Card 2: AI 提升收益 */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.03),0_1px_3px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.07),0_2px_6px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between min-h-[165px]">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold text-slate-800 tracking-tight">AI提升收益</span>
-              {simulationSchedule && (
-                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[9px] font-extrabold">含排程模拟</span>
-              )}
-            </div>
-            <h3 className="text-[32px] sm:text-[34px] font-black text-slate-900 tracking-tight leading-none mt-2 mb-4 font-sans">
-              {simulationSchedule ? "6,200.00元" : "3,581.87元"}
-            </h3>
-          </div>
-          <div className="bg-slate-50/90 border border-slate-100/90 rounded-xl px-3.5 py-2.5 flex items-center justify-between text-xs text-slate-600 shadow-[inset_0_1px_2px_rgba(0,0,0,0.015)]">
-            <span className="flex items-center gap-1.5 font-medium text-slate-700">
-              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-              <span>非AI运行日运行后可额外提升:</span>
-            </span>
-            <span className="font-extrabold text-emerald-600 text-xs sm:text-sm">
-              +2,618.13元
-            </span>
-          </div>
-        </div>
+      {/* CORE STATS CARDS & DASHBOARD - 2 PARALLEL COMPARISON CARDS */}
+      {(() => {
+        // 1. 实际运行AI日统计
+        const actualAiList = dailyRevenueData.filter((d) => d.hasAi);
+        const actualAiDays = actualAiList.length; // 26 天
+        const actualAiTotalRev = actualAiList.reduce((sum, d) => sum + (d.baseRevenue! + d.aiBoost!), 0); // 实际总收益
+        const actualAiAvgRev = actualAiDays > 0 ? Math.round(actualAiTotalRev / actualAiDays) : 0; // 平均日收益
+        const actualAiLossIfBase = actualAiList.reduce((sum, d) => sum + d.aiBoost!, 0); // 运行ai日已为电站多赚
 
-        {/* Card 3: 储能利用率 */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.03),0_1px_3px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.07),0_2px_6px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between min-h-[165px]">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold text-slate-800 tracking-tight">储能利用率</span>
-              {simulationSchedule && (
-                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[9px] font-extrabold">含排程模拟</span>
-              )}
-            </div>
-            <h3 className="text-[32px] sm:text-[34px] font-black text-slate-900 tracking-tight leading-none mt-2 mb-4 font-sans">
-              {simulationSchedule ? "98.20%" : "95.60%"}
-            </h3>
-          </div>
-          <div className="bg-slate-50/90 border border-slate-100/90 rounded-xl px-3.5 py-2.5 flex items-center justify-between text-xs text-slate-600 shadow-[inset_0_1px_2px_rgba(0,0,0,0.015)]">
-            <span className="flex items-center gap-1 font-medium">
-              较基础策略 <span className="font-extrabold text-orange-500">{simulationSchedule ? "+15.00%" : "+12.40%"}</span>
-            </span>
-            <span className="text-slate-700 font-bold">基础 83.20%</span>
-          </div>
-        </div>
+        // 2. 实际未运行AI日统计
+        const actualNonAiList = dailyRevenueData.filter((d) => !d.hasAi);
+        const actualNonAiDays = actualNonAiList.length; // 5 天
+        const actualNonAiTotalRev = actualNonAiList.reduce((sum, d) => sum + d.actualRevenue!, 0); // 实际未运行AI收益
+        const actualNonAiAvgRev = actualNonAiDays > 0 ? Math.round(actualNonAiTotalRev / actualNonAiDays) : 0; // 平均日收益
+        const actualNonAiGainIfAi = actualNonAiList.reduce((sum, d) => sum + Math.round(d.actualRevenue! * 0.32), 0);
 
-        {/* Card 4: 光伏消纳率 */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.03),0_1px_3px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.07),0_2px_6px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between min-h-[165px]">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold text-slate-800 tracking-tight">光伏消纳率</span>
-              {simulationSchedule && (
-                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[9px] font-extrabold">含排程模拟</span>
-              )}
+        // 3. 当月模拟排程统计
+        const scheduledAiDaysCount = simulationSchedule
+          ? Object.keys(simulationSchedule).filter((k) => isDaySimulatedWithAi(parseInt(k))).length
+          : actualAiDays;
+        const currentAiDays = simulationSchedule ? scheduledAiDaysCount : actualAiDays;
+        const currentNonAiDays = 31 - currentAiDays;
+
+        // 收益动态核算
+        const fullSimAiTotalRev = dailyRevenueData.reduce((sum, d) => {
+          const base = d.hasAi ? d.baseRevenue! : d.actualRevenue!;
+          const boost = d.hasAi ? d.aiBoost! : Math.round(base * 0.32);
+          return sum + base + boost;
+        }, 0);
+        const currentAiTotalRev = simulationSchedule
+          ? chartRevenueData.filter((d) => d.hasAi).reduce((sum, d) => sum + d.aiRevenue, 0)
+          : actualAiTotalRev;
+        const currentAiAvgRev = currentAiDays > 0 ? Math.round(currentAiTotalRev / currentAiDays) : 0;
+
+        const currentNonAiTotalRev = simulationSchedule && currentNonAiDays > 0
+          ? chartRevenueData.filter((d) => !d.hasAi).reduce((sum, d) => sum + d.simulatedRevenue, 0)
+          : (currentNonAiDays === 0 ? 0 : actualNonAiTotalRev);
+        const currentNonAiAvgRev = currentNonAiDays > 0 ? Math.round(currentNonAiTotalRev / currentNonAiDays) : 0;
+
+        // 4. 6 项平行横向对比指标常量与计算
+        // 1) 运行日与收益
+        // 2) 光伏消纳率
+        const aiPvConsumptionRate = simulationSchedule ? 98.2 : 96.8;
+        const nonAiPvConsumptionRate = 89.5;
+        // 3) 光伏入储电量
+        const aiPvToStorageTotal = simulationSchedule ? "1.45" : "1.18";
+        const aiPvToStorageDailyAvg = 453.8;
+        const nonAiPvToStorageTotal = "0.16";
+        const nonAiPvToStorageDailyAvg = 320.0;
+        // 4) 储能充电成本
+        const aiChargeCostAvg = simulationSchedule ? 0.310 : 0.312;
+        const nonAiChargeCostAvg = 0.345;
+        // 5) 储能放电价格
+        const aiDischargePriceAvg = simulationSchedule ? 0.932 : 0.925;
+        const nonAiDischargePriceAvg = 0.868;
+        // 6) 储能综合利用率
+        const aiUtilRateAvg = simulationSchedule ? 98.2 : 97.2;
+        const nonAiUtilRateAvg = 88.6;
+
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 shrink-0">
+            {/* Card 1: AI 策略运行日 */}
+            <div className="bg-white rounded-2xl border border-indigo-200/90 shadow-[0_4px_24px_rgba(79,70,229,0.06),0_1px_3px_rgba(0,0,0,0.02)] p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden group hover:border-indigo-300 hover:shadow-[0_8px_30px_rgba(79,70,229,0.1)] transition-all">
+              {/* Decorative gradient corner */}
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-indigo-100/60 via-indigo-50/20 to-transparent rounded-bl-full pointer-events-none" />
+
+              <div>
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4 relative z-10">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+                      <BrainCircuit className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-extrabold text-slate-900 tracking-tight">AI 策略运行日</h3>
+                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/80 rounded-full text-[10px] font-black flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-indigo-500" />
+                          AI 智能调度
+                        </span>
+                        {simulationSchedule && (
+                          <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[9px] font-bold">
+                            含模拟
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 font-medium mt-0.5">多目标协同预测、动态充放与度电套利</p>
+                    </div>
+                  </div>
+                  <div className="text-right bg-indigo-50/70 border border-indigo-100 px-3 py-1.5 rounded-xl">
+                    <span className="text-[10px] font-semibold text-slate-400 block">运行天数占比</span>
+                    <div className="text-sm font-black text-indigo-600 font-sans leading-none mt-0.5">
+                      {currentAiDays} 天 <span className="text-[11px] text-slate-400 font-medium">({((currentAiDays / 31) * 100).toFixed(0)}%)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6 Sub-metrics Grid (Parallel 3x2) */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 relative z-10 my-1">
+                  {/* 1. 运行日与收益 */}
+                  <div className="bg-indigo-50/30 hover:bg-indigo-50/60 rounded-xl p-3 border border-indigo-100/70 transition-all flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                        运行日
+                      </span>
+                      <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                        {currentAiDays} 天
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-[20px] font-black text-slate-900 font-sans tracking-tight leading-tight">
+                        {(currentAiTotalRev / 10000).toFixed(2)}<span className="text-xs font-bold text-slate-500 ml-0.5">万元</span>
+                      </div>
+                      <div className="text-[10px] text-indigo-600 font-medium font-sans mt-0.5">
+                        日均 ¥{currentAiAvgRev.toLocaleString()}/天
+                      </div>
+                      <div className="text-[10px] text-indigo-600 font-bold font-sans mt-1 flex items-center gap-0.5 pt-1 border-t border-indigo-100/80">
+                        <ArrowUpRight className="w-3 h-3 text-indigo-500 shrink-0" />
+                        <span>日均较非AI高 <strong className="text-indigo-700 font-black">+¥{(currentAiAvgRev - (currentNonAiAvgRev || actualNonAiAvgRev)).toLocaleString()}/天</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. 光伏消纳率 */}
+                  <div className="bg-slate-50/90 hover:bg-blue-50/40 rounded-xl p-3 border border-slate-100/90 hover:border-blue-100 transition-all flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Sun className="w-3.5 h-3.5 text-blue-500" />
+                        光伏消纳率
+                      </span>
+                      <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">高消纳</span>
+                    </div>
+                    <div>
+                      <div className="text-[20px] font-black text-blue-600 font-sans tracking-tight leading-tight">
+                        {aiPvConsumptionRate}%
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium font-sans mt-0.5">
+                        动态追踪辐照曲线
+                      </div>
+                      <div className="text-[10px] text-emerald-600 font-bold font-sans mt-1 flex items-center gap-0.5 pt-1 border-t border-slate-200/60">
+                        <ArrowUpRight className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span>较非AI消纳高 <strong className="text-emerald-700 font-black">+{(aiPvConsumptionRate - nonAiPvConsumptionRate).toFixed(1)}%</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. 光伏入储电量 */}
+                  <div className="bg-slate-50/90 hover:bg-amber-50/40 rounded-xl p-3 border border-slate-100/90 hover:border-amber-100 transition-all flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <BatteryCharging className="w-3.5 h-3.5 text-amber-500" />
+                        光伏入储电量
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-[20px] font-black text-amber-600 font-sans tracking-tight leading-tight">
+                        {aiPvToStorageTotal}<span className="text-xs font-bold text-slate-500 ml-0.5">万kWh</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-medium font-sans mt-0.5">
+                        日均 {aiPvToStorageDailyAvg} kWh/天
+                      </div>
+                      <div className="text-[10px] text-emerald-600 font-bold font-sans mt-1 flex items-center gap-0.5 pt-1 border-t border-slate-200/60">
+                        <ArrowUpRight className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span>较非AI日均多 <strong className="text-emerald-700 font-black">+{(aiPvToStorageDailyAvg - nonAiPvToStorageDailyAvg).toFixed(1)} kWh/天</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. 储能充电成本 */}
+                  <div className="bg-slate-50/90 hover:bg-emerald-50/40 rounded-xl p-3 border border-slate-100/90 hover:border-emerald-100 transition-all flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Zap className="w-3.5 h-3.5 text-emerald-500" />
+                        储能充电成本
+                      </span>
+                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded">低谷/光伏</span>
+                    </div>
+                    <div>
+                      <div className="text-[20px] font-black text-emerald-600 font-sans tracking-tight leading-tight">
+                        {aiChargeCostAvg}<span className="text-xs font-bold text-slate-500 ml-0.5">元/kWh</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium font-sans mt-0.5">
+                        深谷与午间绿电入储
+                      </div>
+                      <div className="text-[10px] text-emerald-600 font-bold font-sans mt-1 flex items-center gap-0.5 pt-1 border-t border-slate-200/60">
+                        <ArrowDownRight className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span>较非AI成本降 <strong className="text-emerald-700 font-black">-{(nonAiChargeCostAvg - aiChargeCostAvg).toFixed(3)} 元/kWh</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 5. 储能放电价格 */}
+                  <div className="bg-slate-50/90 hover:bg-orange-50/40 rounded-xl p-3 border border-slate-100/90 hover:border-orange-100 transition-all flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Coins className="w-3.5 h-3.5 text-orange-500" />
+                        储能放电价格
+                      </span>
+                      <span className="text-[9px] font-bold text-orange-600 bg-orange-50 px-1 py-0.5 rounded">精准尖峰</span>
+                    </div>
+                    <div>
+                      <div className="text-[20px] font-black text-orange-500 font-sans tracking-tight leading-tight">
+                        {aiDischargePriceAvg}<span className="text-xs font-bold text-slate-500 ml-0.5">元/kWh</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium font-sans mt-0.5">
+                        智能对齐尖峰电价
+                      </div>
+                      <div className="text-[10px] text-emerald-600 font-bold font-sans mt-1 flex items-center gap-0.5 pt-1 border-t border-slate-200/60">
+                        <ArrowUpRight className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span>较非AI放电价高 <strong className="text-emerald-700 font-black">+{(aiDischargePriceAvg - nonAiDischargePriceAvg).toFixed(3)} 元/kWh</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 6. 储能利用率 */}
+                  <div className="bg-slate-50/90 hover:bg-violet-50/40 rounded-xl p-3 border border-slate-100/90 hover:border-violet-100 transition-all flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Activity className="w-3.5 h-3.5 text-violet-500" />
+                        储能利用率
+                      </span>
+                      <span className="text-[9px] font-bold text-violet-600 bg-violet-50 px-1 py-0.5 rounded">充放高效</span>
+                    </div>
+                    <div>
+                      <div className="text-[20px] font-black text-violet-600 font-sans tracking-tight leading-tight">
+                        {aiUtilRateAvg}%
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium font-sans mt-0.5">
+                        高效双循环充放
+                      </div>
+                      <div className="text-[10px] text-emerald-600 font-bold font-sans mt-1 flex items-center gap-0.5 pt-1 border-t border-slate-200/60">
+                        <ArrowUpRight className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span>较非AI提升 <strong className="text-emerald-700 font-black">+{(aiUtilRateAvg - nonAiUtilRateAvg).toFixed(1)}%</strong></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Summary Banner */}
+              <div className="mt-4 bg-gradient-to-r from-indigo-50/90 via-indigo-50/50 to-white rounded-xl p-2.5 px-3.5 border border-indigo-100/80 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 text-indigo-900 font-medium">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  <span>
+                    充放利差达 <strong className="text-indigo-700 font-black font-sans">{(aiDischargePriceAvg - aiChargeCostAvg).toFixed(3)} 元/kWh</strong>，
+                    日均收益较非AI日高 <strong className="text-indigo-700 font-black font-sans">+¥{(currentAiAvgRev - (currentNonAiAvgRev || actualNonAiAvgRev)).toLocaleString()}/天</strong>
+                  </span>
+                </div>
+                <span className="font-bold text-indigo-600 font-sans text-xs shrink-0 hidden sm:inline">
+                  累计AI创效 +¥{actualAiLossIfBase.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
             </div>
-            <h3 className="text-[32px] sm:text-[34px] font-black text-slate-900 tracking-tight leading-none mt-2 mb-4 font-sans">
-              {simulationSchedule ? "99.10%" : "92.86%"}
-            </h3>
+
+            {/* Card 2: 非 AI 策略运行日 */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-[0_4px_24px_rgba(0,0,0,0.03),0_1px_3px_rgba(0,0,0,0.02)] p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden group hover:border-amber-300 hover:shadow-[0_8px_30px_rgba(245,158,11,0.06)] transition-all">
+              {/* Decorative gradient corner */}
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-amber-50/50 via-slate-50/20 to-transparent rounded-bl-full pointer-events-none" />
+
+              <div>
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4 relative z-10">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-slate-700 text-white flex items-center justify-center shadow-sm">
+                      <Clock className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-extrabold text-slate-900 tracking-tight">非 AI 策略运行日</h3>
+                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/80 rounded-full text-[10px] font-black">
+                          基准时段模板
+                        </span>
+                        {currentNonAiDays === 0 && (
+                          <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[9px] font-bold">
+                            已全量AI
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 font-medium mt-0.5">固化时段充放、未随光伏与电价动态调整</p>
+                    </div>
+                  </div>
+                  <div className="text-right bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl">
+                    <span className="text-[10px] font-semibold text-slate-400 block">运行天数占比</span>
+                    <div className="text-sm font-black text-slate-700 font-sans leading-none mt-0.5">
+                      {currentNonAiDays} 天 <span className="text-[11px] text-slate-400 font-medium">({((currentNonAiDays / 31) * 100).toFixed(0)}%)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6 Sub-metrics Grid (Parallel 3x2) */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 relative z-10 my-1">
+                  {/* 1. 运行日与收益 */}
+                  <div className="bg-slate-50/90 hover:bg-emerald-50/30 rounded-xl p-3 border border-slate-100/90 hover:border-emerald-100 transition-all flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                        运行日
+                      </span>
+                      <span className="text-[10px] font-black text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                        {currentNonAiDays} 天
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-[20px] font-black text-slate-900 font-sans tracking-tight leading-tight">
+                        {(currentNonAiTotalRev / 10000).toFixed(2)}<span className="text-xs font-bold text-slate-500 ml-0.5">万元</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-medium font-sans mt-0.5">
+                        日均 ¥{currentNonAiAvgRev.toLocaleString()}/天
+                      </div>
+                      {currentNonAiDays > 0 ? (
+                        <div className="text-[10px] text-emerald-600 font-bold font-sans mt-1 flex items-center gap-0.5 pt-1 border-t border-slate-200/60">
+                          <ArrowUpRight className="w-3 h-3 text-emerald-500 shrink-0" />
+                          <span>若运行AI增收 <strong className="text-emerald-700 font-black">+¥{actualNonAiGainIfAi.toLocaleString()}</strong></span>
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-slate-400 font-medium font-sans mt-1 pt-1 border-t border-slate-200/60">
+                          全月已全量AI
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 2. 光伏消纳率 */}
+                  <div className="bg-slate-50/90 hover:bg-emerald-50/30 rounded-xl p-3 border border-slate-100/90 hover:border-emerald-100 transition-all flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Sun className="w-3.5 h-3.5 text-slate-500" />
+                        光伏消纳率
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">常规消纳</span>
+                    </div>
+                    <div>
+                      <div className="text-[20px] font-black text-slate-700 font-sans tracking-tight leading-tight">
+                        {nonAiPvConsumptionRate}%
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium font-sans mt-0.5">
+                        存在午间轻度弃光
+                      </div>
+                      <div className="text-[10px] text-emerald-600 font-bold font-sans mt-1 flex items-center gap-0.5 pt-1 border-t border-slate-200/60">
+                        <ArrowUpRight className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span>若运行AI增加 <strong className="text-emerald-700 font-black">+{(aiPvConsumptionRate - nonAiPvConsumptionRate).toFixed(1)}%</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. 光伏入储电量 */}
+                  <div className="bg-slate-50/90 hover:bg-emerald-50/30 rounded-xl p-3 border border-slate-100/90 hover:border-emerald-100 transition-all flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <BatteryCharging className="w-3.5 h-3.5 text-slate-500" />
+                        光伏入储电量
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-[20px] font-black text-slate-700 font-sans tracking-tight leading-tight">
+                        {nonAiPvToStorageTotal}<span className="text-xs font-bold text-slate-500 ml-0.5">万kWh</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-medium font-sans mt-0.5">
+                        日均 {nonAiPvToStorageDailyAvg} kWh/天
+                      </div>
+                      <div className="text-[10px] text-emerald-600 font-bold font-sans mt-1 flex items-center gap-0.5 pt-1 border-t border-slate-200/60">
+                        <ArrowUpRight className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span>若运行AI增加 <strong className="text-emerald-700 font-black">+{(aiPvToStorageDailyAvg - nonAiPvToStorageDailyAvg).toFixed(1)} kWh/天</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. 储能充电成本 */}
+                  <div className="bg-slate-50/90 hover:bg-emerald-50/30 rounded-xl p-3 border border-slate-100/90 hover:border-emerald-100 transition-all flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Zap className="w-3.5 h-3.5 text-slate-500" />
+                        储能充电成本
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1 py-0.5 rounded">固定平谷段</span>
+                    </div>
+                    <div>
+                      <div className="text-[20px] font-black text-slate-700 font-sans tracking-tight leading-tight">
+                        {nonAiChargeCostAvg}<span className="text-xs font-bold text-slate-500 ml-0.5">元/kWh</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium font-sans mt-0.5">
+                        未充分利用深谷电
+                      </div>
+                      <div className="text-[10px] text-emerald-600 font-bold font-sans mt-1 flex items-center gap-0.5 pt-1 border-t border-slate-200/60">
+                        <ArrowDownRight className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span>若运行AI降低 <strong className="text-emerald-700 font-black">-{(nonAiChargeCostAvg - aiChargeCostAvg).toFixed(3)} 元/kWh</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 5. 储能放电价格 */}
+                  <div className="bg-slate-50/90 hover:bg-emerald-50/30 rounded-xl p-3 border border-slate-100/90 hover:border-emerald-100 transition-all flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Coins className="w-3.5 h-3.5 text-slate-500" />
+                        储能放电价格
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1 py-0.5 rounded">常规峰段</span>
+                    </div>
+                    <div>
+                      <div className="text-[20px] font-black text-slate-700 font-sans tracking-tight leading-tight">
+                        {nonAiDischargePriceAvg}<span className="text-xs font-bold text-slate-500 ml-0.5">元/kWh</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium font-sans mt-0.5">
+                        未全额命中尖峰
+                      </div>
+                      <div className="text-[10px] text-emerald-600 font-bold font-sans mt-1 flex items-center gap-0.5 pt-1 border-t border-slate-200/60">
+                        <ArrowUpRight className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span>若运行AI提高 <strong className="text-emerald-700 font-black">+{(aiDischargePriceAvg - nonAiDischargePriceAvg).toFixed(3)} 元/kWh</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 6. 储能利用率 */}
+                  <div className="bg-slate-50/90 hover:bg-emerald-50/30 rounded-xl p-3 border border-slate-100/90 hover:border-emerald-100 transition-all flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-500 mb-1">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Activity className="w-3.5 h-3.5 text-slate-500" />
+                        储能利用率
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1 py-0.5 rounded">单次/浅充放</span>
+                    </div>
+                    <div>
+                      <div className="text-[20px] font-black text-slate-700 font-sans tracking-tight leading-tight">
+                        {nonAiUtilRateAvg}%
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium font-sans mt-0.5">
+                        循环吞吐仍有提升空间
+                      </div>
+                      <div className="text-[10px] text-emerald-600 font-bold font-sans mt-1 flex items-center gap-0.5 pt-1 border-t border-slate-200/60">
+                        <ArrowUpRight className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span>若运行AI增加 <strong className="text-emerald-700 font-black">+{(aiUtilRateAvg - nonAiUtilRateAvg).toFixed(1)}%</strong></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Summary Banner */}
+              <div className="mt-4 bg-gradient-to-r from-amber-50/90 via-amber-50/40 to-slate-50 rounded-xl p-2.5 px-3.5 border border-amber-200/70 flex items-center justify-between text-xs">
+                {currentNonAiDays > 0 ? (
+                  <>
+                    <div className="flex items-center gap-1.5 text-amber-900 font-medium">
+                      <ArrowUpRight className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>
+                        若全量切换为 AI 策略，预计可额外增收 <strong className="text-emerald-700 font-black font-sans">+¥{actualNonAiGainIfAi.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                      </span>
+                    </div>
+                    <span className="font-bold text-amber-800 font-sans text-xs shrink-0 hidden sm:inline">
+                      消纳率可升至 {aiPvConsumptionRate}% (+{(aiPvConsumptionRate - nonAiPvConsumptionRate).toFixed(1)}%)
+                    </span>
+                  </>
+                ) : (
+                  <div className="w-full text-center text-emerald-700 font-bold flex items-center justify-center gap-1.5 py-0.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    全月已 100% 满额运行 AI 策略，无基准策略损失
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="bg-slate-50/90 border border-slate-100/90 rounded-xl px-3.5 py-2.5 flex items-center justify-between text-xs text-slate-600 shadow-[inset_0_1px_2px_rgba(0,0,0,0.015)]">
-            <span className="flex items-center gap-1 font-medium">
-              AI 优化 <span className="font-extrabold text-orange-500">{simulationSchedule ? "+9.11%" : "+8.61%"}</span>
-            </span>
-            <span className="text-slate-700 font-bold">基础消纳率 99.99%</span>
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* MAIN CHARTS SECTION */}
       <div className="flex flex-col gap-6">
@@ -1662,6 +2156,252 @@ const StrategyReportPage: React.FC = () => {
                         stroke="#4f46e5"
                         strokeWidth={2.5}
                         dot={{ r: 2.5, fill: "#4f46e5", stroke: "#ffffff", strokeWidth: 1.5 }}
+                        activeDot={{ r: 5, stroke: "#ffffff", strokeWidth: 2 }}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Chart 4: 本月每日储能充放电均价与度电套利统计 (日充电成本·放电价格·价差空间) */}
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-5 h-5 text-emerald-500" />
+                    <h3 className="text-lg font-bold text-slate-800">
+                      每日储能充放电均价与套利统计
+                    </h3>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-200/60">
+                      度电电价与利差趋势
+                    </span>
+                  </div>
+                  
+                  {/* 右上角统计胶囊 */}
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 bg-emerald-50/90 border border-emerald-200/80 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-medium shadow-2xs">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span>全月充放均价差</span>
+                      <span className="font-extrabold text-emerald-700">{simulationSchedule ? "0.614" : "0.567"} 元/kWh</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-indigo-50/90 border border-indigo-200/80 text-indigo-800 px-2.5 py-1 rounded-full text-xs font-medium shadow-2xs">
+                      <Sparkles className="w-3 h-3 text-indigo-600" />
+                      <span>AI度电套利增益</span>
+                      <span className="font-extrabold text-indigo-700">+{simulationSchedule ? "0.142" : "0.115"} 元/kWh</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 text-sm mb-4 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                  <div className="flex flex-wrap items-center gap-4">
+                    {/* 图例 */}
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-sm bg-[#10b981]"></div>
+                      <span className="text-slate-700 font-bold text-xs">
+                        当日平均充电成本 (优化)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-4 h-0.5 border-t-2 border-dashed border-[#3b82f6]"></div>
+                      <span className="text-slate-700 font-bold text-xs">
+                        模拟充电成本 (基准)
+                      </span>
+                    </div>
+                    <div className="h-3 w-px bg-slate-200 hidden sm:block"></div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-sm bg-[#f97316]"></div>
+                      <span className="text-slate-700 font-bold text-xs">
+                        当日平均放电价格 (优化)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-4 h-0.5 border-t-2 border-dashed border-[#a855f7]"></div>
+                      <span className="text-slate-700 font-bold text-xs">
+                        模拟放电价格 (基准)
+                      </span>
+                    </div>
+                    <div className="h-3 w-px bg-slate-200 hidden sm:block"></div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-sm bg-[#6366f1]"></div>
+                      <span className="text-slate-700 font-bold text-xs">
+                        充放价差·套利空间 (柱状)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-[340px] w-full mt-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart
+                      data={chartEssPriceData}
+                      margin={{ top: 20, right: 15, left: -10, bottom: 5 }}
+                      barGap={2}
+                      barCategoryGap="20%"
+                      onMouseMove={(state: any) => {
+                        if (state && typeof state.activeTooltipIndex === 'number') {
+                          setHoveredPriceIndex(state.activeTooltipIndex);
+                        }
+                      }}
+                      onMouseLeave={() => setHoveredPriceIndex(null)}
+                    >
+                      <AiSimChartDefs />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="day" scale="band" axisLine={{ stroke: "#94a3b8" }} tickLine={false} tick={<DynamicXAxisTick />} interval={0} />
+                      <YAxis
+                        axisLine={{ stroke: "#94a3b8" }}
+                        tickLine={false}
+                        tick={{ fill: "#64748b", fontSize: 10 }}
+                        tickFormatter={(val) => `¥${val.toFixed(2)}`}
+                        domain={[0, 1.2]}
+                        label={{
+                          value: "电价 (元/kWh)",
+                          angle: -90,
+                          position: "insideLeft",
+                          fill: "#94a3b8",
+                          fontSize: 10,
+                          offset: 15,
+                        }}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "#f1f5f9" }}
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload || !payload.length) return null;
+                          const data = payload[0].payload;
+                          const isSimulated = data.isSimulatedDay;
+                          const strategyName = data.strategyName;
+
+                          return (
+                            <div className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-xl min-w-[260px]">
+                              <div className="flex items-center justify-between font-bold text-slate-800 text-xs mb-2 pb-1.5 border-b border-slate-100">
+                                <span className="text-sm font-extrabold">{label} · 储能充放均价与套利</span>
+                                {isSimulated && (
+                                  <span className="bg-indigo-50 text-indigo-600 border border-indigo-200/60 text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                                    AI 策略模拟
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {/* 当天模拟策略名称 */}
+                              <div className="flex items-center justify-between text-xs text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100 mb-2">
+                                <span className="text-[11px] text-slate-400 font-medium">当天模拟策略:</span>
+                                <span className="font-bold text-indigo-700 truncate max-w-[155px] text-right" title={strategyName}>
+                                  {strategyName}
+                                </span>
+                              </div>
+
+                              <div className="space-y-2 text-xs">
+                                {/* 放电价格对比 */}
+                                <div className="p-2 bg-orange-50/60 rounded-lg space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-2.5 h-2.5 rounded-sm bg-[#f97316]" />
+                                      <span className="text-slate-600 font-medium">当日平均放电价格:</span>
+                                    </div>
+                                    <span className="font-bold text-orange-600">¥{data.aiDischargePrice.toFixed(3)} /kWh</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                    <span>模拟基准放电均价:</span>
+                                    <span className="font-semibold text-slate-600">¥{data.simulatedDischargePrice.toFixed(3)} /kWh</span>
+                                  </div>
+                                </div>
+
+                                {/* 充电成本对比 */}
+                                <div className="p-2 bg-emerald-50/60 rounded-lg space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-2.5 h-2.5 rounded-sm bg-[#10b981]" />
+                                      <span className="text-slate-600 font-medium">当日平均充电成本:</span>
+                                    </div>
+                                    <span className="font-bold text-emerald-600">¥{data.aiChargePrice.toFixed(3)} /kWh</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                    <span>模拟基准充电成本:</span>
+                                    <span className="font-semibold text-slate-600">¥{data.simulatedChargePrice.toFixed(3)} /kWh</span>
+                                  </div>
+                                </div>
+
+                                {/* 套利价差汇总 */}
+                                <div className="p-2 bg-indigo-50/80 rounded-lg border border-indigo-100/70 space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-indigo-900 font-bold">实际充放价差 (套利空间):</span>
+                                    <span className="font-black text-indigo-700">¥{data.actualSpread.toFixed(3)} /kWh</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="text-slate-500">基准价差: ¥{data.simulatedSpread.toFixed(3)}</span>
+                                    <span className="text-emerald-600 font-bold">
+                                      {data.diffSpread > 0 ? `利差扩大 +¥${data.diffSpread.toFixed(3)} (+${data.diffSpreadPercent}%)` : `持平`}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
+
+                      {/* 充放价差 (度电利差) 柱状图 */}
+                      <Bar
+                        dataKey="actualSpread"
+                        name="充放价差 (套利空间)"
+                        radius={[3, 3, 0, 0]}
+                        barSize={10}
+                      >
+                        {chartEssPriceData.map((entry, index) => {
+                          const isAiSim = entry.isSimulatedDay && isDaySimulatedWithAi(entry.dayNum);
+                          return (
+                            <Cell
+                              key={`cell-ess-price-spread-${index}`}
+                              fill={isAiSim ? "url(#aiSimGridPatternEmerald)" : "#6366f1"}
+                              fillOpacity={0.85}
+                            />
+                          );
+                        })}
+                        <LabelList content={renderPriceSpreadDiffLabel} />
+                      </Bar>
+
+                      {/* 模拟放电价格 (虚线) */}
+                      <Line
+                        type="linear"
+                        dataKey="simulatedDischargePrice"
+                        name="模拟放电价格"
+                        stroke="#a855f7"
+                        strokeWidth={1.8}
+                        strokeDasharray="4 3"
+                        dot={false}
+                        activeDot={{ r: 4, stroke: "#ffffff", strokeWidth: 1.5 }}
+                      />
+
+                      {/* 当日实际放电价格 (实线) */}
+                      <Line
+                        type="linear"
+                        dataKey="aiDischargePrice"
+                        name="当日放电价格"
+                        stroke="#f97316"
+                        strokeWidth={2.5}
+                        dot={{ r: 2.5, fill: "#f97316", stroke: "#ffffff", strokeWidth: 1.5 }}
+                        activeDot={{ r: 5, stroke: "#ffffff", strokeWidth: 2 }}
+                      />
+
+                      {/* 模拟充电成本 (虚线) */}
+                      <Line
+                        type="linear"
+                        dataKey="simulatedChargePrice"
+                        name="模拟充电成本"
+                        stroke="#3b82f6"
+                        strokeWidth={1.8}
+                        strokeDasharray="4 3"
+                        dot={false}
+                        activeDot={{ r: 4, stroke: "#ffffff", strokeWidth: 1.5 }}
+                      />
+
+                      {/* 当日实际充电成本 (实线) */}
+                      <Line
+                        type="linear"
+                        dataKey="aiChargePrice"
+                        name="当日充电成本"
+                        stroke="#10b981"
+                        strokeWidth={2.5}
+                        dot={{ r: 2.5, fill: "#10b981", stroke: "#ffffff", strokeWidth: 1.5 }}
                         activeDot={{ r: 5, stroke: "#ffffff", strokeWidth: 2 }}
                       />
                     </ComposedChart>

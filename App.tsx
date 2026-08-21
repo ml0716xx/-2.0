@@ -24,6 +24,7 @@ import StrategyReportPage from './components/StrategyReportPage';
 import AlgorithmMonitoringPage from './components/AlgorithmMonitoringPage';
 import ElectricityReportPage from './components/ElectricityReportPage';
 import RevenueReportPage from './components/RevenueReportPage';
+import TopologyManagementPage from './components/TopologyManagementPage';
 import { EnergyStat, RevenueStat, AlarmItem, StrategyGroup } from './types';
 
 const App: React.FC = () => {
@@ -123,6 +124,9 @@ const App: React.FC = () => {
     }
     if (currentPage === '算法监控') {
       return <AlgorithmMonitoringPage />;
+    }
+    if (currentPage === '拓扑管理') {
+      return <TopologyManagementPage onNavigate={setCurrentPage} />;
     }
     if (currentPage === '策略监控') {
       return (

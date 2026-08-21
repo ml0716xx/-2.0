@@ -1,6 +1,6 @@
 {
   "name": "微网首页改版2.0",
-  "description": "A high-end microgrid system operation dashboard featuring real-time energy flow visualization, revenue tracking, alarm management, and automated strategy monitoring.",
+  "description": "A high-end microgrid system operation dashboard featuring real-time energy flow visualization, multi-topology management and switching, revenue tracking, alarm management, and automated strategy monitoring.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
