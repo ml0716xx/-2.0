@@ -887,6 +887,9 @@ const StrategyReportPage: React.FC = () => {
         const currentAiAvgRev = currentAiDays > 0 ? Math.round(currentAiTotalRev / currentAiDays) : 0;
 
         // 关联核心指标数据计算
+        // 0) 光伏电量基础指标 (AI运行期总量)
+        const pvGenerationTotal = simulationSchedule ? 3.82 : 3.74;   // 光伏发电量 (万kWh)
+        const pvGridExportTotal = simulationSchedule ? 0.46 : 0.52;   // 光伏上网电量 (万kWh)
         // 1) 光伏消纳率
         const pvConsumptionRate = simulationSchedule ? 98.2 : 96.8;
         // 2) 光伏入储电量
@@ -1091,28 +1094,64 @@ const StrategyReportPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* 1.2 光伏入储电量提升 */}
-                    <div className="bg-[#F8FAFC] p-3.5 rounded-xl border border-[#EAEDF2] hover:border-[#FDE68A] transition-all duration-200">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-[#2C3E50]">
-                          光伏入储电量提升
-                        </span>
-                        <div className="flex items-center gap-2">
+                    {/* 1.2~1.4 光伏电量三卡 (发电量 / 上网电量 / 入储电量) — 储能卡片同款 */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {/* 1.2 光伏发电量 */}
+                      <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2] hover:border-[#FDE68A] transition-all duration-200">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-[#2C3E50]">
+                            光伏发电量
+                          </span>
+                          <span className="text-[10px] font-bold text-[#B45309] bg-[#FEF3C7] px-1.5 py-0.5 rounded font-sans">
+                            +2.1%
+                          </span>
+                        </div>
+                        <div className="flex items-baseline gap-1 mt-0.5">
                           <span className="text-base font-black text-[#1A2A3A] font-sans">
-                            {pvToStorageTotal}<span className="text-xs font-bold text-[#7F8C8D] ml-0.5">万kWh</span>
+                            {pvGenerationTotal}
+                          </span>
+                          <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                        </div>
+                      </div>
+
+                      {/* 1.3 光伏上网电量 */}
+                      <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2] hover:border-[#FDE68A] transition-all duration-200">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-[#2C3E50]">
+                            光伏上网电量
+                          </span>
+                          <span className="text-[10px] font-bold text-[#B45309] bg-[#FEF3C7] px-1.5 py-0.5 rounded font-sans">
+                            -11.5%
+                          </span>
+                        </div>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-base font-black text-[#1A2A3A] font-sans">
+                            {pvGridExportTotal}
+                          </span>
+                          <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                        </div>
+                      </div>
+
+                      {/* 1.4 光伏入储电量 */}
+                      <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2] hover:border-[#FDE68A] transition-all duration-200">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-[#2C3E50]">
+                            光伏入储电量
                           </span>
                           <span className="text-[10px] font-bold text-[#B45309] bg-[#FEF3C7] px-1.5 py-0.5 rounded font-sans">
                             +24.6%
                           </span>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-[#7F8C8D]">
-                        <span>入储总量 <strong className="text-[#2C3E50] font-mono font-medium">{pvToStorageTotal}万kWh</strong></span>
-                        <span>日均 {pvToStorageDailyAvg} kWh</span>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-base font-black text-[#1A2A3A] font-sans">
+                            {pvToStorageTotal}
+                          </span>
+                          <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* 1.3 限电止损 */}
+                    {/* 1.5 限电止损 (含限电电量) */}
                     <div className="bg-[#F8FAFC] p-3.5 rounded-xl border border-[#EAEDF2] hover:border-[#FDE68A] transition-all duration-200">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold text-[#2C3E50]">
@@ -1122,11 +1161,13 @@ const StrategyReportPage: React.FC = () => {
                           <span className="text-base font-black text-[#D97706] font-sans">
                             +¥{pvCurtailmentGain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
+                          <span className="text-[10px] font-bold text-[#B45309] bg-[#FEF3C7] px-1.5 py-0.5 rounded font-sans">
+                            止损电量 {totalCurtailedEnergy.toFixed(1)} kWh
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between text-xs text-[#7F8C8D]">
                         <span>日均减亏 <strong className="text-[#2C3E50] font-mono font-medium">+¥{avgCurtailmentSavedDaily}/天</strong></span>
-                        <span>止损电量 {totalCurtailedEnergy.toFixed(1)} kWh</span>
                       </div>
                     </div>
                   </div>
