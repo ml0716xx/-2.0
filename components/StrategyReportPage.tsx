@@ -1078,24 +1078,24 @@ const StrategyReportPage: React.FC = () => {
 
                   {/* 3 Sub-items Grid */}
                   <div className="space-y-2.5 mt-3.5">
-                    {/* 1.1 消纳率提升 */}
+                    {/* 1.1 消纳率提升 — 与小卡片同构：标题+右上徽章 / 主值+基准 */}
                     <div className="bg-[#F8FAFC] p-3.5 rounded-xl border border-[#EAEDF2] hover:border-[#FDE68A] transition-all duration-200">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-[#2C3E50]">
                           消纳率提升
                         </span>
-                        <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-[#B45309] bg-[#FEF3C7] px-1.5 py-0.5 rounded font-sans">
+                          +8.7%
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between mt-1.5">
+                        <div className="flex items-baseline gap-1">
                           <span className="text-base font-black text-[#1A2A3A] font-sans">
                             {pvConsumptionRate}%
                           </span>
-                          <span className="text-[10px] font-bold text-[#B45309] bg-[#FEF3C7] px-1.5 py-0.5 rounded font-sans">
-                            +8.7%
-                          </span>
+                          <span className="text-[11px] font-bold text-[#7F8C8D]">消纳率</span>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-[#7F8C8D]">
-                        <span>消纳率达到 <strong className="text-[#2C3E50] font-mono font-medium">{pvConsumptionRate}%</strong></span>
-                        <span>基准 88.1%</span>
+                        <span className="text-[10px] text-[#7F8C8D]">基准 88.1%</span>
                       </div>
                     </div>
 
@@ -1165,24 +1165,26 @@ const StrategyReportPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* 1.5 限电止损 (右上角为止损金额，主指标为止损电量) */}
+                    {/* 1.5 限电止损 (主指标为止损电量，右上角为止损金额徽章，徽章下为日均减亏) */}
                     <div className="bg-[#F8FAFC] p-3.5 rounded-xl border border-[#EAEDF2] hover:border-[#FDE68A] transition-all duration-200">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-[#2C3E50]">
-                          限电止损
-                        </span>
-                        <span className="text-[10px] font-bold text-[#D97706] bg-[#FEF3C7] px-1.5 py-0.5 rounded font-sans">
-                          +¥{pvCurtailmentGain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                      <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="text-base font-black text-[#1A2A3A] font-sans">
-                          {totalCurtailedEnergy.toFixed(1)}
-                        </span>
-                        <span className="text-[11px] font-bold text-[#7F8C8D]">kWh 止损电量</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-[#7F8C8D] mt-1.5">
-                        <span>日均减亏 <strong className="text-[#2C3E50] font-mono font-medium">+¥{avgCurtailmentSavedDaily}/天</strong></span>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-[#2C3E50]">
+                            限电止损
+                          </span>
+                          <div className="flex items-baseline gap-1 mt-1">
+                            <span className="text-base font-black text-[#1A2A3A] font-sans">
+                              {totalCurtailedEnergy.toFixed(1)}
+                            </span>
+                            <span className="text-[11px] font-bold text-[#7F8C8D]">kWh 止损电量</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-[10px] font-bold text-[#D97706] bg-[#FEF3C7] px-1.5 py-0.5 rounded font-sans">
+                            +¥{pvCurtailmentGain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <span className="text-[10px] text-[#7F8C8D]">日均减亏 +¥{avgCurtailmentSavedDaily}/天</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1226,24 +1228,24 @@ const StrategyReportPage: React.FC = () => {
 
                   {/* 2 Sub-items Grid */}
                   <div className="space-y-2.5 mt-3.5">
-                    {/* 2.1 储能利用率提升 */}
+                    {/* 2.1 储能利用率提升 — 与小卡片同构：标题+右上徽章 / 主值+基准 */}
                     <div className="bg-[#F8FAFC] p-3.5 rounded-xl border border-[#EAEDF2] hover:border-[#BFDBFE] transition-all duration-200">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-[#2C3E50]">
                           储能利用率提升
                         </span>
-                        <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-1.5 py-0.5 rounded font-sans">
+                          +12.4%
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between mt-1.5">
+                        <div className="flex items-baseline gap-1">
                           <span className="text-base font-black text-[#1A2A3A] font-sans">
                             {essUtilRate}%
                           </span>
-                          <span className="text-[10px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-1.5 py-0.5 rounded font-sans">
-                            +12.4%
-                          </span>
+                          <span className="text-[11px] font-bold text-[#7F8C8D]">综合利用率</span>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-[#7F8C8D]">
-                        <span>综合利用率达到 <strong className="text-[#2C3E50] font-mono font-medium">{essUtilRate}%</strong></span>
-                        <span>基准 84.8%</span>
+                        <span className="text-[10px] text-[#7F8C8D]">基准 84.8%</span>
                       </div>
                     </div>
 
