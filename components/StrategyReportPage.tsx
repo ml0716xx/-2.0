@@ -887,13 +887,16 @@ const StrategyReportPage: React.FC = () => {
         const currentAiAvgRev = currentAiDays > 0 ? Math.round(currentAiTotalRev / currentAiDays) : 0;
 
         // 关联核心指标数据计算
-        // 0) 光伏电量基础指标 (AI运行期总量)
+        // 0) 光伏电量基础指标 (AI运行期总量) — 基准值按徽章增幅反推，保证口径一致
         const pvGenerationTotal = simulationSchedule ? 3.82 : 3.74;   // 光伏发电量 (万kWh)
         const pvGridExportTotal = simulationSchedule ? 0.46 : 0.52;   // 光伏上网电量 (万kWh)
+        const pvGenerationBaseline = simulationSchedule ? "3.74" : "3.66"; // 基准发电量
+        const pvGridExportBaseline = simulationSchedule ? "0.52" : "0.59"; // 基准上网电量
         // 1) 光伏消纳率
         const pvConsumptionRate = simulationSchedule ? 98.2 : 96.8;
-        // 2) 光伏入储电量
+        // 2) 光伏入储电量 — 补充基准值 (与 +24.6% 口径一致)
         const pvToStorageTotal = simulationSchedule ? "1.45" : "1.18";
+        const pvToStorageBaseline = simulationSchedule ? "1.16" : "0.95"; // 基准入储电量
         const pvToStorageDailyAvg = simulationSchedule ? 468.2 : 453.8;
         // 3) 储能充电成本与放电价格 (以及对比基准提升)
         const chargeCostAvg = simulationSchedule ? 0.310 : 0.312;
@@ -918,9 +921,11 @@ const StrategyReportPage: React.FC = () => {
         const totalCostSavings = simulationSchedule ? 15200 : 14260; // 降低金额 (¥1.43万元)
         // 4) 储能综合利用率
         const essUtilRate = simulationSchedule ? 98.2 : 97.2;
-        // 5) 储能充放电量
+        // 5) 储能充放电量 — 补充基准值 (与徽章增幅口径一致)
         const essChargeTotal = simulationSchedule ? "1.82" : "1.62";
         const essDischargeTotal = simulationSchedule ? "1.74" : "1.54";
+        const essChargeBaseline = simulationSchedule ? "1.44" : "1.28";   // 基准充电量 (+26.8%)
+        const essDischargeBaseline = simulationSchedule ? "1.34" : "1.18"; // 基准放电量 (+30.2%)
         const essThroughputTotal = (parseFloat(essChargeTotal) + parseFloat(essDischargeTotal)).toFixed(2);
         // 6) 限电止损金额与电量
         const totalCurtailmentLossSaved = curtailmentDataList.reduce((sum, d) => sum + d.lossSaved, 0); // +2140
@@ -1094,11 +1099,11 @@ const StrategyReportPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* 1.2~1.4 光伏电量三卡 (发电量 / 上网电量 / 入储电量) — 储能卡片同款 */}
+                    {/* 1.2~1.4 光伏电量三卡 (发电量 / 上网电量 / 入储电量) — 右上角增幅降幅徽章 + 底部基准值 */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                       {/* 1.2 光伏发电量 */}
                       <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2] hover:border-[#FDE68A] transition-all duration-200">
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-[#2C3E50]">
                             光伏发电量
                           </span>
@@ -1106,17 +1111,20 @@ const StrategyReportPage: React.FC = () => {
                             +2.1%
                           </span>
                         </div>
-                        <div className="flex items-baseline gap-1 mt-0.5">
-                          <span className="text-base font-black text-[#1A2A3A] font-sans">
-                            {pvGenerationTotal}
-                          </span>
-                          <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                        <div className="flex items-baseline justify-between mt-1.5">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-base font-black text-[#1A2A3A] font-sans">
+                              {pvGenerationTotal}
+                            </span>
+                            <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                          </div>
+                          <span className="text-[10px] text-[#7F8C8D]">基准 {pvGenerationBaseline}万kWh</span>
                         </div>
                       </div>
 
                       {/* 1.3 光伏上网电量 */}
                       <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2] hover:border-[#FDE68A] transition-all duration-200">
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-[#2C3E50]">
                             光伏上网电量
                           </span>
@@ -1124,17 +1132,20 @@ const StrategyReportPage: React.FC = () => {
                             -11.5%
                           </span>
                         </div>
-                        <div className="flex items-baseline gap-1 mt-0.5">
-                          <span className="text-base font-black text-[#1A2A3A] font-sans">
-                            {pvGridExportTotal}
-                          </span>
-                          <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                        <div className="flex items-baseline justify-between mt-1.5">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-base font-black text-[#1A2A3A] font-sans">
+                              {pvGridExportTotal}
+                            </span>
+                            <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                          </div>
+                          <span className="text-[10px] text-[#7F8C8D]">基准 {pvGridExportBaseline}万kWh</span>
                         </div>
                       </div>
 
                       {/* 1.4 光伏入储电量 */}
                       <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2] hover:border-[#FDE68A] transition-all duration-200">
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-[#2C3E50]">
                             光伏入储电量
                           </span>
@@ -1142,31 +1153,35 @@ const StrategyReportPage: React.FC = () => {
                             +24.6%
                           </span>
                         </div>
-                        <div className="flex items-baseline gap-1 mt-0.5">
-                          <span className="text-base font-black text-[#1A2A3A] font-sans">
-                            {pvToStorageTotal}
-                          </span>
-                          <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                        <div className="flex items-baseline justify-between mt-1.5">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-base font-black text-[#1A2A3A] font-sans">
+                              {pvToStorageTotal}
+                            </span>
+                            <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                          </div>
+                          <span className="text-[10px] text-[#7F8C8D]">基准 {pvToStorageBaseline}万kWh</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* 1.5 限电止损 (含限电电量) */}
+                    {/* 1.5 限电止损 (右上角为止损金额，主指标为止损电量) */}
                     <div className="bg-[#F8FAFC] p-3.5 rounded-xl border border-[#EAEDF2] hover:border-[#FDE68A] transition-all duration-200">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold text-[#2C3E50]">
                           限电止损
                         </span>
-                        <div className="flex items-center gap-2 font-mono">
-                          <span className="text-base font-black text-[#D97706] font-sans">
-                            +¥{pvCurtailmentGain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                          <span className="text-[10px] font-bold text-[#B45309] bg-[#FEF3C7] px-1.5 py-0.5 rounded font-sans">
-                            止损电量 {totalCurtailedEnergy.toFixed(1)} kWh
-                          </span>
-                        </div>
+                        <span className="text-[10px] font-bold text-[#D97706] bg-[#FEF3C7] px-1.5 py-0.5 rounded font-sans">
+                          +¥{pvCurtailmentGain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-[#7F8C8D]">
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="text-base font-black text-[#1A2A3A] font-sans">
+                          {totalCurtailedEnergy.toFixed(1)}
+                        </span>
+                        <span className="text-[11px] font-bold text-[#7F8C8D]">kWh 止损电量</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-[#7F8C8D] mt-1.5">
                         <span>日均减亏 <strong className="text-[#2C3E50] font-mono font-medium">+¥{avgCurtailmentSavedDaily}/天</strong></span>
                       </div>
                     </div>
@@ -1236,7 +1251,7 @@ const StrategyReportPage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {/* 2.2 充电量提升 */}
                       <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2] hover:border-[#BFDBFE] transition-all duration-200">
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-[#2C3E50]">
                             充电量提升
                           </span>
@@ -1244,17 +1259,20 @@ const StrategyReportPage: React.FC = () => {
                             +26.8%
                           </span>
                         </div>
-                        <div className="flex items-baseline gap-1 mt-0.5">
-                          <span className="text-base font-black text-[#1A2A3A] font-sans">
-                            {essChargeTotal}
-                          </span>
-                          <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                        <div className="flex items-baseline justify-between mt-1.5">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-base font-black text-[#1A2A3A] font-sans">
+                              {essChargeTotal}
+                            </span>
+                            <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                          </div>
+                          <span className="text-[10px] text-[#7F8C8D]">基准 {essChargeBaseline}万kWh</span>
                         </div>
                       </div>
 
                       {/* 2.3 放电量提升 */}
                       <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2] hover:border-[#BFDBFE] transition-all duration-200">
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-[#2C3E50]">
                             放电量提升
                           </span>
@@ -1262,11 +1280,14 @@ const StrategyReportPage: React.FC = () => {
                             +30.2%
                           </span>
                         </div>
-                        <div className="flex items-baseline gap-1 mt-0.5">
-                          <span className="text-base font-black text-[#1A2A3A] font-sans">
-                            {essDischargeTotal}
-                          </span>
-                          <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                        <div className="flex items-baseline justify-between mt-1.5">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-base font-black text-[#1A2A3A] font-sans">
+                              {essDischargeTotal}
+                            </span>
+                            <span className="text-[11px] font-bold text-[#7F8C8D]">万kWh</span>
+                          </div>
+                          <span className="text-[10px] text-[#7F8C8D]">基准 {essDischargeBaseline}万kWh</span>
                         </div>
                       </div>
                     </div>
