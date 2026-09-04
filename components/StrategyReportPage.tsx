@@ -1294,33 +1294,47 @@ const StrategyReportPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* 储能充电成本与放电价格对比提升 Indicator Box */}
+                    {/* 储能充电成本与放电价格对比提升 Indicator Box — 与小卡片同构 */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {/* 储能充电成本 */}
-                      <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2] hover:border-[#BFDBFE] transition-all duration-200 flex items-center justify-between">
-                        <div>
-                          <span className="text-[11px] text-[#7F8C8D] block font-medium">储能充电成本</span>
-                          <span className="font-mono font-bold text-[#1A2A3A] text-sm">¥{chargeCostAvg} <span className="text-[10px] font-normal text-[#7F8C8D]">/kWh</span></span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[10px] font-bold text-[#1D4ED8] block">
-                            -¥{chargeCostDiff}
+                      <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2] hover:border-[#BFDBFE] transition-all duration-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[#2C3E50]">
+                            储能充电成本
                           </span>
-                          <span className="text-[10px] text-[#7F8C8D] block">降 {chargeCostDiffPct}%</span>
+                          <span className="text-[10px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-1.5 py-0.5 rounded font-sans">
+                            -{chargeCostDiffPct}%
+                          </span>
+                        </div>
+                        <div className="flex items-baseline justify-between mt-1.5">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-base font-black text-[#1A2A3A] font-sans">
+                              ¥{chargeCostAvg}
+                            </span>
+                            <span className="text-[11px] font-bold text-[#7F8C8D]">/kWh</span>
+                          </div>
+                          <span className="text-[10px] text-[#7F8C8D]">基准 ¥{baselineChargeCostAvg}/kWh</span>
                         </div>
                       </div>
 
                       {/* 储能放电价格 */}
-                      <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2] hover:border-[#BFDBFE] transition-all duration-200 flex items-center justify-between">
-                        <div>
-                          <span className="text-[11px] text-[#7F8C8D] block font-medium">储能放电价格</span>
-                          <span className="font-mono font-bold text-[#1A2A3A] text-sm">¥{dischargePriceAvg} <span className="text-[10px] font-normal text-[#7F8C8D]">/kWh</span></span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[10px] font-bold text-[#1D4ED8] block">
-                            +¥{dischargePriceDiff}
+                      <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2] hover:border-[#BFDBFE] transition-all duration-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[#2C3E50]">
+                            储能放电价格
                           </span>
-                          <span className="text-[10px] text-[#7F8C8D] block">增 {dischargePriceDiffPct}%</span>
+                          <span className="text-[10px] font-bold text-[#1D4ED8] bg-[#EFF6FF] px-1.5 py-0.5 rounded font-sans">
+                            +{dischargePriceDiffPct}%
+                          </span>
+                        </div>
+                        <div className="flex items-baseline justify-between mt-1.5">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-base font-black text-[#1A2A3A] font-sans">
+                              ¥{dischargePriceAvg}
+                            </span>
+                            <span className="text-[11px] font-bold text-[#7F8C8D]">/kWh</span>
+                          </div>
+                          <span className="text-[10px] text-[#7F8C8D]">基准 ¥{baselineDischargePriceAvg}/kWh</span>
                         </div>
                       </div>
                     </div>
