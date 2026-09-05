@@ -1,6 +1,13 @@
 # 自动化执行记录：微网首页改版2.0 git 同步
 
-## 2026-09-05 19:03 (本次运行)
+## 2026-09-05 20:21 (本次运行)
+- 结果：SYNC_OK pushed=1（首轮 20:05 SYNC_FAIL push_error，诊断后重跑成功）
+- 首轮失败原因：推送时 SSH 通道 ssh.github.com:443（20.205.243.160:443）连接超时（banner exchange timeout），HTTPS/钥匙串/GH_TOKEN 兜底也全部失败，属临时网络问题；认证本身无恙
+- 诊断：--check 显示 changed_files=0 ahead=1；`ssh -T git@github.com` 认证正常（Hi ml0716xx）
+- 重跑：待推提交 99aabed 经 SSH 通道推送成功（561cb29..99aabed → origin/main）
+- 本次运行后的记忆更新将由下一轮同步提交
+
+## 2026-09-05 19:03
 - 结果：SYNC_OK pushed=1
 - 检测到 1 个变更文件（上次运行的记忆更新），提交 561cb29 并经 SSH 通道推送成功（1e31c7c..561cb29 → origin/main）
 - 本次运行后的记忆更新将由下一轮同步提交
