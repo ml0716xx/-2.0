@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import CommonConfigPanel from './CommonConfigPanel';
 import StrategySimulationConfigPage from './StrategySimulationConfigPage';
+import ModeManagementPanel from './ModeManagementPanel';
 
 interface SubPeriod {
   start: string;
@@ -46,7 +47,7 @@ const StrategyConfigPage: React.FC = () => {
   const [focusedThresholdBlockId, setFocusedThresholdBlockId] = useState<string | null>(null);
 
   // 公共配置状态
-  const [activeTab, setActiveTab] = useState<'common' | 'selfConsumption' | 'monthlySchedule'>('monthlySchedule');
+  const [activeTab, setActiveTab] = useState<'common' | 'selfConsumption' | 'monthlySchedule' | 'mode'>('monthlySchedule');
 
   const [templates, setTemplates] = useState<StrategyTemplate[]>([
     {
@@ -246,8 +247,8 @@ const StrategyConfigPage: React.FC = () => {
         <button
           onClick={() => setActiveTab('common')}
           className={`text-base font-bold pb-2 transition-all relative cursor-pointer ${
-            activeTab === 'common' 
-              ? 'text-emerald-600 font-black' 
+            activeTab === 'common'
+              ? 'text-emerald-600 font-black'
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >
@@ -256,10 +257,23 @@ const StrategyConfigPage: React.FC = () => {
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
           )}
         </button>
+        <button
+          onClick={() => setActiveTab('mode')}
+          className={`text-base font-bold pb-2 transition-all relative cursor-pointer ${
+            activeTab === 'mode'
+              ? 'text-emerald-600 font-black'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          模式管理
+          {activeTab === 'mode' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
+          )}
+        </button>
       </div>
 
       {activeTab === 'monthlySchedule' ? (
-        <StrategySimulationConfigPage 
+        <StrategySimulationConfigPage
           onBack={() => setActiveTab('selfConsumption')}
           onSaveAndSimulate={() => {
             alert('月度策略排程与配置已保存！');
@@ -267,6 +281,8 @@ const StrategyConfigPage: React.FC = () => {
         />
       ) : activeTab === 'common' ? (
         <CommonConfigPanel />
+      ) : activeTab === 'mode' ? (
+        <ModeManagementPanel />
       ) : (
         <div className="flex-1 flex gap-4">
       {!isEditing && (
