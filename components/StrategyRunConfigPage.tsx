@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   ArrowLeft, Plus, Trash2, Check, AlertCircle,
   ChevronDown, Layers, CalendarDays,
-  Zap, Settings2,
+  Zap, Settings2, Lock,
   RotateCcw, CheckCircle2, Info, Sparkles
 } from "lucide-react";
 import {
@@ -20,8 +20,8 @@ export interface StrategyRunConfigPageProps {
   userAiStatus?: "activated" | "not_activated";
 }
 
-/** 应用范围类型：当月全部 / 工作日 / 非工作日 / 自定义日期 */
-type ScopeType = "all" | "workday" | "non_workday" | "custom";
+/** 应用范围类型：当月全部 / 自定义日期（工作日·非工作日由自定义日期的快捷键实现） */
+type ScopeType = "all" | "custom";
 
 interface ScopeStrategyItem {
   id: string;
@@ -38,32 +38,27 @@ const WEEKDAY_LABELS = ["周三", "周四", "周五", "周六", "周日", "周�
 const WEEKDAY_SHORT = ["三", "四", "五", "六", "日", "一", "二"];
 const DAYS_IN_MONTH = 31;
 
+/** 当月法定节假日（含调休，将计入"非工作日"；2026年7月无法定节假日） */
+const MONTH_HOLIDAYS: number[] = [];
+
 const weekdayOf = (d: number) => WEEKDAY_LABELS[(d - 1) % 7];
 const isWeekendOf = (d: number) => weekdayOf(d) === "周六" || weekdayOf(d) === "周日";
+/** 非工作日 = 周末 + 法定节假日 */
+const isNonWorkdayOf = (d: number) => isWeekendOf(d) || MONTH_HOLIDAYS.includes(d);
 
 const SCOPE_META: Record<ScopeType, { label: string; desc: string; chip: string; activeChip: string }> = {
-  all: { label: "当月全部", desc: "策略作用于本月 1~31 号每一天", chip: "border-slate-200 text-slate-600 hover:border-slate-300", activeChip: "border-slate-800 bg-slate-800 text-white" },
-  workday: { label: "工作日", desc: "仅作用于周一至周五", chip: "border-blue-200 text-blue-600 hover:border-blue-300", activeChip: "border-blue-600 bg-blue-600 text-white" },
-  non_workday: { label: "非工作日", desc: "仅作用于周六、周日", chip: "border-amber-200 text-amber-600 hover:border-amber-300", activeChip: "border-amber-500 bg-amber-500 text-white" },
-  custom: { label: "自定义日期", desc: "手动勾选需要应用该策略的日期", chip: "border-emerald-200 text-emerald-700 hover:border-emerald-300", activeChip: "border-emerald-600 bg-emerald-600 text-white" },
+  all: { label: "当月全部", desc: "策略作用于本月每一天（仅可存在一条）", chip: "border-slate-200 text-slate-600 hover:border-slate-300", activeChip: "border-slate-800 bg-slate-800 text-white" },
+  custom: { label: "自定义日期", desc: "手动勾选日期，可用快捷键一键选工作日/非工作日", chip: "border-emerald-200 text-emerald-700 hover:border-emerald-300", activeChip: "border-emerald-600 bg-emerald-600 text-white" },
 };
 
-/** 范围精确度：自定义日期 > 工作日/非工作日 > 当月全部 */
-const scopeRank = (s: ScopeType): number => {
-  if (s === "custom") return 3;
-  if (s === "workday" || s === "non_workday") return 2;
-  return 1;
-};
+/** 范围精确度：自定义日期 > 当月全部 */
+const scopeRank = (s: ScopeType): number => (s === "custom" ? 2 : 1);
 
 /** 计算一条策略覆盖的具体日期列表 */
 const datesCoveredBy = (item: ScopeStrategyItem): number[] => {
   const days: number[] = [];
   for (let d = 1; d <= DAYS_IN_MONTH; d++) {
-    let hit = false;
-    if (item.scopeType === "all") hit = true;
-    else if (item.scopeType === "workday") hit = !isWeekendOf(d);
-    else if (item.scopeType === "non_workday") hit = isWeekendOf(d);
-    else if (item.scopeType === "custom") hit = item.customDates.includes(d);
+    const hit = item.scopeType === "all" ? true : item.customDates.includes(d);
     if (hit) days.push(d);
   }
   return days;
@@ -169,7 +164,7 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
       sourceType: "template",
       templateId: "tpl_weekend_july_aug",
       manualPeriods: [],
-      scopeType: "all",
+      scopeType: "custom",
       customDates: [],
     };
     setStrategyList((prev) => [...prev, item]);
@@ -254,6 +249,32 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
     : [];
   const isManualMode = selected?.sourceType === "manual";
 
+  /** 切换应用范围；「当月全部」仅允许一条，重复选择时拦截 */
+  const setScope = (id: string, st: ScopeType) => {
+    if (st === "all") {
+      const taken = strategyList.some((it) => it.id !== id && it.scopeType === "all");
+      if (taken) {
+        showToast("「当月全部」仅可存在一条，请先将已有策略改为自定义日期");
+        return;
+      }
+    }
+    updateItem(id, { scopeType: st });
+  };
+
+  /** 其它「自定义日期」策略已占用的日期 → day -> 策略名 */
+  const occupiedByOther = (id: string): Record<number, string> => {
+    const map: Record<number, string> = {};
+    strategyList.forEach((it) => {
+      if (it.id === id || it.scopeType !== "custom") return;
+      it.customDates.forEach((d) => {
+        if (!map[d]) map[d] = it.name || "未命名策略";
+      });
+    });
+    return map;
+  };
+
+  /** 当前编辑策略视角下，被其它自定义日期策略占用的日期 */
+  const occupiedMap = selected ? occupiedByOther(selected.id) : {};
   const toggleCustomDate = (d: number) => {
     if (!selected) return;
     const has = selected.customDates.includes(d);
@@ -416,10 +437,6 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
                       item.scopeType === "all"
                         ? "border-slate-300 bg-slate-100 text-slate-600"
-                        : item.scopeType === "workday"
-                        ? "border-blue-200 bg-blue-50 text-blue-600"
-                        : item.scopeType === "non_workday"
-                        ? "border-amber-200 bg-amber-50 text-amber-600"
                         : "border-emerald-200 bg-emerald-50 text-emerald-700"
                     }`}>
                       {scope.label}
@@ -473,26 +490,34 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                   <p className="text-xs text-slate-400 mt-0.5">选择本策略作用于当月的日期范围</p>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {(Object.keys(SCOPE_META) as ScopeType[]).map((st) => {
                     const meta = SCOPE_META[st];
                     const active = selected.scopeType === st;
+                    const allTakenByOther = st === "all" && strategyList.some((it) => it.id !== selected.id && it.scopeType === "all");
                     return (
                       <button
                         key={st}
-                        onClick={() => updateItem(selected.id, { scopeType: st })}
-                        className={`px-3 py-2.5 rounded-xl border-2 text-left transition-all cursor-pointer ${
-                          active ? meta.activeChip : `bg-white ${meta.chip}`
+                        onClick={() => setScope(selected.id, st)}
+                        disabled={allTakenByOther}
+                        title={allTakenByOther ? "已有其它策略占用「当月全部」" : undefined}
+                        className={`px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
+                          allTakenByOther
+                            ? "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed"
+                            : active
+                            ? `${meta.activeChip} cursor-pointer`
+                            : `bg-white ${meta.chip} cursor-pointer`
                         }`}
                       >
-                        <span className="block text-xs font-bold">{meta.label}</span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold">{meta.label}</span>
+                          {allTakenByOther && <Lock className="w-3 h-3" />}
+                        </span>
                         <span className={`block text-[10px] mt-0.5 ${active ? "opacity-80" : "text-slate-400"}`}>
                           {st === "all"
-                            ? `覆盖 ${DAYS_IN_MONTH} 天`
-                            : st === "workday"
-                            ? `${datesCoveredBy({ ...selected, scopeType: "workday" }).length} 天`
-                            : st === "non_workday"
-                            ? `${datesCoveredBy({ ...selected, scopeType: "non_workday" }).length} 天`
+                            ? allTakenByOther
+                              ? "已被其它策略占用"
+                              : `覆盖 ${DAYS_IN_MONTH} 天 · 仅可一条`
                             : `已选 ${selected.customDates.length} 天`}
                         </span>
                       </button>
@@ -513,21 +538,27 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                       {Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1).map((d) => {
                         const weekend = isWeekendOf(d);
                         const on = selected.customDates.includes(d);
+                        const occupier = occupiedMap[d];
                         return (
                           <button
                             key={d}
                             onClick={() => toggleCustomDate(d)}
+                            title={occupier ? `已被「${occupier}」占用` : undefined}
                             className={`flex flex-col items-center rounded-lg py-1 px-0.5 border transition-all cursor-pointer ${
                               on
                                 ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
+                                : occupier
+                                ? "bg-rose-50/70 border-rose-200 text-rose-400 hover:border-rose-300"
                                 : weekend
                                 ? "bg-amber-50/70 border-amber-100 text-amber-600/80 hover:border-amber-300"
                                 : "bg-white border-slate-200 text-slate-600 hover:border-emerald-300"
                             }`}
                           >
                             <span className="text-[11px] font-bold leading-none">{d}</span>
-                            <span className={`text-[8px] leading-tight mt-0.5 ${on ? "text-white/80" : "text-slate-400"}`}>
-                              周{WEEKDAY_SHORT[(d - 1) % 7]}
+                            <span className={`text-[8px] leading-tight mt-0.5 max-w-full truncate ${
+                              on ? "text-white/80" : occupier ? "text-rose-400/80" : "text-slate-400"
+                            }`}>
+                              {occupier ? occupier.slice(0, 3) : `周${WEEKDAY_SHORT[(d - 1) % 7]}`}
                             </span>
                           </button>
                         );
@@ -536,7 +567,7 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                     <div className="flex items-center gap-3 pt-0.5">
                       <button
                         onClick={() => {
-                          const wkds = Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1).filter((x) => !isWeekendOf(x));
+                          const wkds = Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1).filter((x) => !isNonWorkdayOf(x));
                           updateItem(selected.id, { customDates: wkds });
                         }}
                         className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-1 rounded-md transition-colors cursor-pointer"
@@ -545,7 +576,7 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                       </button>
                       <button
                         onClick={() => {
-                          const wends = Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1).filter((x) => isWeekendOf(x));
+                          const wends = Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1).filter((x) => isNonWorkdayOf(x));
                           updateItem(selected.id, { customDates: wends });
                         }}
                         className="text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-1 rounded-md transition-colors cursor-pointer"
@@ -687,11 +718,7 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                     <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                       <span className="font-mono text-slate-400 text-xs">3</span>
                       计划时段配置详情
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                        isManualMode ? "bg-violet-50 text-violet-600" : "bg-slate-100 text-slate-500"
-                      }`}>
-                        {isManualMode ? "可编辑" : "只读（来自所选模版）"}
-                      </span>
+
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
                       {isManualMode
