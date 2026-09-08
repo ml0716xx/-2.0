@@ -605,19 +605,9 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {/* 名称 */}
-                  <div>
-                    <label className="text-[11px] font-medium text-slate-500 block mb-1.5">策略名称</label>
-                    <input
-                      value={selected.name}
-                      onChange={(e) => updateItem(selected.id, { name: e.target.value })}
-                      placeholder="请输入策略名称"
-                      className="w-full bg-white border border-slate-200 hover:border-slate-300 text-slate-800 text-xs font-medium rounded-lg px-3 py-2.5 outline-none transition-colors shadow-2xs focus:border-emerald-400"
-                    />
-                  </div>
-                  {/* 模板下拉（仅 template） */}
                   {selected.sourceType === "template" ? (
-                    <div>
+                    /* 模版来源：名称跟随模版，不提供自定义命名 */
+                    <div className="lg:col-span-2">
                       <label className="text-[11px] font-medium text-slate-500 block mb-1.5">选择策略模版</label>
                       <div className="relative">
                         <select
@@ -639,12 +629,24 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-end pb-1">
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-600 bg-violet-50 border border-violet-200 px-2.5 py-1.5 rounded-lg">
-                        <Settings2 className="w-3 h-3" />
-                        手动自定义 · 可在下方时段区自由增删
-                      </span>
-                    </div>
+                    <>
+                      {/* 手动自定义：需要命名 */}
+                      <div>
+                        <label className="text-[11px] font-medium text-slate-500 block mb-1.5">策略名称</label>
+                        <input
+                          value={selected.name}
+                          onChange={(e) => updateItem(selected.id, { name: e.target.value })}
+                          placeholder="请输入策略名称"
+                          className="w-full bg-white border border-slate-200 hover:border-slate-300 text-slate-800 text-xs font-medium rounded-lg px-3 py-2.5 outline-none transition-colors shadow-2xs focus:border-emerald-400"
+                        />
+                      </div>
+                      <div className="flex items-end pb-1">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-600 bg-violet-50 border border-violet-200 px-2.5 py-1.5 rounded-lg">
+                          <Settings2 className="w-3 h-3" />
+                          手动自定义 · 可在下方时段区自由增删
+                        </span>
+                      </div>
+                    </>
                   )}
                 </div>
 
