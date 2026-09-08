@@ -223,7 +223,7 @@ const StrategyConfigPage: React.FC = () => {
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >
-          月度策略排程与模拟看板
+          策略排期
           {activeTab === 'monthlySchedule' && (
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
           )}
