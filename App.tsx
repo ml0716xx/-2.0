@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Activity, Database, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Database, ChevronRight, ChevronLeft } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import EnergyFlowDiagram from './components/EnergyFlowDiagram';
 import StatsCard from './components/StatsCard';
@@ -299,7 +299,6 @@ const App: React.FC = () => {
         {/* Footer / Status Bar */}
         <div className="flex items-center justify-between text-xs text-slate-500 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm mt-2">
           <div className="flex items-center gap-8">
-            <span className="flex items-center gap-2"><Activity className="w-4 h-4 text-emerald-500" /> 站点当前健康指数: 98/100</span>
             <span className="flex items-center gap-2 border-l border-slate-100 pl-8"><Database className="w-4 h-4 text-blue-500" /> 云端同步周期: 15s</span>
           </div>
           <div className="flex items-center gap-4">
