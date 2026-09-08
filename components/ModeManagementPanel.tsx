@@ -39,11 +39,8 @@ const MODE_META: Record<ModeType, ModeMeta> = {
     name: '并网模式',
     desc: ['与电网相连，并网运行，支持多种控制策略'],
     steps: [
-      { title: '储能停机状态检测', detail: '确认储能变流器处于停机状态，方可执行模式切换' },
       { title: '电网合闸状态确认', detail: '确认电网侧已合闸，线路带电正常' },
-      { title: '并网模式指令下发', detail: '向储能变流器下发并网运行模式指令，并等待设备ACK' },
       { title: '电网供电校验', detail: '校验电网电压/频率处于并网允许范围' },
-      { title: '储能开机', detail: '下发开机指令，储能并网跟随运行' },
       { title: '切换结果确认', detail: '汇总校验结果，确认并网切换完成' },
     ],
   },
@@ -172,63 +169,64 @@ const ModeManagementPanel: React.FC = () => {
         </div>
       )}
 
-      {/* 校验步骤（左右交错布局，带执行状态） */}
-      <div className="flex flex-col">
+      {/* 校验步骤：横向卡片流 */}
+      <div className="flex flex-wrap items-stretch gap-2 max-w-5xl">
         {targetMeta.steps.map((step, i) => {
           const stepNo = i + 1;
-          const isEven = stepNo % 2 === 0;
-          const isLast = stepNo === targetMeta.steps.length;
           const st = stepStates[i];
+          const isLast = stepNo === targetMeta.steps.length;
           return (
-            <div key={`${selectedMode}-${stepNo}`} className={isEven ? 'ml-[30%]' : ''}>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`w-5 h-5 rounded-full text-white text-[11px] font-black flex items-center justify-center shrink-0 shadow-sm transition-colors ${
-                    st === 'done'
-                      ? 'bg-emerald-500'
-                      : st === 'running'
-                      ? 'bg-emerald-400'
-                      : 'bg-slate-300'
-                  }`}
-                >
-                  {st === 'done' ? (
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                  ) : st === 'running' ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    stepNo
-                  )}
-                </span>
-                <div
-                  className={`border rounded-lg px-4 py-2 shadow-sm w-72 transition-colors ${
-                    st === 'done'
-                      ? 'bg-emerald-50/60 border-emerald-200'
-                      : st === 'running'
-                      ? 'bg-white border-emerald-300'
-                      : 'bg-white border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-700">{step.title}</span>
-                    <span
-                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                        st === 'done'
-                          ? 'text-emerald-600 bg-emerald-100'
-                          : st === 'running'
-                          ? 'text-blue-600 bg-blue-50 border border-blue-200'
-                          : 'text-slate-400 bg-slate-100'
-                      }`}
-                    >
-                      {st === 'done' ? '通过' : st === 'running' ? '校验中' : '待执行'}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-slate-400 mt-1 leading-relaxed">{step.detail}</div>
+            <React.Fragment key={`${selectedMode}-${stepNo}`}>
+              <div
+                className={`relative border rounded-xl px-4 py-3 shadow-sm w-60 transition-colors ${
+                  st === 'done'
+                    ? 'bg-emerald-50/60 border-emerald-200'
+                    : st === 'running'
+                    ? 'bg-white border-emerald-300'
+                    : 'bg-white border-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span
+                    className={`w-5 h-5 rounded-full text-white text-[11px] font-black flex items-center justify-center shrink-0 shadow-sm transition-colors ${
+                      st === 'done'
+                        ? 'bg-emerald-500'
+                        : st === 'running'
+                        ? 'bg-emerald-400'
+                        : 'bg-slate-300'
+                    }`}
+                  >
+                    {st === 'done' ? (
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    ) : st === 'running' ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      stepNo
+                    )}
+                  </span>
+                  <span className="text-xs font-bold text-slate-700">{step.title}</span>
                 </div>
+                <div className="text-[10px] text-slate-400 leading-relaxed">{step.detail}</div>
+                <span
+                  className={`absolute top-2.5 right-2.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    st === 'done'
+                      ? 'text-emerald-600 bg-emerald-100'
+                      : st === 'running'
+                      ? 'text-blue-600 bg-blue-50 border border-blue-200'
+                      : 'text-slate-400 bg-slate-100'
+                  }`}
+                >
+                  {st === 'done' ? '通过' : st === 'running' ? '校验中' : '待执行'}
+                </span>
               </div>
               {!isLast && (
-                <div className="h-4 ml-[10px] border-l-2 border-dashed border-slate-200"></div>
+                <div className="self-center text-slate-300 shrink-0">
+                  <svg width="20" height="12" viewBox="0 0 20 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 6 H14 M14 1 L19 6 L14 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
               )}
-            </div>
+            </React.Fragment>
           );
         })}
       </div>

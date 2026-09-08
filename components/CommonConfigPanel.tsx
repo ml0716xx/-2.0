@@ -22,6 +22,10 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
   const [initialDemandLimit, setInitialDemandLimit] = useState(() => localStorage.getItem('sys_initialDemandLimit') || '500');
   const [baselineOvercapacity, setBaselineOvercapacity] = useState(() => localStorage.getItem('sys_baselineOvercapacity') || '470');
 
+  // 二级变压器参数
+  const [transformerCapacity, setTransformerCapacity] = useState(() => localStorage.getItem('sys_transformerCapacity') || '1850');
+  const [transformerOvercap, setTransformerOvercap] = useState(() => localStorage.getItem('sys_transformerOvercap') || '1750');
+
   // Reverse Flow Parameters
   const [reverseLimit, setReverseLimit] = useState(() => localStorage.getItem('sys_reverseLimit') || '20');
 
@@ -45,6 +49,8 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
     setReverseLimit(localStorage.getItem('sys_reverseLimit') || '20');
     setSocChargeLimit(localStorage.getItem('sys_socChargeLimit') || '98');
     setSocDischargeLimit(localStorage.getItem('sys_socDischargeLimit') || '5.1');
+    setTransformerCapacity(localStorage.getItem('sys_transformerCapacity') || '1850');
+    setTransformerOvercap(localStorage.getItem('sys_transformerOvercap') || '1750');
   };
 
   const handleSave = () => {
@@ -58,6 +64,8 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
     localStorage.setItem('sys_reverseLimit', reverseLimit);
     localStorage.setItem('sys_socChargeLimit', socChargeLimit);
     localStorage.setItem('sys_socDischargeLimit', socDischargeLimit);
+    localStorage.setItem('sys_transformerCapacity', transformerCapacity);
+    localStorage.setItem('sys_transformerOvercap', transformerOvercap);
 
     // Trigger local storage event to notify other open components
     window.dispatchEvent(new Event('storage'));
@@ -109,11 +117,14 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
         )}
       </div>
 
-      {/* 超容参数 */}
+      {/* 总线参数 */}
       <fieldset className="border border-slate-200/80 rounded-xl p-4 relative pt-5 mt-2">
-        <legend className="px-2 text-xs font-bold text-slate-600 tracking-tight bg-white">超容参数</legend>
+        <legend className="px-2 text-xs font-bold text-slate-600 tracking-tight bg-white">总线参数</legend>
         
         <div className="space-y-4">
+          {/* 超限参数 */}
+          <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest pl-1">超限参数</div>
+
           {/* 需量更新模式 */}
           <div className="space-y-3">
             <div className="flex items-center gap-6">
@@ -263,6 +274,48 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      {/* 二级变压器参数 */}
+      <fieldset className="border border-slate-200/80 rounded-xl p-6 relative pt-8 mt-4">
+        <legend className="px-3 text-xs font-bold text-slate-600 tracking-tight bg-white">二级变压器参数</legend>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* 变压器额定容量 */}
+          <div className="space-y-2">
+            <span className="text-xs font-bold text-slate-500">变压器额定容量</span>
+            <div className="relative">
+              <input
+                type="number"
+                value={transformerCapacity}
+                onChange={(e) => setTransformerCapacity(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 ring-emerald-100 outline-none pr-14 font-mono"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold font-mono text-slate-400">kVA</span>
+            </div>
+            <div className="text-[11px] text-slate-400 font-medium flex items-start gap-1.5 pl-1">
+              <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-300" />
+              <span>建议配置为变压器铭牌的视在功率值，无铭牌则使用图纸设计容量。</span>
+            </div>
+          </div>
+
+          {/* 变压器最大有功输出 */}
+          <div className="space-y-2">
+            <span className="text-xs font-bold text-slate-500">变压器最大有功输出</span>
+            <div className="relative">
+              <input
+                type="number"
+                value={transformerOvercap}
+                onChange={(e) => setTransformerOvercap(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 ring-emerald-100 outline-none pr-14 font-mono"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold font-mono text-slate-400">kW</span>
+            </div>
+            <div className="text-[11px] text-slate-400 font-medium flex items-start gap-1.5 pl-1">
+              <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-300" />
+              <span>变压器运行的最大有功功率值，建议设置为变压器额定容量的 85% ~ 90%。</span>
             </div>
           </div>
         </div>
