@@ -128,6 +128,12 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
   const [strategyList, setStrategyList] = useState<ScopeStrategyItem[]>([defaultItem()]);
   const [selectedId, setSelectedId] = useState<string>(strategyList[0]?.id || "");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  /** 日期冲突确认弹窗（保存/开始模拟时提醒替换） */
+  const [confirmBox, setConfirmBox] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
   /** 已保存快照：id -> 上次保存的策略内容（用于判断未保存修改 & 取消回滚） */
   const [savedSnapshots, setSavedSnapshots] = useState<Record<string, ScopeStrategyItem>>(() => {
     const first = strategyList[0];
@@ -173,12 +179,116 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
     showToast("已删除该模拟策略");
   };
 
-  /** 保存单条策略：固化当前编辑内容 */
+  /** 单条保存前检查日期冲突：返回与其它自定义策略重叠的日期 → 占用策略名 */
+  const conflictsOf = (id: string): { dates: number[]; byName: Record<number, string> } => {
+    const cur = strategyList.find((it) => it.id === id);
+    const dates: number[] = [];
+    const byName: Record<number, string> = {};
+    if (!cur || cur.scopeType !== "custom") return { dates, byName };
+    const map = occupiedByOther(id);
+    cur.customDates.forEach((d) => {
+      if (map[d]) {
+        dates.push(d);
+        byName[d] = map[d];
+      }
+    });
+    return { dates, byName };
+  };
+
+  /** 全列表冲突统计：day -> 选择该日的自定义策略（按列表顺序），≥2 即重叠 */
+  const dayChoosers = (): Record<number, ScopeStrategyItem[]> => {
+    const map: Record<number, ScopeStrategyItem[]> = {};
+    strategyList.forEach((it) => {
+      if (it.scopeType !== "custom") return;
+      it.customDates.forEach((d) => {
+        (map[d] = map[d] || []).push(it);
+      });
+    });
+    return map;
+  };
+
+  /** 冲突归一（纯函数）：重叠日期仅保留列表中靠后的策略，其余移除；返回新列表 */
+  const resolveConflicts = (list: ScopeStrategyItem[]): ScopeStrategyItem[] => {
+    const choosers: Record<number, ScopeStrategyItem[]> = {};
+    list.forEach((it) => {
+      if (it.scopeType !== "custom") return;
+      it.customDates.forEach((d) => {
+        (choosers[d] = choosers[d] || []).push(it);
+      });
+    });
+    const dropByStrategy = new Map<string, Set<number>>();
+    Object.entries(choosers).forEach(([day, arr]) => {
+      if (arr.length < 2) return;
+      const winner = arr[arr.length - 1]; // 靠后生效
+      arr.forEach((it) => {
+        if (it.id === winner.id) return;
+        const d = Number(day);
+        if (!dropByStrategy.has(it.id)) dropByStrategy.set(it.id, new Set());
+        dropByStrategy.get(it.id)!.add(d);
+      });
+    });
+    if (dropByStrategy.size === 0) return list;
+    return list.map((it) => {
+      const drop = dropByStrategy.get(it.id);
+      if (!drop) return it;
+      return { ...it, customDates: it.customDates.filter((d) => !drop.has(d)) };
+    });
+  };
+
+  /** 保存单条策略：若有日期冲突先弹窗确认，确认后替换占用并固化快照 */
   const saveItem = (id: string) => {
     const cur = strategyList.find((it) => it.id === id);
     if (!cur) return;
+    const { dates, byName } = conflictsOf(id);
+    if (dates.length > 0) {
+      setConfirmBox({
+        title: "日期冲突提醒",
+        message: `「${cur.name || "未命名策略"}」选中的 ${dates.length} 个日期当前由其它策略应用（如「${byName[dates[0]]}」）。保存后这些日期将改由本策略应用，并从原策略中移除。是否继续？`,
+        onConfirm: () => {
+          const set = new Set(dates);
+          const nextList = strategyList.map((it) =>
+            it.scopeType === "custom" && it.id !== id && it.customDates.some((d) => set.has(d))
+              ? { ...it, customDates: it.customDates.filter((d) => !set.has(d)) }
+              : it
+          );
+          setStrategyList(nextList);
+          const nextSnaps: Record<string, ScopeStrategyItem> = {};
+          nextList.forEach((it) => { nextSnaps[it.id] = JSON.parse(JSON.stringify(it)); });
+          setSavedSnapshots(nextSnaps);
+          showToast(`已保存，${dates.length} 个冲突日期已改由本策略应用`);
+        },
+      });
+      return;
+    }
     setSavedSnapshots((prev) => ({ ...prev, [id]: JSON.parse(JSON.stringify(cur)) }));
     showToast(`策略「${cur.name || "未命名"}」已保存`);
+  };
+
+  /** 开始模拟前：若存在日期冲突先弹窗确认，确认后按「靠后生效」归一再编译 */
+  const handleSave = () => {
+    const choosers = dayChoosers();
+    const overlapDays = Object.entries(choosers).filter(([, arr]) => arr.length >= 2);
+    if (overlapDays.length > 0) {
+      const involved = new Set<string>();
+      overlapDays.forEach(([, arr]) => arr.forEach((it) => involved.add(it.name || "未命名策略")));
+      setConfirmBox({
+        title: "日期冲突提醒",
+        message: `检测到 ${overlapDays.length} 个日期被多条策略同时应用（涉及「${[...involved].slice(0, 2).join("」「")}」等 ${involved.size} 条策略）。开始模拟后，重叠日期将按「同范围靠后生效」原则由列表中靠后的策略应用，并自动从原策略中移除。是否继续？`,
+        onConfirm: () => {
+          const resolved = resolveConflicts(strategyList);
+          setStrategyList(resolved);
+          const nextSnaps: Record<string, ScopeStrategyItem> = {};
+          resolved.forEach((it) => { nextSnaps[it.id] = JSON.parse(JSON.stringify(it)); });
+          setSavedSnapshots(nextSnaps);
+          const schedule = compileMonthSchedule(resolved);
+          onSaveAndSimulate(schedule);
+          showToast("已开始模拟");
+        },
+      });
+      return;
+    }
+    const schedule = compileMonthSchedule();
+    onSaveAndSimulate(schedule);
   };
 
   /** 取消单条策略的未保存修改：回滚到上次保存；从未保存过的新策略则删除 */
@@ -209,13 +319,13 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
   };
 
   // ---------- 编译：把「策略 + 应用范围」逐日展开为整月排程 ----------
-  const compileMonthSchedule = (): Record<number, MonthlyStrategyDayConfig> => {
+  const compileMonthSchedule = (list: ScopeStrategyItem[] = strategyList): Record<number, MonthlyStrategyDayConfig> => {
     const schedule: Record<number, MonthlyStrategyDayConfig> = {};
     for (let day = 1; day <= DAYS_IN_MONTH; day++) {
       // 范围精确优先；同范围时列表中靠后的生效（后加覆盖先加）
       let best: ScopeStrategyItem | null = null;
       let bestRank = -1;
-      strategyList.forEach((item) => {
+      list.forEach((item) => {
         if (datesCoveredBy(item).includes(day)) {
           const r = scopeRank(item.scopeType);
           if (r > bestRank || (r === bestRank && item !== best)) {
@@ -314,6 +424,10 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
   const toggleCustomDate = (d: number) => {
     if (!selected) return;
     const has = selected.customDates.includes(d);
+    // 被其它自定义策略占用的日期允许选中，保存时提醒替换
+    if (!has && occupiedMap[d]) {
+      showToast(`该日期当前由「${occupiedMap[d]}」应用，保存后将以本策略为准`);
+    }
     updateItem(selected.id, {
       customDates: has ? selected.customDates.filter((x) => x !== d) : [...selected.customDates, d].sort((a, b) => a - b),
     });
@@ -378,10 +492,6 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
           <span className="flex items-center gap-1.5 border border-slate-200 bg-slate-50 text-slate-600 rounded-lg px-3 py-1.5 text-xs font-bold">
             <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
             {fullMonthLabel}
-          </span>
-          <span className="flex items-center gap-1.5 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-lg px-3 py-1.5 text-xs font-bold">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            已覆盖 {coveredCount}/{DAYS_IN_MONTH} 天
           </span>
         </div>
       </div>
@@ -588,20 +698,23 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                           <button
                             key={d}
                             onClick={() => toggleCustomDate(d)}
-                            title={occupier ? `已被「${occupier}」占用` : undefined}
-                            className={`flex flex-col items-center rounded-lg py-1 px-0.5 border transition-all cursor-pointer ${
+                            title={occupier ? `当前由「${occupier}」应用，选中后保存时将替换` : undefined}
+                            className={`relative flex flex-col items-center rounded-lg py-1 px-0.5 border transition-all ${
                               on
-                                ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
+                                ? "bg-emerald-600 border-emerald-600 text-white shadow-xs cursor-pointer"
                                 : occupier
-                                ? "bg-rose-50/70 border-rose-200 text-rose-400 hover:border-rose-300"
+                                ? "bg-white border-dashed border-rose-300 text-slate-500 hover:border-rose-400 cursor-pointer"
                                 : weekend
-                                ? "bg-amber-50/70 border-amber-100 text-amber-600/80 hover:border-amber-300"
-                                : "bg-white border-slate-200 text-slate-600 hover:border-emerald-300"
+                                ? "bg-amber-50/70 border-amber-100 text-amber-600/80 hover:border-amber-300 cursor-pointer"
+                                : "bg-white border-slate-200 text-slate-600 hover:border-emerald-300 cursor-pointer"
                             }`}
                           >
+                            {occupier && !on && (
+                              <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-rose-400" title={`已被「${occupier}」占用`} />
+                            )}
                             <span className="text-[11px] font-bold leading-none">{d}</span>
                             <span className={`text-[8px] leading-tight mt-0.5 max-w-full truncate ${
-                              on ? "text-white/80" : occupier ? "text-rose-400/80" : "text-slate-400"
+                              on ? "text-white/80" : occupier ? "text-rose-400/90" : "text-slate-400"
                             }`}>
                               {occupier ? occupier.slice(0, 3) : `周${WEEKDAY_SHORT[(d - 1) % 7]}`}
                             </span>
@@ -612,8 +725,12 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                     <div className="flex items-center gap-3 pt-0.5">
                       <button
                         onClick={() => {
-                          const wkds = Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1).filter((x) => !isNonWorkdayOf(x));
+                          const wkds = Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1).filter(
+                            (x) => !isNonWorkdayOf(x)
+                          );
+                          const taken = wkds.filter((x) => !!occupiedMap[x]).length;
                           updateItem(selected.id, { customDates: wkds });
+                          if (taken > 0) showToast(`已选中 ${wkds.length} 天，其中 ${taken} 天当前由其它策略应用，保存时将替换`);
                         }}
                         className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-1 rounded-md transition-colors cursor-pointer"
                       >
@@ -621,8 +738,12 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                       </button>
                       <button
                         onClick={() => {
-                          const wends = Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1).filter((x) => isNonWorkdayOf(x));
+                          const wends = Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1).filter(
+                            (x) => isNonWorkdayOf(x)
+                          );
+                          const taken = wends.filter((x) => !!occupiedMap[x]).length;
                           updateItem(selected.id, { customDates: wends });
+                          if (taken > 0) showToast(`已选中 ${wends.length} 天，其中 ${taken} 天当前由其它策略应用，保存时将替换`);
                         }}
                         className="text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-1 rounded-md transition-colors cursor-pointer"
                       >
