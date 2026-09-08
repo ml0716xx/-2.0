@@ -374,15 +374,9 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
     return schedule;
   };
 
-  const handleSave = () => {
-    const schedule = compileMonthSchedule();
-    onSaveAndSimulate(schedule);
-  };
-
   // 覆盖统计：union 已覆盖天数
   const coveredSet = new Set<number>();
   strategyList.forEach((it) => datesCoveredBy(it).forEach((d) => coveredSet.add(d)));
-  const coveredCount = coveredSet.size;
 
   // ---------- 右侧当前策略详情 ----------
   const displayedTpl = selected
@@ -1110,6 +1104,45 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
           )}
         </section>
       </div>
+
+      {/* 日期冲突确认弹窗 */}
+      {confirmBox && (
+        <div
+          className="fixed inset-0 z-[80] bg-slate-900/50 flex items-center justify-center p-4"
+          onClick={() => setConfirmBox(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="w-9 h-9 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5 text-amber-500" />
+              </span>
+              <h3 className="text-sm font-bold text-slate-900">{confirmBox.title}</h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">{confirmBox.message}</p>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                onClick={() => setConfirmBox(null)}
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  const fn = confirmBox.onConfirm;
+                  setConfirmBox(null);
+                  fn();
+                }}
+                className="px-5 py-2 text-xs font-bold bg-[#00B06B] hover:bg-[#00965b] text-white rounded-lg shadow-sm transition-all cursor-pointer"
+              >
+                确认替换
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fixed Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 z-40 flex items-center justify-between shadow-lg">
