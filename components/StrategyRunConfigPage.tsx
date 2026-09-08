@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   ArrowLeft, Plus, Trash2, Check, AlertCircle,
   ChevronDown, Layers, CalendarDays,
-  Zap, Settings2, Lock,
+  Zap, Settings2, Lock, Play,
   RotateCcw, CheckCircle2, Info, Sparkles
 } from "lucide-react";
 import {
@@ -128,6 +128,17 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
   const [strategyList, setStrategyList] = useState<ScopeStrategyItem[]>([defaultItem()]);
   const [selectedId, setSelectedId] = useState<string>(strategyList[0]?.id || "");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  /** 已保存快照：id -> 上次保存的策略内容（用于判断未保存修改 & 取消回滚） */
+  const [savedSnapshots, setSavedSnapshots] = useState<Record<string, ScopeStrategyItem>>(() => {
+    const first = strategyList[0];
+    return first ? { [first.id]: first } : {};
+  });
+
+  const isDirty = (item: ScopeStrategyItem): boolean => {
+    const snap = savedSnapshots[item.id];
+    return !snap || JSON.stringify(snap) !== JSON.stringify(item);
+  };
+  const dirtyCount = strategyList.filter(isDirty).length;
 
   const selected = strategyList.find((it) => it.id === selectedId) || null;
 
@@ -144,16 +155,41 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
     if (strategyList.length <= 1) {
       setStrategyList([]);
       setSelectedId("");
+      setSavedSnapshots({});
       showToast("策略列表已清空，本月将按「无策略」基准模拟");
       return;
     }
     const idx = strategyList.findIndex((it) => it.id === id);
     setStrategyList((prev) => prev.filter((it) => it.id !== id));
+    setSavedSnapshots((prev) => {
+      const n = { ...prev };
+      delete n[id];
+      return n;
+    });
     if (selectedId === id) {
       const next = strategyList[idx + 1] || strategyList[idx - 1];
       setSelectedId(next?.id || "");
     }
     showToast("已删除该模拟策略");
+  };
+
+  /** 保存单条策略：固化当前编辑内容 */
+  const saveItem = (id: string) => {
+    const cur = strategyList.find((it) => it.id === id);
+    if (!cur) return;
+    setSavedSnapshots((prev) => ({ ...prev, [id]: JSON.parse(JSON.stringify(cur)) }));
+    showToast(`策略「${cur.name || "未命名"}」已保存`);
+  };
+
+  /** 取消单条策略的未保存修改：回滚到上次保存；从未保存过的新策略则删除 */
+  const revertItem = (id: string) => {
+    const snap = savedSnapshots[id];
+    if (!snap) {
+      removeItem(id);
+      return;
+    }
+    setStrategyList((prev) => prev.map((it) => (it.id === id ? JSON.parse(JSON.stringify(snap)) : it)));
+    showToast("已放弃未保存的修改");
   };
 
   /** 新增一条空白策略并直接打开右侧详情，来源/范围在详情里配置 */
@@ -386,6 +422,7 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
               const covered = datesCoveredBy(item).length;
               const scope = SCOPE_META[item.scopeType];
               const isNone = item.sourceType === "template" && item.templateId === "tpl_none";
+              const dirty = isDirty(item);
               return (
                 <div
                   key={item.id}
@@ -420,17 +457,25 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                         {item.sourceType === "manual" ? "手动自定义策略" : "已有模版策略"}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeItem(item.id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition-all shrink-0 cursor-pointer"
-                      title="删除该策略"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {dirty && (
+                        <span
+                          className="w-2 h-2 rounded-full bg-amber-400 shadow-sm"
+                          title="有未保存的修改"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeItem(item.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition-all shrink-0 cursor-pointer"
+                        title="删除该策略"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100/90">
@@ -897,6 +942,49 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* 本条策略的保存/取消 */}
+              {(() => {
+                const dirty = isDirty(selected);
+                return (
+                  <div className={`flex items-center justify-between rounded-2xl border p-4 transition-all ${
+                    dirty
+                      ? "border-amber-200 bg-amber-50/60"
+                      : "border-slate-200 bg-white"
+                  }`}>
+                    <span className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+                      {dirty ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-amber-400" />
+                          该策略有未保存的修改
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          该策略配置已保存
+                        </>
+                      )}
+                    </span>
+                    {dirty && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => revertItem(selected.id)}
+                          className="px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer border border-slate-200"
+                        >
+                          取消
+                        </button>
+                        <button
+                          onClick={() => saveItem(selected.id)}
+                          className="px-5 py-1.5 text-xs font-bold bg-[#00B06B] hover:bg-[#00965b] text-white rounded-lg transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          保存
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </>
           )}
         </section>
@@ -909,18 +997,18 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
           <span>算法模拟回测将完全参考本站历史真实负荷及充放参数。</span>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="px-5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer border border-slate-200"
-          >
-            取消
-          </button>
+          {dirtyCount > 0 && (
+            <span className="text-xs font-bold text-amber-600 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              {dirtyCount} 条策略未保存，开始模拟时将自动保存
+            </span>
+          )}
           <button
             onClick={handleSave}
             className="px-6 py-2 text-xs font-bold bg-[#00B06B] hover:bg-[#00965b] text-white rounded-lg transition-all cursor-pointer shadow-sm shadow-emerald-100 flex items-center gap-1.5"
           >
-            <Check className="w-4 h-4" />
-            保存并重新模拟
+            <Play className="w-4 h-4" />
+            开始模拟
           </button>
         </div>
       </div>
