@@ -172,6 +172,12 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
   const [isTableExpanded, setIsTableExpanded] = useState<boolean>(false);
   const [showExportToast, setShowExportToast] = useState<boolean>(false);
 
+  /**
+   * tab 切换：策略运行报告 / 增值特性（限电止损专项）。
+   * 增值特性是面向已开通客户（试运行 / 正式运行）的付费增强能力，单独成 tab。
+   */
+  const [activeTab, setActiveTab] = useState<'report' | 'valueadd'>('report');
+
   // Daily curtailment assessment dataset for Hebei user-side microgrid (July 2026) - includes negative loss values (e.g. penalty/green power loss vs negative tariff)
   const curtailmentDataList = [
     { day: "1日", lossSaved: 0, curtailedEnergy: 0 },
@@ -206,6 +212,16 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
     { day: "30日", lossSaved: -50, curtailedEnergy: 5.4 }, // 模拟负值止损
     { day: "31日", lossSaved: 0, curtailedEnergy: 0 },
   ];
+
+  /**
+   * 限电止损合计（增值特性 tab 与主报告收益卡共用同一份派生值，避免两处各算一遍）。
+   * 注意：早前 UI 上硬编码的「+¥2,140 / 232.0 kWh」与这份数据实际求和不符，
+   * 实测为 +2,230 元 / 238.9 kWh，此处以数据为准。
+   */
+  const curtailmentTotalSaved = curtailmentDataList.reduce((s, d) => s + d.lossSaved, 0);
+  const curtailmentTotalEnergy = curtailmentDataList.reduce((s, d) => s + d.curtailedEnergy, 0);
+  /** 实际触发止损（金额为正）的天数 */
+  const curtailmentActiveDays = curtailmentDataList.filter(d => d.lossSaved > 0).length;
 
   // Dynamically generates 96 points trend for the selected day
   const get96PointsForDay = (day: string) => {
@@ -1062,6 +1078,45 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
         />
       ) : (
         <>
+          {/* tab 栏：增值特性单独成 tab，并在标签上直接标出本月收益 */}
+          <div className="bg-white rounded-xl border border-[#EAEDF2] shadow-[0_2px_8px_rgba(26,42,58,0.06)] px-5 pt-3 shrink-0">
+            <div className="flex items-center gap-8">
+              <button
+                onClick={() => setActiveTab('report')}
+                className={`pb-2.5 text-sm font-medium transition-colors relative ${
+                  activeTab === 'report'
+                    ? 'text-[#1A2A3A] font-bold after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-[#1E9C7E]'
+                    : 'text-[#7F8C8D] hover:text-[#1A2A3A]'
+                }`}
+              >
+                策略运行报告
+              </button>
+
+              <button
+                onClick={() => setActiveTab('valueadd')}
+                className={`pb-2.5 text-sm font-medium transition-colors relative flex items-center gap-2 ${
+                  activeTab === 'valueadd'
+                    ? 'text-[#B45309] font-bold after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-[#D97706]'
+                    : 'text-[#7F8C8D] hover:text-[#1A2A3A]'
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-[#D97706]" />
+                  增值特性
+                </span>
+                {/* 金色增值角标 + 本月收益，制造点击欲望 */}
+                <span className="px-1.5 py-0.5 rounded bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#B45309] text-[10px] font-bold border border-[#FDE68A]">
+                  增值
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-[#FFF7ED] text-[#C2410C] text-[11px] font-bold font-mono border border-[#FED7AA]">
+                  本月 +¥{curtailmentTotalSaved.toLocaleString()}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {activeTab === 'report' ? (
+            <>
       {(() => {
         // 1. 实际运行AI日统计
         const actualAiList = dailyRevenueData.filter((d) => d.hasAi);
@@ -1124,8 +1179,9 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
         const essDischargeBaseline = simulationSchedule ? "1.34" : "1.18"; // 基准放电量 (+30.2%)
         const essThroughputTotal = (parseFloat(essChargeTotal) + parseFloat(essDischargeTotal)).toFixed(2);
         // 6) 限电止损金额与电量
-        const totalCurtailmentLossSaved = curtailmentDataList.reduce((sum, d) => sum + d.lossSaved, 0); // +2140
-        const totalCurtailedEnergy = curtailmentDataList.reduce((sum, d) => sum + d.curtailedEnergy, 0); // 止损电量
+        // 6) 限电止损金额与电量（引用顶层派生值，与增值特性 tab 同源）
+        const totalCurtailmentLossSaved = curtailmentTotalSaved;
+        const totalCurtailedEnergy = curtailmentTotalEnergy;
         const avgCurtailmentSavedDaily = (totalCurtailmentLossSaved / 31).toFixed(2);
 
         // 7) 收益两翼多维拆解计算 (严格保证数学对齐: 全月收益 = 光伏收益 + 储能收益)
@@ -1133,7 +1189,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
         // 储能收益 = 储能利用率提升 + 储能充放电量提升
         const pvConsumptionGain = simulationSchedule ? 29560 : 27650; // 消纳率提升收益
         const pvToStorageGain = simulationSchedule ? 23100 : 21410;   // 光伏入储电量提升收益
-        const pvCurtailmentGain = totalCurtailmentLossSaved;          // 限电止损金额 2140
+        const pvCurtailmentGain = totalCurtailmentLossSaved;          // 限电止损金额
         const pvTotalRevenue = pvConsumptionGain + pvToStorageGain + pvCurtailmentGain; // 51200 (模拟 54800)
 
         const essUtilizationGain = simulationSchedule ? 19600 : 18450;  // 储能利用率提升收益
@@ -1877,235 +1933,6 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
               </div>
             </div>
 
-            {/* 分割线 */}
-            <div className="my-6 border-t border-[#EAEDF2]" />
-
-            {/* 下图：每日光伏限电止损评估 (每日限电止损金额与限电电量统计 + 96点微电网穿透) */}
-            <div className="flex flex-col">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-[#D97706]" />
-                  <span className="text-xs font-bold text-[#2C3E50]">每日光伏限电止损评估</span>
-                  <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 font-bold px-2 py-0.5 rounded-full">
-                    微电网负电价 / 限电调控减亏
-                  </span>
-                </div>
-                
-                {/* 右上角统计胶囊 (与每日储能充放电均价和套利统计风格一致) */}
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 bg-[#F8FAFC] border border-[#EAEDF2] text-[#2C3E50] px-2.5 py-1 rounded-full text-xs font-medium shadow-2xs">
-                    <div className="w-2 h-2 rounded-full bg-[#D97706]" />
-                    <span className="text-[#7F8C8D]">全月限电电量</span>
-                    <span className="font-extrabold text-[#1A2A3A]">232.0 kWh</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-medium shadow-2xs">
-                    <Sparkles className="w-3 h-3 text-emerald-600" />
-                    <span>全月累计止损</span>
-                    <span className="font-extrabold text-emerald-700">+¥2,140.00</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 图例与说明 */}
-              <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 text-sm mb-4 bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2]">
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-xs bg-[#10B981]"></div>
-                    <span className="text-[#2C3E50] font-bold text-xs">每日限电止损金额 (元)</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-xs bg-[#EF4444]"></div>
-                    <span className="text-[#2C3E50] font-bold text-xs">限电考核调整 (负值)</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-1 bg-[#F59E0B] rounded-full"></div>
-                    <div className="w-2 h-2 rounded-full bg-[#F59E0B]"></div>
-                    <span className="text-[#2C3E50] font-bold text-xs">限电电量 (kWh)</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 限电止损组合图 */}
-              <div className="h-[230px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart
-                    data={curtailmentDataList}
-                    margin={{ top: 15, right: 15, left: -15, bottom: 0 }}
-                    barGap={2}
-                    barCategoryGap="18%"
-                    onClick={(state: any) => {
-                      if (state && state.activeLabel) {
-                        setSelectedCurtailDay(state.activeLabel);
-                        setIsCurtailModalOpen(true);
-                      }
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EAEDF2" />
-                    <XAxis dataKey="day" scale="band" axisLine={{ stroke: "#EAEDF2" }} tickLine={false} tick={<DynamicXAxisTick />} interval={0} />
-                    {/* 左 Y 轴：止损金额 (元) */}
-                    <YAxis 
-                      yAxisId="left"
-                      axisLine={{ stroke: "#EAEDF2" }} 
-                      tickLine={false} 
-                      tick={{ fill: "#7F8C8D", fontSize: 10 }} 
-                      tickFormatter={(val) => `¥${val}`} 
-                      domain={[-100, 650]}
-                    />
-                    {/* 右 Y 轴：限电电量 (kWh) */}
-                    <YAxis 
-                      yAxisId="right"
-                      orientation="right"
-                      axisLine={{ stroke: "#EAEDF2" }} 
-                      tickLine={false} 
-                      tick={{ fill: "#D97706", fontSize: 10 }} 
-                      tickFormatter={(val) => `${val}k`} 
-                      domain={[0, 60]}
-                    />
-                    <Tooltip
-                      cursor={{ fill: "#F4F6F9" }}
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload || !payload.length) return null;
-                        const data = payload[0].payload;
-                        const loss = data.lossSaved || 0;
-                        const energy = data.curtailedEnergy || 0;
-                        const isCurtailDay = loss !== 0 || energy !== 0;
-
-                        return (
-                          <div className="bg-white p-3.5 rounded-xl border border-[#EAEDF2] shadow-xl min-w-[240px]">
-                            <div className="flex items-center justify-between font-bold text-[#1A2A3A] text-xs mb-2 pb-1 border-b border-[#EAEDF2]">
-                              <span className="text-sm font-extrabold">{label} · 光伏限电评估</span>
-                              {isCurtailDay ? (
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${loss >= 0 ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
-                                  {loss >= 0 ? "限电消纳减亏" : "考核调整"}
-                                </span>
-                              ) : (
-                                <span className="bg-slate-100 text-slate-600 text-[9px] px-1.5 py-0.5 rounded font-medium">
-                                  无弃光/限电
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="space-y-1.5 text-xs">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[#7F8C8D]">限电止损金额:</span>
-                                <span className={`font-mono font-bold ${loss > 0 ? "text-[#10B981]" : loss < 0 ? "text-[#EF4444]" : "text-[#7F8C8D]"}`}>
-                                  {loss > 0 ? `+¥${loss.toFixed(2)}` : loss < 0 ? `-¥${Math.abs(loss).toFixed(2)}` : "¥0.00"}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <span className="text-[#7F8C8D]">限电电量:</span>
-                                <span className="font-mono font-bold text-[#D97706]">{energy.toFixed(1)} kWh</span>
-                              </div>
-                              <div className="flex items-center justify-between text-[11px] text-[#7F8C8D] bg-[#F8FAFC] p-1.5 rounded">
-                                <span>分时电价状态:</span>
-                                <span className="font-medium text-[#2C3E50]">{loss >= 0 && energy > 0 ? "负电价时段入储" : loss < 0 ? "偏差调整" : "常规电价"}</span>
-                              </div>
-
-                              {isCurtailDay && (
-                                <div className="pt-2 border-t border-[#EAEDF2] flex items-center justify-center text-[11px] text-[#D97706] font-bold">
-                                  🔍 点击查看 96 点穿透分析曲线
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      }}
-                    />
-
-                    {/* 每日限电止损柱状图 */}
-                    <Bar
-                      yAxisId="left"
-                      dataKey="lossSaved"
-                      name="限电止损金额 (元)"
-                      radius={[3, 3, 0, 0]}
-                      barSize={8}
-                    >
-                      {curtailmentDataList.map((entry, index) => {
-                        let barFill = "#10B981";
-                        if (entry.lossSaved < 0) {
-                          barFill = "#EF4444";
-                        } else if (entry.lossSaved === 0) {
-                          barFill = "#E2E8F0";
-                        }
-                        return (
-                          <Cell
-                            key={`cell-curtail-${index}`}
-                            fill={barFill}
-                            className="cursor-pointer hover:opacity-80 transition-opacity"
-                          />
-                        );
-                      })}
-                    </Bar>
-
-                    {/* 每日限电电量折线 */}
-                    <Line
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey="curtailedEnergy"
-                      name="限电电量 (kWh)"
-                      stroke="#F59E0B"
-                      strokeWidth={2}
-                      dot={{ r: 2, fill: "#F59E0B", stroke: "#ffffff", strokeWidth: 1.5 }}
-                      activeDot={{ r: 5, stroke: "#D97706", strokeWidth: 2, className: "cursor-pointer" }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* 展开/收起 31 天限电止损明细数据表 */}
-              <div className="mt-4 pt-3 border-t border-[#EAEDF2]">
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => setIsTableExpanded(!isTableExpanded)}
-                    className="flex items-center gap-1.5 text-xs font-bold text-[#2C3E50] hover:text-[#1A2A3A] transition-colors cursor-pointer"
-                  >
-                    <span>{isTableExpanded ? "收起 31 天限电明细表" : "展开查看 31 天限电止损明细数据"}</span>
-                    {isTableExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
-                </div>
-
-                {isTableExpanded && (
-                  <div className="mt-3 overflow-x-auto rounded-xl border border-[#EAEDF2]">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-[#F8FAFC] text-[#7F8C8D] font-bold border-b border-[#EAEDF2]">
-                        <tr>
-                          <th className="py-2.5 px-3">日期</th>
-                          <th className="py-2.5 px-3">限电止损金额 (元)</th>
-                          <th className="py-2.5 px-3">限电电量 (kWh)</th>
-                          <th className="py-2.5 px-3">调度策略</th>
-                          <th className="py-2.5 px-3 text-right">操作</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#EAEDF2]">
-                        {curtailmentDataList.map((row) => (
-                          <tr key={`table-curtail-${row.day}`} className="hover:bg-[#F8FAFC] transition-colors">
-                            <td className="py-2 px-3 font-bold text-[#1A2A3A]">{row.day}</td>
-                            <td className={`py-2 px-3 font-mono font-bold ${row.lossSaved > 0 ? "text-[#10B981]" : row.lossSaved < 0 ? "text-[#EF4444]" : "text-[#7F8C8D]"}`}>
-                              {row.lossSaved > 0 ? `+¥${row.lossSaved.toFixed(2)}` : row.lossSaved < 0 ? `-¥${Math.abs(row.lossSaved).toFixed(2)}` : "¥0.00"}
-                            </td>
-                            <td className="py-2 px-3 font-mono text-[#D97706]">{row.curtailedEnergy.toFixed(1)} kWh</td>
-                            <td className="py-2 px-3 text-[#2C3E50]">
-                              {row.lossSaved > 0 ? "光伏入储消纳 / 避免负电价" : row.lossSaved < 0 ? "考核策略微调" : "全额直接消纳"}
-                            </td>
-                            <td className="py-2 px-3 text-right">
-                              <button
-                                onClick={() => {
-                                  setSelectedCurtailDay(row.day);
-                                  setIsCurtailModalOpen(true);
-                                }}
-                                className="text-[11px] font-bold text-[#D97706] hover:text-[#B45309] hover:underline cursor-pointer"
-                              >
-                                96点穿透
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
 
               {/* Chart 3: 本月运行策略储能充放电统计 (日充放电对比 + 每日储能利用率折线) */}
@@ -2705,6 +2532,291 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
               </div>
             </div>
           </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              {/* 增值特性头：营销位，突出本月金额与解锁感 */}
+              <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#2A2118] via-[#3D2E1B] to-[#7A4F17] text-white px-5 py-4">
+                <div className="absolute -right-10 -top-10 w-44 h-44 rounded-full bg-[#F5C77E]/12 blur-2xl" />
+                <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-md bg-[#F5C77E]/20 border border-[#F5C77E]/40 text-[#FFE0A3] text-[10px] font-bold flex items-center gap-1">
+                        <Sparkles size={11} />
+                        增值特性
+                      </span>
+                      <span className="text-[11px] text-white/60">
+                        微电网负电价 / 限电调控场景
+                      </span>
+                    </div>
+                    <div className="mt-2 text-[15px] font-bold">本月为您减少限电损失</div>
+                    <div className="mt-1.5 flex items-baseline gap-2.5 flex-wrap">
+                      <span className="text-[32px] font-black font-mono leading-none tracking-tight">
+                        +¥{curtailmentTotalSaved.toLocaleString()}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-[#F5C77E]/20 text-[#FFE0A3] text-[11px] font-bold font-mono">
+                        止损电量 {curtailmentTotalEnergy.toFixed(1)} kWh
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-[#7BE0C0]/15 text-[#9DECD3] text-[11px] font-bold font-mono">
+                        日均减亏 ¥{(curtailmentTotalSaved / 31).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-[11px] text-white/70 leading-relaxed">
+                      全月 {curtailmentActiveDays} 天触发限电 / 负电价场景。AI 自动把光伏余电导向储能充能，
+                      避开逆功率罚款与负电价上网损失；点击下方记录可查看逐日明细与 96 点穿透曲线。
+                    </div>
+                  </div>
+                  <div className="shrink-0 rounded-xl bg-white/8 border border-white/15 px-4 py-3 w-full lg:w-[210px]">
+                    <div className="flex items-center gap-1.5 text-[11px] text-[#FFE0A3] font-bold">
+                      <ShieldCheck size={12} />
+                      增值能力说明
+                    </div>
+                    <ul className="mt-2 space-y-1.5 text-[11px] text-white/80">
+                      {['限电 / 负电价识别', '余电转储自动执行', '逐日止损台账', '96 点穿透分析'].map(t => (
+                        <li key={t} className="flex items-center gap-1.5">
+                          <CheckCircle2 size={11} className="text-[#9DECD3] shrink-0" />
+                          {t}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* 明细卡片：逐日限电止损评估 + 96 点穿透入口 */}
+              <div className="bg-white p-6 rounded-2xl shadow-[0_2px_8px_rgba(26,42,58,0.06)] border border-[#EAEDF2]">
+
+          {/* 下图：每日光伏限电止损评估 (每日限电止损金额与限电电量统计 + 96点微电网穿透) */}
+          <div className="flex flex-col">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#D97706]" />
+                <span className="text-xs font-bold text-[#2C3E50]">每日光伏限电止损评估</span>
+                <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 font-bold px-2 py-0.5 rounded-full">
+                  微电网负电价 / 限电调控减亏
+                </span>
+              </div>
+              
+              {/* 右上角统计胶囊 (与每日储能充放电均价和套利统计风格一致) */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <div className="flex items-center gap-1.5 bg-[#F8FAFC] border border-[#EAEDF2] text-[#2C3E50] px-2.5 py-1 rounded-full text-xs font-medium shadow-2xs">
+                  <div className="w-2 h-2 rounded-full bg-[#D97706]" />
+                  <span className="text-[#7F8C8D]">全月限电电量</span>
+                  <span className="font-extrabold text-[#1A2A3A]">{curtailmentTotalEnergy.toFixed(1)} kWh</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-medium shadow-2xs">
+                  <Sparkles className="w-3 h-3 text-emerald-600" />
+                  <span>全月累计止损</span>
+                  <span className="font-extrabold text-emerald-700">
+                    +¥{curtailmentTotalSaved.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 图例与说明 */}
+            <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 text-sm mb-4 bg-[#F8FAFC] p-3 rounded-xl border border-[#EAEDF2]">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-xs bg-[#10B981]"></div>
+                  <span className="text-[#2C3E50] font-bold text-xs">每日限电止损金额 (元)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-xs bg-[#EF4444]"></div>
+                  <span className="text-[#2C3E50] font-bold text-xs">限电考核调整 (负值)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-1 bg-[#F59E0B] rounded-full"></div>
+                  <div className="w-2 h-2 rounded-full bg-[#F59E0B]"></div>
+                  <span className="text-[#2C3E50] font-bold text-xs">限电电量 (kWh)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 限电止损组合图 */}
+            <div className="h-[230px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={curtailmentDataList}
+                  margin={{ top: 15, right: 15, left: -15, bottom: 0 }}
+                  barGap={2}
+                  barCategoryGap="18%"
+                  onClick={(state: any) => {
+                    if (state && state.activeLabel) {
+                      setSelectedCurtailDay(state.activeLabel);
+                      setIsCurtailModalOpen(true);
+                    }
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EAEDF2" />
+                  <XAxis dataKey="day" scale="band" axisLine={{ stroke: "#EAEDF2" }} tickLine={false} tick={<DynamicXAxisTick />} interval={0} />
+                  {/* 左 Y 轴：止损金额 (元) */}
+                  <YAxis 
+                    yAxisId="left"
+                    axisLine={{ stroke: "#EAEDF2" }} 
+                    tickLine={false} 
+                    tick={{ fill: "#7F8C8D", fontSize: 10 }} 
+                    tickFormatter={(val) => `¥${val}`} 
+                    domain={[-100, 650]}
+                  />
+                  {/* 右 Y 轴：限电电量 (kWh) */}
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    axisLine={{ stroke: "#EAEDF2" }} 
+                    tickLine={false} 
+                    tick={{ fill: "#D97706", fontSize: 10 }} 
+                    tickFormatter={(val) => `${val}k`} 
+                    domain={[0, 60]}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "#F4F6F9" }}
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload || !payload.length) return null;
+                      const data = payload[0].payload;
+                      const loss = data.lossSaved || 0;
+                      const energy = data.curtailedEnergy || 0;
+                      const isCurtailDay = loss !== 0 || energy !== 0;
+
+                      return (
+                        <div className="bg-white p-3.5 rounded-xl border border-[#EAEDF2] shadow-xl min-w-[240px]">
+                          <div className="flex items-center justify-between font-bold text-[#1A2A3A] text-xs mb-2 pb-1 border-b border-[#EAEDF2]">
+                            <span className="text-sm font-extrabold">{label} · 光伏限电评估</span>
+                            {isCurtailDay ? (
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${loss >= 0 ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                                {loss >= 0 ? "限电消纳减亏" : "考核调整"}
+                              </span>
+                            ) : (
+                              <span className="bg-slate-100 text-slate-600 text-[9px] px-1.5 py-0.5 rounded font-medium">
+                                无弃光/限电
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="space-y-1.5 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[#7F8C8D]">限电止损金额:</span>
+                              <span className={`font-mono font-bold ${loss > 0 ? "text-[#10B981]" : loss < 0 ? "text-[#EF4444]" : "text-[#7F8C8D]"}`}>
+                                {loss > 0 ? `+¥${loss.toFixed(2)}` : loss < 0 ? `-¥${Math.abs(loss).toFixed(2)}` : "¥0.00"}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[#7F8C8D]">限电电量:</span>
+                              <span className="font-mono font-bold text-[#D97706]">{energy.toFixed(1)} kWh</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-[#7F8C8D] bg-[#F8FAFC] p-1.5 rounded">
+                              <span>分时电价状态:</span>
+                              <span className="font-medium text-[#2C3E50]">{loss >= 0 && energy > 0 ? "负电价时段入储" : loss < 0 ? "偏差调整" : "常规电价"}</span>
+                            </div>
+
+                            {isCurtailDay && (
+                              <div className="pt-2 border-t border-[#EAEDF2] flex items-center justify-center text-[11px] text-[#D97706] font-bold">
+                                🔍 点击查看 96 点穿透分析曲线
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+
+                  {/* 每日限电止损柱状图 */}
+                  <Bar
+                    yAxisId="left"
+                    dataKey="lossSaved"
+                    name="限电止损金额 (元)"
+                    radius={[3, 3, 0, 0]}
+                    barSize={8}
+                  >
+                    {curtailmentDataList.map((entry, index) => {
+                      let barFill = "#10B981";
+                      if (entry.lossSaved < 0) {
+                        barFill = "#EF4444";
+                      } else if (entry.lossSaved === 0) {
+                        barFill = "#E2E8F0";
+                      }
+                      return (
+                        <Cell
+                          key={`cell-curtail-${index}`}
+                          fill={barFill}
+                          className="cursor-pointer hover:opacity-80 transition-opacity"
+                        />
+                      );
+                    })}
+                  </Bar>
+
+                  {/* 每日限电电量折线 */}
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="curtailedEnergy"
+                    name="限电电量 (kWh)"
+                    stroke="#F59E0B"
+                    strokeWidth={2}
+                    dot={{ r: 2, fill: "#F59E0B", stroke: "#ffffff", strokeWidth: 1.5 }}
+                    activeDot={{ r: 5, stroke: "#D97706", strokeWidth: 2, className: "cursor-pointer" }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* 展开/收起 31 天限电止损明细数据表 */}
+            <div className="mt-4 pt-3 border-t border-[#EAEDF2]">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setIsTableExpanded(!isTableExpanded)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-[#2C3E50] hover:text-[#1A2A3A] transition-colors cursor-pointer"
+                >
+                  <span>{isTableExpanded ? "收起 31 天限电明细表" : "展开查看 31 天限电止损明细数据"}</span>
+                  {isTableExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {isTableExpanded && (
+                <div className="mt-3 overflow-x-auto rounded-xl border border-[#EAEDF2]">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#F8FAFC] text-[#7F8C8D] font-bold border-b border-[#EAEDF2]">
+                      <tr>
+                        <th className="py-2.5 px-3">日期</th>
+                        <th className="py-2.5 px-3">限电止损金额 (元)</th>
+                        <th className="py-2.5 px-3">限电电量 (kWh)</th>
+                        <th className="py-2.5 px-3">调度策略</th>
+                        <th className="py-2.5 px-3 text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#EAEDF2]">
+                      {curtailmentDataList.map((row) => (
+                        <tr key={`table-curtail-${row.day}`} className="hover:bg-[#F8FAFC] transition-colors">
+                          <td className="py-2 px-3 font-bold text-[#1A2A3A]">{row.day}</td>
+                          <td className={`py-2 px-3 font-mono font-bold ${row.lossSaved > 0 ? "text-[#10B981]" : row.lossSaved < 0 ? "text-[#EF4444]" : "text-[#7F8C8D]"}`}>
+                            {row.lossSaved > 0 ? `+¥${row.lossSaved.toFixed(2)}` : row.lossSaved < 0 ? `-¥${Math.abs(row.lossSaved).toFixed(2)}` : "¥0.00"}
+                          </td>
+                          <td className="py-2 px-3 font-mono text-[#D97706]">{row.curtailedEnergy.toFixed(1)} kWh</td>
+                          <td className="py-2 px-3 text-[#2C3E50]">
+                            {row.lossSaved > 0 ? "光伏入储消纳 / 避免负电价" : row.lossSaved < 0 ? "考核策略微调" : "全额直接消纳"}
+                          </td>
+                          <td className="py-2 px-3 text-right">
+                            <button
+                              onClick={() => {
+                                setSelectedCurtailDay(row.day);
+                                setIsCurtailModalOpen(true);
+                              }}
+                              className="text-[11px] font-bold text-[#D97706] hover:text-[#B45309] hover:underline cursor-pointer"
+                            >
+                              96点穿透
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 
