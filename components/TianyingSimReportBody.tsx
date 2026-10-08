@@ -27,10 +27,13 @@ import {
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
   ReferenceLine,
   LabelList,
@@ -45,6 +48,11 @@ import {
   TY_SIM_WHY,
   TY_PRICE,
   TY_CASE_DAYS,
+  TY_CASE_CURVES,
+  TY_CURVE_TEXT,
+  TY_TOU_SEGMENTS,
+  slotTime,
+  type CaseDayPoint,
   fmt,
   fmtSigned,
 } from './tianyingReportData';
@@ -54,6 +62,236 @@ const C = {
   blue: '#3B82F6',
   amber: '#F59E0B',
 };
+
+/** 电价档位：中文名 + 色带配色（key 与 TY_PRICE.tou 对应） */
+const TIER_META: Record<string, { label: string; color: string }> = {
+  peak: { label: '峰', color: '#F87171' },
+  flat: { label: '平', color: '#60A5FA' },
+  valley: { label: '谷', color: '#34D399' },
+};
+
+/**
+ * 典型日逐 15min 充放电曲线。
+ * 展示口径与 ml0716xx/--1「运营数据 · 典型日分析」一致：
+ * 双 Y 轴（储能功率 / SOC）+ 实际与仿真各两条线 + 图下 24h 电价档位色带。
+ */
+function CaseDayCurveChart({ points, date }: { points: CaseDayPoint[]; date: string }) {
+  const T = TY_CURVE_TEXT;
+  const pw = (v: number) => (v === 0 ? '0.0' : (v > 0 ? '+' : '') + v.toFixed(1));
+  const pwTag = (v: number) => (v > 0 ? T.pwState.charge : v < 0 ? T.pwState.discharge : T.pwState.idle);
+
+  /** 底部读数：由曲线积分回算，与日粒度表格同口径 */
+  const kwh = (key: 'sim' | 'real', dir: 'charge' | 'discharge') =>
+    points.reduce((s, p) => {
+      const v = p[key];
+      return s + (dir === 'charge' ? (v > 0 ? v : 0) : v < 0 ? -v : 0) * 0.25;
+    }, 0);
+
+  return (
+    <div className="rounded-xl border border-[#EAEDF2] overflow-hidden">
+      {/* 图表标题 */}
+      <div className="px-5 py-3 border-b border-[#EAEDF2] bg-[#FBFCFD] flex items-start justify-between flex-wrap gap-2">
+        <div>
+          <h4 className="text-[13px] font-bold text-[#1A2A3A]">
+            {T.chartTitle} · {date}
+          </h4>
+          <p className="text-[11px] text-[#93A1B0] mt-0.5">{T.rule}</p>
+        </div>
+      </div>
+
+      {/* 曲线本体 */}
+      <div className="px-4 pt-4">
+        <div className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={points} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EFF2F5" />
+              <XAxis
+                dataKey="time"
+                tick={{ fontSize: 10, fill: '#93A1B0' }}
+                axisLine={{ stroke: '#EAEDF2' }}
+                tickLine={false}
+                interval={7}
+              />
+              <YAxis
+                yAxisId="left"
+                domain={['auto', 'auto']}
+                tick={{ fontSize: 10, fill: '#93A1B0' }}
+                axisLine={false}
+                tickLine={false}
+                width={48}
+                label={{
+                  value: T.axisPower,
+                  angle: -90,
+                  position: 'insideLeft',
+                  style: { fontSize: 10, fill: '#B6C1CC' },
+                }}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                domain={[0, 100]}
+                tick={{ fontSize: 10, fill: '#93A1B0' }}
+                axisLine={false}
+                tickLine={false}
+                width={40}
+                label={{
+                  value: T.axisSoc,
+                  angle: 90,
+                  position: 'insideRight',
+                  style: { fontSize: 10, fill: '#B6C1CC' },
+                }}
+              />
+              <Tooltip
+                content={({ active, payload, label }: any) => {
+                  if (!active || !payload || !payload.length) return null;
+                  const p: CaseDayPoint = payload[0].payload;
+                  const tier = TIER_META[p.tier] ?? TIER_META.flat;
+                  return (
+                    <div className="bg-white p-3 border border-[#EAEDF2] shadow-xl rounded-lg text-[11px] space-y-1">
+                      <div className="font-bold text-[#1A2A3A] flex items-center gap-1.5">
+                        {label}
+                        <span className="flex items-center gap-1 font-normal text-[#8A98A6]">
+                          <span className="w-2 h-2 rounded-sm" style={{ background: tier.color }} />
+                          {tier.label}段
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-5">
+                        <span className="text-[#7F8C8D]">{T.legend.realPower}</span>
+                        <span className="font-mono font-bold text-[#7F8C8D]">
+                          {pw(p.real)} kW
+                          <span className="ml-1 text-[10px] font-normal text-[#9AA7B4]">{pwTag(p.real)}</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-5">
+                        <span className="text-[#7F8C8D]">{T.legend.simPower}</span>
+                        <span className="font-mono font-bold" style={{ color: C.blue }}>
+                          {pw(p.sim)} kW
+                          <span className="ml-1 text-[10px] font-normal text-[#9AA7B4]">{pwTag(p.sim)}</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-5 pt-1 border-t border-[#F1F4F7]">
+                        <span className="text-[#7F8C8D]">SOC</span>
+                        <span className="font-mono font-bold text-[#1A2A3A]">
+                          {p.socReal.toFixed(1)} % <span className="text-[#D5DBE2]">/</span> {p.socSim.toFixed(1)} %
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Legend
+                wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
+                formatter={(v: string) => <span className="text-[#5A6B7C]">{v}</span>}
+              />
+              <Line
+                yAxisId="left"
+                type="stepAfter"
+                dataKey="real"
+                name={T.legend.realPower}
+                stroke="#94A3B8"
+                strokeWidth={2}
+                dot={false}
+              />
+              <Line
+                yAxisId="left"
+                type="stepAfter"
+                dataKey="sim"
+                name={T.legend.simPower}
+                stroke={C.blue}
+                strokeWidth={2}
+                dot={false}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="socReal"
+                name={T.legend.realSoc}
+                stroke="#CBD5E1"
+                strokeWidth={1.5}
+                strokeDasharray="3 3"
+                dot={false}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="socSim"
+                name={T.legend.simSoc}
+                stroke={C.amber}
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* 24h 电价档位色带：曲线与色带对齐即可看出电量搬去了哪个价位 */}
+      <div className="px-5 pb-3 pt-2 space-y-1.5">
+        <div className="flex h-3 rounded-md overflow-hidden border border-[#EAEDF2]">
+          {TY_TOU_SEGMENTS.map(seg => {
+            const meta = TIER_META[seg.tier];
+            return (
+              <div
+                key={seg.slot}
+                style={{ width: `${100 / 96}%`, background: meta.color }}
+                title={`${slotTime(seg.slot)} ${meta.label}段`}
+              />
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-between text-[10px] text-[#9AA7B4]">
+          <span>00:00</span>
+          <span>06:00</span>
+          <span>12:00</span>
+          <span>18:00</span>
+          <span>24:00</span>
+        </div>
+        <div className="flex items-center gap-4 flex-wrap pt-0.5">
+          {Object.entries(TIER_META).map(([k, m]) => (
+            <span key={k} className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
+              <span className="w-3 h-3 rounded-sm" style={{ background: m.color }} />
+              {T.axisTier} · {m.label}段
+            </span>
+          ))}
+          <span className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
+            <span className="w-4 h-0.5 bg-[#94A3B8]" />
+            {T.legend.realPower}
+            {T.powerNote}
+          </span>
+          <span className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
+            <span className="w-4 h-0.5" style={{ background: C.blue }} />
+            {T.legend.simPower}
+            {T.powerNote}
+          </span>
+        </div>
+      </div>
+
+      {/* 底部读数：由曲线积分回算，与日粒度表格同口径 */}
+      <div className="px-5 py-3 border-t border-[#EAEDF2] bg-[#FBFCFD] flex items-center gap-x-6 gap-y-1.5 flex-wrap text-[11px] text-[#7F8C8D]">
+        <span>
+          {T.footLabels.charge} {T.footLabels.real}{' '}
+          <span className="font-mono font-bold text-[#1A2A3A]">{fmt(kwh('real', 'charge'), 1)}</span> /{' '}
+          {T.footLabels.sim}
+          <span className="font-mono font-bold text-[#1A2A3A]"> {fmt(kwh('sim', 'charge'), 1)}</span> kWh
+        </span>
+        <span>
+          {T.footLabels.discharge} {T.footLabels.real}{' '}
+          <span className="font-mono font-bold text-[#1A2A3A]">{fmt(kwh('real', 'discharge'), 1)}</span> /{' '}
+          {T.footLabels.sim}
+          <span className="font-mono font-bold text-[#1A2A3A]"> {fmt(kwh('sim', 'discharge'), 1)}</span> kWh
+        </span>
+        <span className="text-[#9AA7B4]">{T.socNote}</span>
+      </div>
+
+      {/* 曲线口径说明 */}
+      <div className="px-5 py-2.5 border-t border-[#EAEDF2] text-[11px] text-[#7F8C8D] leading-relaxed">
+        <span className="font-bold text-[#5A6B7C]">曲线口径：</span>
+        {T.curveCaliber}
+      </div>
+    </div>
+  );
+}
 
 /** 章节外壳：编号 + 标题 + 说明 */
 function Section({
@@ -344,6 +582,11 @@ export default function TianyingSimReportBody({
               {d.date.slice(5)} · {d.tag}
             </button>
           ))}
+        </div>
+
+        {/* 逐 15min 充放电曲线：展示口径与 ml0716xx/--1 的典型日分析一致 */}
+        <div className="mb-3">
+          <CaseDayCurveChart points={TY_CASE_CURVES[caseDay.date] ?? []} date={caseDay.date} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">

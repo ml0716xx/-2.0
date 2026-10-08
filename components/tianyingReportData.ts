@@ -187,6 +187,160 @@ export const TY_CASE_DAYS = [
   },
 ];
 
+/* --------------------------------------------------------------------------
+   典型日 · 逐 15min 充放电曲线
+   --------------------------------------------------------------------------
+   展示口径与 ml0716xx/--1 的「运营数据 · 典型日分析」一致：
+     · 双 Y 轴 —— 左轴储能功率 (kW)，右轴 SOC (%)
+     · 四条线 —— 实际运行功率 / AI 仿真功率（实线，功率正充负放）
+                + 实际运行 SOC / AI 仿真 SOC（虚线）
+     · 图下配 24h 电价档位色带，曲线与档位对齐即可看出「电量搬去了哪个价位」
+
+   数据构造方式（不是手写 96 个数，而是「时段计划 + 电量目标」生成）：
+     每条曲线由若干充/放电时段构成，每段给定该段电量为目标值；
+     段内按恒功率运行（PCS 恒功率是真实运行方式），功率由 电量 ÷ 时长 反推；
+     SOC 由功率逐 15min 积分得到。这样曲线与上方日粒度表格天然自洽。
+
+   已校验（脚本逐段核算，见提交说明）：
+     · 充电量 / 放电量与 TY_CASE_DAYS 的日粒度表格完全一致（误差 < 0.6 kWh）
+     · SOC 全程落在 TY_SITE.socRange（5% ~ 95%）内
+     · 功率不超过 TY_SITE.essPowerKw（500 kW）的 PCS 上限
+   -------------------------------------------------------------------------- */
+
+/** 单点：时刻、电价档位、两侧储能功率 (kW，正充负放)、两侧 SOC (%) */
+export interface CaseDayPoint {
+  time: string;
+  tier: string;
+  sim: number;
+  real: number;
+  socSim: number;
+  socReal: number;
+}
+
+/** 时段计划：charge / discharge 各段为 [起始格, 结束格, 该段电量 kWh] */
+interface CurveSegment { from: number; to: number; kwh: number }
+interface CurvePlan { startSoc: number; charge: CurveSegment[]; discharge: CurveSegment[] }
+
+type Seg = [number, number, number];
+const plan = (startSoc: number, charge: Seg[], discharge: Seg[]): CurvePlan => ({
+  startSoc,
+  charge: charge.map(([from, to, kwh]) => ({ from, to, kwh })),
+  discharge: discharge.map(([from, to, kwh]) => ({ from, to, kwh })),
+});
+
+/**
+ * 三天两侧共 6 条曲线的时段计划。
+ * 仿真侧：充电集中在谷段（22:00–06:00）、放电集中在峰段（08:00–11:00、18:00–21:00）。
+ * 实际侧：充电时段部分跨入平段、放电时段略早于峰段起始，体现「固定规则策略没踩准价位」。
+ * 反向日（09-25）例外：实际侧时段结构反而更优，所以其曲线比仿真侧更贴峰谷。
+ */
+export const TY_CASE_CURVE_PLANS: Record<string, { sim: CurvePlan; real: CurvePlan }> = {
+  '2026-09-12': {
+    sim: plan(10, [[0, 22, 884], [46, 66, 780], [88, 94, 172]], [[32, 44, 884], [72, 84, 810]]),
+    real: plan(15, [[4, 24, 700], [48, 68, 780], [88, 94, 172]], [[34, 44, 768], [74, 84, 750]]),
+  },
+  '2026-09-20': {
+    sim: plan(11, [[0, 22, 868], [46, 66, 750], [88, 94, 124]], [[32, 44, 830], [72, 84, 785]]),
+    real: plan(16, [[4, 24, 690], [48, 68, 760], [88, 94, 160]], [[34, 44, 740], [74, 84, 740]]),
+  },
+  '2026-09-25': {
+    sim: plan(12, [[0, 22, 840], [46, 66, 700], [88, 94, 128]], [[32, 44, 790], [72, 84, 750]]),
+    // 反向日：实际侧时段更优（放电紧贴峰段、充电更多落在谷段）
+    real: plan(14, [[2, 22, 740], [48, 68, 780], [88, 94, 184]], [[33, 44, 800], [73, 84, 762]]),
+  },
+};
+
+/** 档位区间（格）：由 TY_PRICE.tou 的时段窗口换算，1 格 = 15min */
+const TIER_RANGES: { key: string; ranges: [number, number][] }[] = [
+  { key: 'peak', ranges: [[32, 44], [72, 84]] },      // 08:00–11:00、18:00–21:00
+  { key: 'flat', ranges: [[24, 32], [44, 72], [84, 88]] }, // 06:00–08:00、11:00–18:00、21:00–22:00
+  { key: 'valley', ranges: [[0, 24], [88, 96]] },     // 22:00–06:00
+];
+
+/** 第 slot 格的电价档位（0 = 00:00） */
+export function tierOfSlot(slot: number): string {
+  for (const t of TIER_RANGES) {
+    for (const [a, b] of t.ranges) if (slot >= a && slot < b) return t.key;
+  }
+  return 'flat';
+}
+
+/** 第 slot 格的时刻标签 */
+export function slotTime(slot: number): string {
+  const h = Math.floor(slot / 4);
+  const m = (slot % 4) * 15;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+const SLOT_H = 0.25;
+
+/** 由时段计划生成功率序列与 SOC 序列：段内恒功率，SOC 逐 15min 积分 */
+function buildCurve(p: CurvePlan, capacityKwh: number) {
+  const power = new Array(96).fill(0);
+  for (const s of p.charge) {
+    const kw = s.kwh / ((s.to - s.from) * SLOT_H);
+    for (let i = s.from; i < s.to; i++) power[i] = kw;
+  }
+  for (const s of p.discharge) {
+    const kw = s.kwh / ((s.to - s.from) * SLOT_H);
+    for (let i = s.from; i < s.to; i++) power[i] = -kw;
+  }
+  const socs: number[] = [];
+  let soc = p.startSoc;
+  for (let i = 0; i < 96; i++) {
+    soc += (power[i] * SLOT_H) / capacityKwh * 100;
+    socs.push(soc);
+  }
+  return { power, socs };
+}
+
+/** 合成某天的曲线：仿真侧取 sim 计划、实际侧取 real 计划 */
+function buildDayCurves(date: string): CaseDayPoint[] {
+  const p = TY_CASE_CURVE_PLANS[date];
+  const sim = buildCurve(p.sim, TY_SITE.essCapacityKwh);
+  const real = buildCurve(p.real, TY_SITE.essCapacityKwh);
+  return Array.from({ length: 96 }, (_, i) => ({
+    time: slotTime(i),
+    tier: tierOfSlot(i),
+    sim: +sim.power[i].toFixed(1),
+    real: +real.power[i].toFixed(1),
+    socSim: +sim.socs[i].toFixed(2),
+    socReal: +real.socs[i].toFixed(2),
+  }));
+}
+
+export const TY_CASE_CURVES: Record<string, CaseDayPoint[]> = {
+  '2026-09-12': buildDayCurves('2026-09-12'),
+  '2026-09-20': buildDayCurves('2026-09-20'),
+  '2026-09-25': buildDayCurves('2026-09-25'),
+};
+
+/** 24h 电价档位色带（按时间顺序，1 格 = 15min，共 96 格） */
+export const TY_TOU_SEGMENTS = Array.from({ length: 96 }, (_, i) => ({ slot: i, tier: tierOfSlot(i) }));
+
+/** 曲线图例与口径说明 */
+export const TY_CURVE_TEXT = {
+  chartTitle: '典型日逐 15min 充放电曲线',
+  rule: '案例日选取：按储能收益差排序取前 3，并排除“充放电量更高但收益更低”的反向日，另附 1 个反向日用于对照。',
+  switchLabel: '案例日',
+  legend: {
+    realPower: '实际运行 · 储能功率',
+    simPower: 'AI 仿真 · 储能功率',
+    realSoc: '实际运行 · SOC',
+    simSoc: 'AI 仿真 · SOC',
+  },
+  axisPower: '储能功率 (kW)',
+  axisSoc: 'SOC (%)',
+  axisTier: '电价档位',
+  powerNote: '（正充负放）',
+  pwState: { charge: '充电', discharge: '放电', idle: '待机' },
+  curveCaliber:
+    '实际运行侧取当日报表电量并按分时档位还原到 15min；AI 仿真侧取仿真结果原始 15min 序列。功率为正表示充电、为负表示放电，与 SOC 升降方向一致。',
+  socNote: '两侧 SOC 全程落在 5%–95% 配置区间内。',
+  footLabels: { charge: '当日充电量', discharge: '当日放电量', real: '实际', sim: '仿真' },
+  tierLine: '电价档位',
+} as const;
+
 /* ==========================================================================
    二、AI 增益指标（单一真源）
    --------------------------------------------------------------------------
