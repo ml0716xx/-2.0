@@ -62,6 +62,7 @@ import StrategyRunConfigPage from "./StrategyRunConfigPage";
 import { MonthlyStrategyDayConfig } from "./StrategySimulationConfigPage";
 import { type Lifecycle } from "./BusinessReportPage";
 import { AI_GAIN, TY_TRIAL_META, fmt as fmtNum } from "./tianyingReportData";
+import TianyingSimReportBody from "./TianyingSimReportBody";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
@@ -855,7 +856,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
           {lifecycle === 'trial' && (
             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FFF7E6] border border-[#FFE0A3] text-[11px] font-bold text-[#B7791F]">
               <Clock className="w-3 h-3" />
-              试运行中 · 剩余 {TY_TRIAL.remainingDays} 天
+              试运行中 · 剩余 {TY_TRIAL_META.remainingDays} 天
             </span>
           )}
           {lifecycle === 'formal' && (
@@ -943,7 +944,8 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
             <div>
               <div className="text-[13px] font-bold text-[#1A2A3A]">尚未开通 AI 智能调度</div>
               <p className="text-[11px] text-[#7F8C8D] mt-0.5 leading-relaxed">
-                当前下方内容为策略仿真的预评估结果。开通试运行后，本报告将自动切换为「实测 AI 轨迹 vs 后台基线仿真」的双轨迹口径。
+                下方为《天盈 AI 仿真报告》的预评估结果。开通 30 天试用后，本报告将自动切换为
+                「实测 AI 轨迹 vs 后台基线仿真」的双轨迹口径。
               </p>
             </div>
           </div>
@@ -1051,6 +1053,15 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
       )}
 
       {/* CORE STATS & ASSOCIATIVE VALUE DRIVERS DASHBOARD */}
+      {/* 未开通状态：报告主体替换为《天盈 AI 仿真报告》正文，不做遮罩，末尾引导开通试用 */}
+      {lifecycle === 'presale' ? (
+        <TianyingSimReportBody
+          showActivateHint
+          onActivate={onActivate}
+          onOpenSimReport={onOpenSimReport}
+        />
+      ) : (
+        <>
       {(() => {
         // 1. 实际运行AI日统计
         const actualAiList = dailyRevenueData.filter((d) => d.hasAi);
@@ -2694,6 +2705,8 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
               </div>
             </div>
           </div>
+        </>
+      )}
 
       {/* 96点微电网光伏限电与止损穿透分析弹窗 */}
       {isCurtailModalOpen && (() => {

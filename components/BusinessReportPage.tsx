@@ -31,13 +31,11 @@ import {
   BadgeCheck,
   PlugZap,
   Info,
-  Lock,
   CheckCircle2,
   TrendingUp,
   Gift,
   Gauge,
   Coins,
-  CircleDollarSign,
 } from 'lucide-react';
 import {
   ComposedChart,
@@ -71,6 +69,7 @@ import {
   TY_TRIAL_META,
   fmt,
 } from './tianyingReportData';
+import TianyingSimReportBody from './TianyingSimReportBody';
 
 /** 生命周期：未开通 / 试运行 / 正式运行 */
 export type Lifecycle = 'presale' | 'trial' | 'formal';
@@ -359,8 +358,8 @@ function StatusBadge({ lifecycle }: { lifecycle: Lifecycle }) {
   if (lifecycle === 'presale') {
     return (
       <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F4F6F9] border border-[#E3E8EE] text-[11px] font-bold text-[#5A6B7C]">
-        <Lock size={12} />
-        未开通 · 指标待解锁
+        <Sparkles size={12} />
+        未开通 · 仿真预评估
       </span>
     );
   }
@@ -377,61 +376,6 @@ function StatusBadge({ lifecycle }: { lifecycle: Lifecycle }) {
       <BadgeCheck size={12} />
       正式版 · AI 智能托管中
     </span>
-  );
-}
-
-/** 遮罩层：未开通时盖在指标上，露出钩子但不给完整数据 */
-function LockedOverlay({
-  onActivate,
-  onOpenSimReport,
-}: {
-  onActivate: () => void;
-  onOpenSimReport: () => void;
-}) {
-  return (
-    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl bg-white/60 backdrop-blur-[2px] px-6 text-center">
-      <div className="w-12 h-12 rounded-2xl bg-white border border-[#E3E8EE] shadow-[0_4px_14px_rgba(26,42,58,0.10)] flex items-center justify-center">
-        <Lock size={19} className="text-[#1E9C7E]" />
-      </div>
-      <div>
-        <div className="text-[14px] font-black text-[#1A2A3A]">开通后解锁完整收益拆解</div>
-        <p className="text-[11px] text-[#7F8C8D] mt-1.5 max-w-[430px] leading-relaxed">
-          本站点 <span className="font-bold text-[#1A2A3A]">11 项</span> AI 增益指标、全月 31 天日收益对比曲线、
-          限电止损复盘，开通试运行即时可见 —— 试用期内随时可退出。
-        </p>
-      </div>
-      <div className="flex items-center gap-2.5">
-        <button
-          type="button"
-          onClick={onOpenSimReport}
-          className="px-3.5 py-2 rounded-lg text-[12px] font-bold text-[#2C3E50] border border-[#E3E8EE] bg-white hover:bg-[#F7F9FB] transition-colors"
-        >
-          先看仿真测算
-        </button>
-        <button
-          type="button"
-          onClick={onActivate}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors shadow-sm"
-        >
-          <Rocket size={14} />
-          免费开通 30 天试用
-        </button>
-      </div>
-      <div className="flex items-center gap-3 text-[10px] text-[#93A1B0]">
-        <span className="flex items-center gap-1">
-          <CheckCircle2 size={11} className="text-[#1E9C7E]" />
-          免审批自动开通
-        </span>
-        <span className="flex items-center gap-1">
-          <CheckCircle2 size={11} className="text-[#1E9C7E]" />
-          无需改造设备
-        </span>
-        <span className="flex items-center gap-1">
-          <CheckCircle2 size={11} className="text-[#1E9C7E]" />
-          试用期随时退出
-        </span>
-      </div>
-    </div>
   );
 }
 
@@ -830,16 +774,32 @@ function AiStrategyTab({
   onConvert,
   onOpenSimReport,
 }: BusinessReportPageProps) {
-  const locked = lifecycle === 'presale';
+  /* 未开通（售前）：把《天盈 AI 仿真报告》正文铺开展示，末尾引导开通试用。
+     注意这里不做遮罩 —— 遮罩会让客户看不到价值，反而降低开通意愿。 */
+  if (lifecycle === 'presale') {
+    return (
+      <div className="space-y-4">
+        <AiHeroPresale onActivate={onActivate} onOpenSimReport={onOpenSimReport} />
+
+        <div className="flex items-center gap-2">
+          <span className="w-1 h-3.5 rounded-full bg-[#1E9C7E]" />
+          <span className="text-[13px] font-bold text-[#1A2A3A]">AI 智能调度效益预评估</span>
+          <span className="text-[11px] text-[#93A1B0]">《天盈 AI 仿真报告》· 售前测算口径</span>
+        </div>
+
+        <TianyingSimReportBody
+          showActivateHint
+          onActivate={onActivate}
+          onOpenSimReport={onOpenSimReport}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      {/* 状态专属顶部模块 */}
-      {locked ? (
-        <AiHeroPresale onActivate={onActivate} onOpenSimReport={onOpenSimReport} />
-      ) : (
-        <AiScoreStrip lifecycle={lifecycle} onConvert={onConvert} />
-      )}
+      {/* 试运行 / 正式运行：指标已解锁，展示真实运行成绩 */}
+      <AiScoreStrip lifecycle={lifecycle} onConvert={onConvert} />
 
       <div className="flex items-center gap-2">
         <span className="w-1 h-3.5 rounded-full bg-[#1E9C7E]" />
@@ -847,14 +807,9 @@ function AiStrategyTab({
         <span className="text-[11px] text-[#93A1B0]">策略运行报告 · 精简视图</span>
       </div>
 
-      <div className="relative">
-        <div className={locked ? 'space-y-4 blur-[6px] opacity-70 pointer-events-none select-none' : 'space-y-4'}>
-          <AiCoreCards />
-          <AiWings />
-          <AiDailyChart />
-        </div>
-        {locked && <LockedOverlay onActivate={onActivate} onOpenSimReport={onOpenSimReport} />}
-      </div>
+      <AiCoreCards />
+      <AiWings />
+      <AiDailyChart />
 
       <CaliberNote />
     </div>
@@ -940,7 +895,9 @@ export default function BusinessReportPage({
               {t.label}
               {t.key === 'ai' &&
                 (lifecycle === 'presale' ? (
-                  <Lock size={11} className="text-[#93A1B0]" />
+                  <span className="px-1.5 py-0.5 rounded bg-[#F1F4F7] text-[#5A6B7C] text-[10px] font-bold">
+                    仿真
+                  </span>
                 ) : (
                   <span className="px-1.5 py-0.5 rounded bg-[#E8F7F1] text-[#17705A] text-[10px] font-bold">
                     AI
