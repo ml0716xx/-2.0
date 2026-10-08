@@ -57,6 +57,7 @@ import {
 } from 'lucide-react';
 import { 
   getConfigs, 
+  getEmbeddedConfig,
   getConfigById, 
   createConfig, 
   updateConfig, 
@@ -65,6 +66,7 @@ import {
   copyConfig, 
   resetToDefaultComprehensiveConfig,
   COMPREHENSIVE_SCADA_ELEMENTS,
+  EMBEDDED_VIEWBOX,
   SiteConfig 
 } from '../lib/configApi';
 import { 
@@ -693,6 +695,8 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
 
   // Mouse wheel zoom support for wiring diagram canvas
   useEffect(() => {
+    // 内嵌视图整幅自适应卡片，不走缩放，也不拦截滚轮（否则卡片会吃掉页面滚动）
+    if (isEmbedded) return;
     const container = canvasContainerRef.current;
     if (!container) return;
 
@@ -714,7 +718,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
     return () => {
       container.removeEventListener('wheel', handleWheel);
     };
-  }, [elements.length]);
+  }, [elements.length, isEmbedded]);
 
   // Drag states
   const [dragging, setDragging] = useState<{
@@ -754,6 +758,15 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
     async function loadInitialData() {
       setIsLoadingConfigs(true);
       try {
+        // 内嵌视图（监控概览卡片内）使用精简组态，与整页全景组态解耦：
+        // 全景组态元件多、画布大，塞进卡片会超框且缩到看不清。
+        if (isEmbedded) {
+          const embedded = await getEmbeddedConfig();
+          setConfigsList([embedded]);
+          setCurrentConfigId(embedded.id);
+          setElements(embedded.elements || []);
+          return;
+        }
         const configs = await getConfigs('site-1');
         setConfigsList(configs);
         if (configs.length > 0) {
@@ -770,7 +783,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
       }
     }
     loadInitialData();
-  }, []);
+  }, [isEmbedded]);
 
   // Switch active config
   const handleSwitchConfig = async (configId: string) => {
@@ -1425,7 +1438,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
   const currentConfig = configsList.find(c => c.id === currentConfigId);
 
   return (
-    <div className={`flex flex-col h-full bg-slate-50 overflow-hidden ${isEmbedded ? 'rounded-[2.5rem] border border-slate-50 p-6' : 'rounded-2xl shadow-lg border border-slate-200'}`} id="wiring-diagram-page">
+    <div className={`flex flex-col h-full bg-slate-50 overflow-hidden ${isEmbedded ? 'rounded-[2.5rem] border border-slate-50 p-2' : 'rounded-2xl shadow-lg border border-slate-200'}`} id="wiring-diagram-page">
       {/* Toast Alert */}
       {showSaveToast && (
         <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white font-bold text-sm py-2.5 px-6 rounded-full shadow-2xl flex items-center gap-2 z-50 animate-bounce">
@@ -1845,17 +1858,21 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
             /* Canvas Render Area */
             <div 
               ref={canvasContainerRef}
-              className="flex-1 flex items-center justify-center p-4 overflow-auto relative select-none"
+              className={`flex-1 flex items-center justify-center relative select-none ${
+                isEmbedded ? 'p-2 overflow-hidden' : 'p-4 overflow-auto'
+              }`}
             >
               <div 
-                className="transition-transform duration-150 origin-center flex items-center justify-center"
-                style={{ transform: `scale(${zoomLevel / 100})` }}
+                className={`flex items-center justify-center ${
+                  isEmbedded ? 'w-full h-full' : 'transition-transform duration-150 origin-center'
+                }`}
+                style={isEmbedded ? undefined : { transform: `scale(${zoomLevel / 100})` }}
               >
                 <svg
                   ref={svgRef}
-                  viewBox="0 0 1200 850"
-                  width="1200"
-                  height="850"
+                  viewBox={isEmbedded ? EMBEDDED_VIEWBOX : '0 0 1200 850'}
+                  width={isEmbedded ? '100%' : 1200}
+                  height={isEmbedded ? '100%' : 850}
                   preserveAspectRatio="xMidYMid meet"
                   className="drop-shadow-md select-none bg-white rounded-2xl border border-slate-200"
                   onClick={() => {
@@ -1863,7 +1880,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
                     else setInspectingDeviceId(null);
                   }}
                 >
-                  <g transform="translate(100, 30)">
+                  <g transform={isEmbedded ? undefined : 'translate(100, 30)'}>
                     <style>
                       {`
                         @keyframes flow { to { stroke-dashoffset: -16; } }

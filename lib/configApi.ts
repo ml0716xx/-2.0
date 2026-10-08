@@ -226,6 +226,127 @@ const COMPREHENSIVE_SCADA_ELEMENTS = [
   }
 ];
 
+/* ==========================================================================
+   监控概览 · 内嵌组态（精简示例拓扑）
+   --------------------------------------------------------------------------
+   背景：监控概览页的横向布局给中间画布区只留了很窄的一列（实测 1280 视口下
+        约 306 × 674），是「窄而高」。原先内嵌视图直接复用面向「组态监控」
+        整页的全景组态（6 条支路、50+ 元件、viewBox 1200×850 横向），
+        放进这个容器只会沿宽度被压到 0.27 倍，文字小到看不清。
+
+   做法：单独给内嵌视图一份精简组态，与整页全景组态解耦。
+     · 画布 460×600（宽高比 0.77），竖版单线图，贴合窄而高的容器
+       —— 横竖版差别很大：容器是 288×499 这种「窄而高」时，横向画布只能
+          沿宽度缩到 0.27 倍、文字约 3px；竖版能到 0.63 倍、文字约 7px，
+          在 1440 视口下更是到 0.83 倍、文字约 9px，可读性差一个量级
+     · 拓扑改成「一条竖向母线 + 4 个横向间隔」，这是单线图的常见画法，
+       既符合电气表达，又能把容器的高度用满
+     · 间隔由 6 条压到 4 条（光伏 / 储能 / 充电桩 / 厂区负荷），链路压到 3 级
+     · 元件标签一律用短名（4–6 字），并按「下一个元件的符号左边界」反推
+       标签可用宽度，保证缩小后不互相遮挡
+     · 底部数据箱由 6 个压到 2 个、各 3 行，保留遥测监视的观感
+
+   注意：内嵌组态不走 localStorage（见 getEmbeddedConfig），
+        避免被历史缓存或用户在整页里的编辑覆盖。
+   ========================================================================== */
+
+/** 内嵌组态画布尺寸，MainWiringDiagramPage 据此设置 viewBox */
+export const EMBEDDED_VIEWBOX = '0 0 460 600';
+
+const EMBEDDED_SCADA_ELEMENTS = [
+  // --- 市电进线：电网 → 关口表 → 主进断路器（竖向单链，落在母线顶端）---
+  { id: 'eg-grid', type: 'Grid', x: 100, y: 28, label: '10kV 市电' },
+  { id: 'eg-meter', type: 'Meter', x: 100, y: 74, label: '关口表' },
+  { id: 'eg-brk', type: 'Breaker', x: 100, y: 112, label: '主进断路器' },
+
+  { id: 'eg-fl-g1', type: 'FlowLine', x1: 100, y1: 43, x2: 100, y2: 62, color: '#ec4899', powerPointKey: 'meter_active_power' },
+  { id: 'eg-fl-g2', type: 'FlowLine', x1: 100, y1: 86, x2: 100, y2: 102, color: '#ec4899', powerPointKey: 'meter_active_power' },
+  { id: 'eg-fl-g3', type: 'FlowLine', x1: 100, y1: 119, x2: 100, y2: 142, color: '#ec4899', powerPointKey: 'meter_active_power' },
+
+  // --- 竖向母线：4 个间隔向右引出 ---
+  { id: 'eg-bus', type: 'Busbar', x1: 100, y1: 142, x2: 100, y2: 490, color: '#ec4899', label: '10kV 母线' },
+
+  // --- 间隔 1：光伏 ---
+  { id: 'eg-brk-pv', type: 'Breaker', x: 160, y: 186, label: '光伏开关' },
+  { id: 'eg-inv-pv', type: 'Inverter', x: 245, y: 186, label: '光伏逆变器' },
+  { id: 'eg-dev-pv', type: 'PV', x: 370, y: 186, label: '光伏阵列' },
+  { id: 'eg-fl-pv1', type: 'FlowLine', x1: 100, y1: 186, x2: 153, y2: 186, color: '#3b82f6', powerPointKey: 'pv1_power' },
+  { id: 'eg-fl-pv2', type: 'FlowLine', x1: 167, y1: 186, x2: 229, y2: 186, color: '#3b82f6', powerPointKey: 'pv1_power' },
+  { id: 'eg-fl-pv3', type: 'FlowLine', x1: 261, y1: 186, x2: 348, y2: 186, color: '#3b82f6', powerPointKey: 'pv1_power' },
+
+  // --- 间隔 2：储能 ---
+  { id: 'eg-brk-ess', type: 'Breaker', x: 160, y: 274, label: '储能开关' },
+  { id: 'eg-inv-ess', type: 'Inverter', x: 245, y: 274, label: '双向PCS' },
+  { id: 'eg-dev-ess', type: 'Battery', x: 370, y: 274, label: '储能电池舱' },
+  { id: 'eg-fl-ess1', type: 'FlowLine', x1: 100, y1: 274, x2: 153, y2: 274, color: '#10b981', powerPointKey: 'bess_power' },
+  { id: 'eg-fl-ess2', type: 'FlowLine', x1: 167, y1: 274, x2: 229, y2: 274, color: '#10b981', powerPointKey: 'bess_power' },
+  { id: 'eg-fl-ess3', type: 'FlowLine', x1: 261, y1: 274, x2: 350, y2: 274, color: '#10b981', powerPointKey: 'bess_power' },
+
+  // --- 间隔 3：充电桩 ---
+  { id: 'eg-brk-ev', type: 'Breaker', x: 160, y: 362, label: '充电桩开关' },
+  { id: 'eg-meter-ev', type: 'Meter', x: 245, y: 362, label: '快充计量表' },
+  { id: 'eg-dev-ev', type: 'EVCharger', x: 370, y: 362, label: '直流快充桩群' },
+  { id: 'eg-fl-ev1', type: 'FlowLine', x1: 100, y1: 362, x2: 153, y2: 362, color: '#f59e0b', powerPointKey: 'ev_power' },
+  { id: 'eg-fl-ev2', type: 'FlowLine', x1: 167, y1: 362, x2: 229, y2: 362, color: '#f59e0b', powerPointKey: 'ev_power' },
+  { id: 'eg-fl-ev3', type: 'FlowLine', x1: 257, y1: 362, x2: 358, y2: 362, color: '#f59e0b', powerPointKey: 'ev_power' },
+
+  // --- 间隔 4：厂区负荷 ---
+  { id: 'eg-brk-load', type: 'Breaker', x: 160, y: 450, label: '动力开关' },
+  { id: 'eg-trans-load', type: 'Transformer', x: 245, y: 450, label: '动力主变' },
+  { id: 'eg-dev-load', type: 'Load', x: 370, y: 450, label: '厂区负荷' },
+  { id: 'eg-fl-load1', type: 'FlowLine', x1: 100, y1: 450, x2: 153, y2: 450, color: '#64748b', powerPointKey: 'load_power' },
+  { id: 'eg-fl-load2', type: 'FlowLine', x1: 167, y1: 450, x2: 229, y2: 450, color: '#64748b', powerPointKey: 'load_power' },
+  { id: 'eg-fl-load3', type: 'FlowLine', x1: 257, y1: 450, x2: 354, y2: 450, color: '#64748b', powerPointKey: 'load_power' },
+
+  // --- 底部 2 个精简数据箱（各 3 行）---
+  {
+    id: 'eg-box-grid',
+    type: 'DataBox',
+    x: 40,
+    y: 504,
+    title: '电网进线监测',
+    color: '#8b5cf6',
+    active: true,
+    data: [
+      { label: '关口有功功率', pointKey: 'meter_active_power' },
+      { label: '电网功率因数', pointKey: 'meter_pf' },
+      { label: '正向有功电量', pointKey: 'meter_forward_active' }
+    ]
+  },
+  {
+    id: 'eg-box-ess',
+    type: 'DataBox',
+    x: 250,
+    y: 504,
+    title: '储能运行监测',
+    color: '#10b981',
+    active: true,
+    data: [
+      { label: '储能充放功率', pointKey: 'bess_power' },
+      { label: '电池 SOC', pointKey: 'bess_soc' },
+      { label: '当日累计充电', pointKey: 'bess_charge_daily' }
+    ]
+  }
+];
+
+const EMBEDDED_CONFIG: SiteConfig = {
+  id: 'cfg-embedded-overview',
+  name: '监控概览内嵌组态（精简示例）',
+  status: 'in_use',
+  createdAt: '2026-09-01 09:00',
+  updatedAt: '2026-10-08 15:00',
+  elements: EMBEDDED_SCADA_ELEMENTS
+};
+
+/**
+ * 内嵌视图专用：固定返回精简组态。
+ * 刻意不读 localStorage —— 内嵌视图只做展示，不应被整页的组态切换或编辑影响。
+ */
+export async function getEmbeddedConfig(): Promise<SiteConfig> {
+  await delay(120);
+  return EMBEDDED_CONFIG;
+}
+
 const INITIAL_MOCK_CONFIGS: SiteConfig[] = [
   {
     id: 'cfg-101',
