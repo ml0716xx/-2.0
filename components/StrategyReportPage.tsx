@@ -61,7 +61,7 @@ import StrategyConfigModal from "./StrategyConfigModal";
 import StrategyRunConfigPage from "./StrategyRunConfigPage";
 import { MonthlyStrategyDayConfig } from "./StrategySimulationConfigPage";
 import { type Lifecycle } from "./BusinessReportPage";
-import { TY_TRIAL, TY_FORMAL, fmt as fmtNum } from "./tianyingReportData";
+import { AI_GAIN, TY_TRIAL_META, fmt as fmtNum } from "./tianyingReportData";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
@@ -970,52 +970,82 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
           <div>
             <div className="flex items-center gap-2 text-[11px] font-bold text-[#B7791F]">
               <Clock className="w-3 h-3" />
-              试用期已运行 {TY_TRIAL.elapsedDays} / {TY_TRIAL.totalDays} 天 · 对比基线：{TY_TRIAL.baselineName}
+              试用期已运行 {TY_TRIAL_META.elapsedDays} / {TY_TRIAL_META.totalDays} 天 · 对比基线：{TY_TRIAL_META.baselineName}
             </div>
-            <div className="mt-1.5 flex items-baseline gap-2 flex-wrap">
-              <span className="text-[22px] font-black font-mono text-[#B7791F] leading-none">
-                {fmtNum(TY_TRIAL.savedTotal, 0)}
-              </span>
-              <span className="text-[12px] text-[#8A6D3B]">元 · 试用期累计省钱</span>
-              <span className="px-2 py-0.5 rounded-md bg-[#B7791F]/12 text-[#B7791F] text-[11px] font-bold font-mono">
-                较传统基线 +{fmtNum(TY_TRIAL.liftPct, 1)}%
-              </span>
-            </div>
-            <div className="text-[11px] text-[#8A6D3B] mt-1">
-              预估年化可节省 {fmtNum(TY_TRIAL.annualized, 0)} 元 · 试用期内可随时退出
+            <div className="mt-2 flex flex-wrap items-end gap-x-7 gap-y-2">
+              <div>
+                <div className="text-[10px] text-[#8A6D3B]">AI 提升收益</div>
+                <div className="text-[20px] font-black font-mono text-[#E5484D] leading-tight">
+                  ¥{fmtNum(AI_GAIN.aiBoost, 0)}
+                  <span className="text-[11px] font-normal text-[#8A6D3B] ml-1">
+                    +{fmtNum(AI_GAIN.aiBoostPct, 1)}%
+                  </span>
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-[#8A6D3B]">综合度电成本</div>
+                <div className="text-[15px] font-black font-mono text-[#1A2A3A] leading-tight">
+                  ¥{fmtNum(AI_GAIN.unitCost, 3)}
+                  <span className="text-[11px] font-normal text-[#1E9C7E] ml-1">
+                    -¥{fmtNum(AI_GAIN.unitCostDelta, 3)}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-[#8A6D3B]">AI 运行</div>
+                <div className="text-[15px] font-black font-mono text-[#1A2A3A] leading-tight">
+                  {AI_GAIN.aiDays}
+                  <span className="text-[11px] font-normal ml-1">/ {AI_GAIN.days} 天</span>
+                </div>
+              </div>
             </div>
           </div>
-          <button
-            onClick={onConvert}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-md text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors shrink-0"
-          >
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            一键升级正式版
-          </button>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="rounded-lg bg-white/70 border border-[#FFE0A3] px-3.5 py-2 text-center">
+              <div className="text-[10px] text-[#8A6D3B]">试用期剩余</div>
+              <div className="text-[15px] font-black font-mono text-[#B7791F]">
+                {TY_TRIAL_META.remainingDays} 天
+              </div>
+            </div>
+            <button
+              onClick={onConvert}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-md text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors"
+            >
+              <ArrowUpRight className="w-3.5 h-3.5" />
+              一键升级正式版
+            </button>
+          </div>
         </div>
       )}
 
       {lifecycle === 'formal' && (
         <div className="rounded-xl border border-[#B7E4D3] bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] px-5 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <div className="flex flex-wrap items-center gap-x-7 gap-y-2">
             <div>
-              <div className="text-[11px] font-bold text-[#17705A]">长期累积收益（{TY_FORMAL.runningMonths} 个月）</div>
+              <div className="text-[11px] font-bold text-[#17705A]">AI 智能托管中 · 本月运行成绩</div>
               <div className="text-[18px] font-black font-mono text-[#17705A] leading-tight">
-                {fmtNum(TY_FORMAL.cumSaved, 0)}
-                <span className="text-[11px] font-normal text-[#2C7A6E] ml-1">元</span>
+                {(AI_GAIN.totalRevenue / 10000).toFixed(2)}
+                <span className="text-[11px] font-normal text-[#2C7A6E] ml-1">万元</span>
               </div>
             </div>
             <div className="h-8 w-px bg-[#B7E4D3]" />
             <div>
-              <div className="text-[11px] font-bold text-[#17705A]">最近算法迭代</div>
-              <div className="text-[12px] font-bold text-[#2C7A6E] mt-0.5">
-                {TY_FORMAL.modelLog[0].version}
-                <span className="text-[10px] font-normal text-[#5A9E8B] ml-1.5">{TY_FORMAL.modelLog[0].date}</span>
+              <div className="text-[11px] font-bold text-[#17705A]">AI 提升收益</div>
+              <div className="text-[14px] font-black font-mono text-[#E5484D] mt-0.5">
+                ¥{fmtNum(AI_GAIN.aiBoost, 0)}
+              </div>
+            </div>
+            <div className="h-8 w-px bg-[#B7E4D3]" />
+            <div>
+              <div className="text-[11px] font-bold text-[#17705A]">AI 运行时长</div>
+              <div className="text-[14px] font-black font-mono text-[#2C7A6E] mt-0.5">
+                {fmtNum(AI_GAIN.aiRuntimePct, 2)}%
+                <span className="text-[10px] font-normal ml-1">（{fmtNum(AI_GAIN.aiRuntimeHours, 2)}h）</span>
               </div>
             </div>
           </div>
-          <div className="text-[11px] text-[#2C7A6E] leading-relaxed max-w-[420px]">
-            {TY_FORMAL.modelLog[0].desc}
+          <div className="text-[11px] text-[#2C7A6E] leading-relaxed max-w-[380px]">
+            综合度电成本 ¥{fmtNum(AI_GAIN.unitCost, 3)}/kWh，较基准降低 ¥{fmtNum(AI_GAIN.unitCostDelta, 3)}。
           </div>
         </div>
       )}

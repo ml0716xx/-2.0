@@ -188,119 +188,156 @@ export const TY_CASE_DAYS = [
 ];
 
 /* ==========================================================================
-   二、试运行期增益（同源策略运行报告 · 试运行场景）
+   二、AI 增益指标（单一真源）
+   --------------------------------------------------------------------------
+   指标集合严格等于【策略运行报告】已渲染的指标，不新增任何口径、不发明指标。
+   · 经营分析报告 · AI 策略收益 tab = 本节指标的精简视图
+   · 策略运行报告的顶部专属模块也取自本节，保证两页同一状态下数字完全一致
+   · 无对应指标的内容（长期累积收益、模型迭代日志、峰谷平移度、超需量拦截率、
+     试用期累计省钱、年化预估等）一律不出现
    ========================================================================== */
 
-export const TY_TRIAL = {
-  /** 试用期剩余天数 */
-  remainingDays: 12,
-  totalDays: 30,
-  /** 已运行天数 */
-  elapsedDays: 18,
-  /** 试用期累计省钱 */
-  savedTotal: 4670,
-  /** 对比基线提升比例 */
-  liftPct: 13.6,
-  /** 预估年化收益 */
-  annualized: 56040,
-  /** 对比基线名称 */
-  baselineName: '后台基线仿真（传统固定时段策略）',
-  /** 真实轨迹名称 */
-  realName: '实测 AI 策略轨迹',
-  /** 试用期归因三项（与飞书文档 2.3 的三项归因口径一致，此处取试用期累计值） */
-  attribution: [
-    {
-      key: 'peakValley',
-      no: '①',
-      title: '尖峰平谷优化',
-      amount: 3080,
-      desc: '充放电由平段向谷段、峰段重排',
-      evidence: '谷段充电量占比由 59.6% 提升至 66.0%，峰段放电量占比由 63.3% 提升至 70.9%。',
-    },
-    {
-      key: 'demand',
-      no: '②',
-      title: '需量控制防超惩罚',
-      amount: 470,
-      desc: '成功拦截 2 次需量越限风险',
-      evidence: '试用期内 2 次负荷尖峰被储能放电削平，避免需量越限。',
-    },
-    {
-      key: 'pvSelfUse',
-      no: '③',
-      title: '光伏自发自用提升',
-      amount: 1120,
-      desc: '消纳率提升 1.2 个百分点',
-      evidence: '光伏消纳率由 97.35% 提升至 98.55%，余电上网减少 340 kWh。',
-    },
-  ],
-  /** 双轨迹对比曲线（逐日，试用期 18 天） */
-  curves: {
-    label: '实测 AI vs 后台基线仿真（元/日）',
-    baselineName: '基线仿真收益',
-    aiName: '实测 AI 收益',
-    days: Array.from({ length: 18 }, (_, i) => {
-      const base = 1850 + Math.round(Math.sin(i * 1.7) * 210) + i * 6;
-      const ai = Math.round(base * (1 + 0.105 + (i % 4) * 0.012));
-      return { day: `${i + 1}日`, baseline: base, ai, diff: ai - base };
-    }),
+export const AI_GAIN = {
+  /** 统计天数与 AI 运行天数（策略运行报告口径：当月 31 天、AI 运行 26 天） */
+  days: 31,
+  aiDays: 26,
+  /** AI 运行时长（策略运行报告头部同源） */
+  aiRuntimePct: 83.52,
+  aiRuntimeHours: 431.41,
+
+  /* ---- 核心三项（策略运行报告 LEVEL 1） ---- */
+  /** 全月综合运行总收益（元） */
+  totalRevenue: 83850,
+  /** AI 提升收益（元）＝ 全月综合运行总收益 − 基础策略收益合计 */
+  aiBoost: 14260,
+  /** AI 提升收益幅度（%） */
+  aiBoostPct: 15.7,
+  /** 综合度电成本（元/kWh） */
+  unitCost: 0.386,
+  /** 基准综合度电成本（元/kWh，对比基准） */
+  unitCostBase: 0.458,
+  /** 综合度电成本降幅（元/kWh） */
+  unitCostDelta: 0.072,
+  /** 综合度电成本降幅（%） */
+  unitCostPct: 15.7,
+
+  /* ---- 光伏收益（策略运行报告「1. 光伏收益」板块） ---- */
+  pv: {
+    revenue: 51200,
+    sharePct: 61.1,
+    /** 消纳率（%） */
+    consumptionRate: 96.8,
+    consumptionBase: 88.1,
+    consumptionDelta: 8.7,
+    /** 发电量（万kWh） */
+    generation: 3.74,
+    generationBase: 3.66,
+    generationDelta: 2.1,
+    /** 上网电量（万kWh） */
+    gridExport: 0.52,
+    gridExportBase: 0.59,
+    gridExportDelta: -11.5,
+    /** 入储电量（万kWh） */
+    toStorage: 1.18,
+    toStorageBase: 0.95,
+    toStorageDelta: 24.6,
+    /** 限电止损（元） */
+    curtailmentSaved: 2230,
+    /** 限电止损电量（kWh） */
+    curtailmentEnergy: 238.9,
   },
+
+  /* ---- 储能收益（策略运行报告「2. 储能收益」板块） ---- */
+  ess: {
+    revenue: 32650,
+    sharePct: 38.9,
+    /** 综合利用率（%） */
+    utilRate: 97.2,
+    utilBase: 84.8,
+    utilDelta: 12.4,
+    /** 充电量（万kWh） */
+    charge: 1.62,
+    chargeBase: 1.28,
+    chargeDelta: 26.8,
+    /** 放电量（万kWh） */
+    discharge: 1.54,
+    dischargeBase: 1.18,
+    dischargeDelta: 30.2,
+    /** 充电成本（元/kWh） */
+    chargeCost: 0.312,
+    chargeCostBase: 0.358,
+    chargeCostDelta: -12.8,
+    /** 放电价格（元/kWh） */
+    dischargePrice: 0.925,
+    dischargePriceBase: 0.867,
+    dischargePriceDelta: 6.7,
+    /** 充放价差 · 套利空间（元/kWh） */
+    spread: 0.613,
+    spreadBase: 0.509,
+  },
+
+  /** 指标口径说明：弹窗、AI tab、策略运行报告三处共用同一句话 */
+  caliberNote:
+    '以上指标与【策略运行报告】同源，为其精简视图；两侧数据来自同一份报表与同一套算法回算口径。',
 } as const;
 
+/** 限电止损（策略运行报告「限电止损」卡片口径） */
+export const AI_CURTAILMENT = {
+  savedTotal: AI_GAIN.pv.curtailmentSaved,
+  energyTotal: AI_GAIN.pv.curtailmentEnergy,
+  avgSavedDaily: AI_GAIN.pv.curtailmentSaved / AI_GAIN.days,
+} as const;
+
+/* ---------------------------- 日收益序列（与策略运行报告同源） ---------------------------- */
+/** 非 AI 运行日（当月 6 / 12 / 18 / 24 / 30 日），与 26 / 31 天口径对齐 */
+const NON_AI_DAYS = new Set([6, 12, 18, 24, 30]);
+
+/** 确定性权重：避免随机数导致每次渲染数字跳动 */
+function weights(n: number, seed: number): number[] {
+  const out: number[] = [];
+  let s = seed;
+  for (let i = 0; i < n; i++) {
+    s = (s * 1103515245 + 12345) % 2147483648;
+    out.push(0.75 + (s / 2147483648) * 0.5);
+  }
+  return out;
+}
+
+/** 归一化到指定合计，尾项吸收舍入误差，保证合计可与报表对账 */
+function normalizeToTotal(w: number[], total: number): number[] {
+  const sum = w.reduce((a, b) => a + b, 0);
+  const raw = w.map(x => Math.round((x / sum) * total));
+  raw[raw.length - 1] += total - raw.reduce((a, b) => a + b, 0);
+  return raw;
+}
+
+const BASE_TOTAL = AI_GAIN.totalRevenue - AI_GAIN.aiBoost;
+const baseRaw = normalizeToTotal(weights(AI_GAIN.days, 20260701), BASE_TOTAL);
+const boostRaw = normalizeToTotal(weights(AI_GAIN.aiDays, 20260715), AI_GAIN.aiBoost);
+
+let boostIdx = 0;
+
+/** 日收益序列：AI 运行日 = 基础策略收益 + AI 提升收益；非 AI 日仅基础策略收益 */
+export const AI_DAILY = Array.from({ length: AI_GAIN.days }, (_, i) => {
+  const day = i + 1;
+  const hasAi = !NON_AI_DAYS.has(day);
+  const base = baseRaw[i];
+  const boost = hasAi ? boostRaw[boostIdx++] : 0;
+  return { day: `${day}日`, hasAi, base, boost, total: base + boost };
+});
+
 /* ==========================================================================
-   三、正式运行期（同源策略运行报告 · 正式运行场景）
+   三、试用期设定
+   --------------------------------------------------------------------------
+   仅承载「试用期长度」与「对比基线名称」这类设定项，不含任何收益指标。
    ========================================================================== */
 
-export const TY_FORMAL = {
-  /** 正式运行时长 */
-  runningMonths: 14,
-  /** 长期累积收益 */
-  cumSaved: 386400,
-  /** 近 6 个月累积趋势 */
-  cumulative: [
-    { month: '2026-04', saved: 21600, cum: 258300 },
-    { month: '2026-05', saved: 24900, cum: 283200 },
-    { month: '2026-06', saved: 27400, cum: 310600 },
-    { month: '2026-07', saved: 28200, cum: 338800 },
-    { month: '2026-08', saved: 28800, cum: 367600 },
-    { month: '2026-09', saved: 30800, cum: 398400 },
-  ],
-  /** 正式运行归因三项（飞书文档 2.3 的三项口径） */
-  attribution: [
-    {
-      key: 'peakValleyShift',
-      no: '①',
-      title: '峰谷平移度',
-      value: '68.4%',
-      trend: '+9.2 pct',
-      desc: '谷段充电、峰段放电的电量占储能吞吐量比例',
-      evidence: '当月谷段充电 1,832 kWh、峰段放电 1,758 kWh，占储能总吞吐量 3,590 kWh 的 68.4%。',
-    },
-    {
-      key: 'demandIntercept',
-      no: '②',
-      title: '超需量拦截率',
-      value: '92.3%',
-      trend: '+4.1 pct',
-      desc: '成功拦截的需量越限风险占识别总数的比例',
-      evidence: '当月识别需量越限风险 13 次，成功拦截 12 次，避免超需量惩罚约 3,900 元。',
-    },
-    {
-      key: 'pvSelfConsumption',
-      no: '③',
-      title: '光伏自消纳率提能幅度',
-      value: '98.55%',
-      trend: '+1.20 pct',
-      desc: '光伏发电量中就地消纳的比例',
-      evidence: '当月光伏发电 2.84 万 kWh，就地消纳 2.80 万 kWh，较接管前提升 1.20 个百分点。',
-    },
-  ],
-  /** AI 算法模型迭代日志（正式版报告顶部模块） */
-  modelLog: [
-    { date: '2026-09-15', version: 'V1.4.2', desc: '优化峰段放电终止 SOC 边界，减少峰段末段无效放电' },
-    { date: '2026-08-20', version: 'V1.4.1', desc: '引入需量预测前置一天误差修正' },
-    { date: '2026-07-28', version: 'V1.4.0', desc: '适配夏季尖峰时段延长规则' },
-  ],
+export const TY_TRIAL_META = {
+  remainingDays: 12,
+  totalDays: 30,
+  elapsedDays: 18,
+  baselineName: '后台基线仿真（传统固定时段策略）',
+  realName: '实测 AI 策略轨迹',
 } as const;
 
 /* ==========================================================================

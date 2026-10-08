@@ -5,11 +5,14 @@
      1）经营分析报告 —— 与客户侧 PDF 正文同源（去封面、去目录）
         第一章 月度经营总览：收益构成、四象限指标卡、光伏/储能/充电桩三段图表
         第二章 指标分析：光伏消纳率、度电成本
-     2）AI 策略收益 —— 按客户所处生命周期挂载不同同源内容：
-        · 未开通（售前）  → 与《天盈 AI 仿真报告》同源
-        · 试运行          → 与策略运行报告 · 试运行场景同源
-        · 正式运行        → 与策略运行报告 · 正式运行场景同源
-   三种状态共用同一套报告模板，仅模块与角标不同（模板一致率 ≈ 90%）。
+     2）AI 策略收益 —— 【策略运行报告】的精简视图，按客户生命周期分三态：
+        · 未开通（售前）  指标遮罩 + 收益测算钩子 + 开通权益，突出营销转化
+        · 试运行          指标解锁 + 试运行成绩单 + 剩余天数 + 一键升级正式版
+        · 正式运行        指标解锁 + 本月运行成绩 + 无转化入口
+
+   指标纪律：本 tab 只使用 AI_GAIN 里那张指标表，集合严格等于策略运行报告
+   已渲染的指标，不新增口径、不发明指标。三种状态共用同一套指标与报告主体，
+   仅顶部模块、角标、转化入口不同。
    ========================================================================== */
 
 import React, { useState } from 'react';
@@ -20,17 +23,21 @@ import {
   Battery,
   Sun,
   Zap,
-  TrendingUp,
   ArrowRight,
   ArrowUpRight,
   ShieldCheck,
   Rocket,
   Clock,
   BadgeCheck,
-  Activity,
   PlugZap,
   Info,
-  GitBranch,
+  Lock,
+  CheckCircle2,
+  TrendingUp,
+  Gift,
+  Gauge,
+  Coins,
+  CircleDollarSign,
 } from 'lucide-react';
 import {
   ComposedChart,
@@ -45,8 +52,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  AreaChart,
-  Area,
   ReferenceLine,
 } from 'recharts';
 
@@ -57,18 +62,14 @@ import {
   BIZ_SITE_INFO,
   BIZ_PV_DAILY,
   BIZ_ESS_DAILY,
-  BIZ_EV_DAILY,
+  BIZ_NOTES,
   BIZ_CONSUMPTION,
   BIZ_UNIT_COST,
-  BIZ_NOTES,
-  TY_SIM_KPI,
-  TY_SIM_DELTA,
-  TY_SIM_ROWS,
-  TY_SIM_WHY,
-  TY_TRIAL,
-  TY_FORMAL,
+  AI_GAIN,
+  AI_DAILY,
+  AI_CURTAILMENT,
+  TY_TRIAL_META,
   fmt,
-  fmtSigned,
 } from './tianyingReportData';
 
 /** 生命周期：未开通 / 试运行 / 正式运行 */
@@ -80,6 +81,8 @@ interface BusinessReportPageProps {
   onOpenSimReport: () => void;
   /** 试运行 → 正式运行 */
   onConvert: () => void;
+  /** 未开通 → 试运行 */
+  onActivate: () => void;
 }
 
 const C = {
@@ -97,6 +100,13 @@ const TONE_COLOR: Record<string, string> = {
   ess: C.blue,
   grid: C.purple,
   load: C.amber,
+};
+
+const tooltipStyle = {
+  fontSize: 11,
+  borderRadius: 8,
+  border: '1px solid #EAEDF2',
+  boxShadow: '0 4px 12px rgba(26,42,58,0.08)',
 };
 
 /** 图表卡片外壳 */
@@ -130,20 +140,12 @@ function ChartCard({
   );
 }
 
-const tooltipStyle = {
-  fontSize: 11,
-  borderRadius: 8,
-  border: '1px solid #EAEDF2',
-  boxShadow: '0 4px 12px rgba(26,42,58,0.08)',
-};
-
 /* ==========================================================================
-   第一章 月度经营总览
+   tab1 · 第一章 月度经营总览
    ========================================================================== */
 function MonthlyOverview() {
   return (
     <div className="space-y-4">
-      {/* 站点信息 */}
       <div className="bg-white rounded-xl border border-[#EAEDF2] px-5 py-4">
         <div className="flex items-center gap-2 mb-3">
           <span className="w-1 h-3.5 rounded-full bg-[#1E9C7E]" />
@@ -159,7 +161,6 @@ function MonthlyOverview() {
         </div>
       </div>
 
-      {/* 收益构成 + 指标卡 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl border border-[#EAEDF2] p-4">
           <h3 className="text-[13px] font-bold text-[#1A2A3A] mb-1">收益构成</h3>
@@ -243,13 +244,7 @@ function MonthlyOverview() {
         </div>
       </div>
 
-      {/* 1.1 光伏 */}
-      <ChartCard
-        title="1.1 光伏发电量 & 收益"
-        unit="kWh / 元"
-        note={BIZ_NOTES.pv}
-        height={250}
-      >
+      <ChartCard title="1.1 光伏发电量 & 收益" unit="kWh / 元" note={BIZ_NOTES.pv} height={250}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={BIZ_PV_DAILY} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EFF2F5" />
@@ -264,13 +259,7 @@ function MonthlyOverview() {
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* 1.2 储能 */}
-      <ChartCard
-        title="1.2 储能充放电量 & 收益"
-        unit="kWh / 元"
-        note={BIZ_NOTES.ess}
-        height={250}
-      >
+      <ChartCard title="1.2 储能充放电量 & 收益" unit="kWh / 元" note={BIZ_NOTES.ess} height={250}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={BIZ_ESS_DAILY} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EFF2F5" />
@@ -286,13 +275,7 @@ function MonthlyOverview() {
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* 1.3 充电桩 */}
-      <ChartCard
-        title="1.3 充电桩充电量 & 收益"
-        unit="kWh / 元"
-        note={BIZ_NOTES.ev}
-        height={200}
-      >
+      <ChartCard title="1.3 充电桩充电量 & 收益" unit="kWh / 元" note={BIZ_NOTES.ev} height={200}>
         <div className="h-full flex flex-col items-center justify-center gap-2">
           <div className="w-11 h-11 rounded-2xl bg-[#F4F6F9] flex items-center justify-center">
             <PlugZap size={20} className="text-[#B6C1CC]" />
@@ -308,17 +291,12 @@ function MonthlyOverview() {
 }
 
 /* ==========================================================================
-   第二章 指标分析
+   tab1 · 第二章 指标分析
    ========================================================================== */
 function IndicatorAnalysis() {
   return (
     <div className="space-y-4">
-      <ChartCard
-        title="2.1 光伏消纳率"
-        unit="kWh / %"
-        note={BIZ_NOTES.consumption}
-        height={260}
-      >
+      <ChartCard title="2.1 光伏消纳率" unit="kWh / %" note={BIZ_NOTES.consumption} height={260}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={BIZ_CONSUMPTION.daily} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EFF2F5" />
@@ -335,12 +313,7 @@ function IndicatorAnalysis() {
         </ResponsiveContainer>
       </ChartCard>
 
-      <ChartCard
-        title="2.2 度电成本"
-        unit="kWh / 元"
-        note={BIZ_NOTES.unitCost}
-        height={260}
-      >
+      <ChartCard title="2.2 度电成本" unit="kWh / 元" note={BIZ_NOTES.unitCost} height={260}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={BIZ_UNIT_COST.daily} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EFF2F5" />
@@ -357,7 +330,6 @@ function IndicatorAnalysis() {
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* 度电成本结论卡 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         {[
           { label: '本月总用电量', value: `${BIZ_UNIT_COST.totalUseWanKwh}`, unit: '万kWh', tone: 'text-[#1A2A3A]' },
@@ -379,16 +351,16 @@ function IndicatorAnalysis() {
 }
 
 /* ==========================================================================
-   AI 策略收益 tab —— 按生命周期切换同源内容
+   tab2 · AI 策略收益（策略运行报告的精简视图）
    ========================================================================== */
 
-/** 状态角标：三种状态的唯一视觉锚点 */
+/** 状态角标：三种状态唯一视觉锚点 */
 function StatusBadge({ lifecycle }: { lifecycle: Lifecycle }) {
   if (lifecycle === 'presale') {
     return (
       <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F4F6F9] border border-[#E3E8EE] text-[11px] font-bold text-[#5A6B7C]">
-        <Info size={12} />
-        未开通 · 仿真预评估
+        <Lock size={12} />
+        未开通 · 指标待解锁
       </span>
     );
   }
@@ -396,7 +368,7 @@ function StatusBadge({ lifecycle }: { lifecycle: Lifecycle }) {
     return (
       <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FFF7E6] border border-[#FFE0A3] text-[11px] font-bold text-[#B7791F]">
         <Clock size={12} />
-        试运行中 · 剩余 {TY_TRIAL.remainingDays} 天
+        试运行中 · 剩余 {TY_TRIAL_META.remainingDays} 天
       </span>
     );
   }
@@ -408,124 +380,138 @@ function StatusBadge({ lifecycle }: { lifecycle: Lifecycle }) {
   );
 }
 
-/** 顶部模块：试用期省钱卡 / 长期累积卡（正式版） */
-function TopModule({
-  lifecycle,
+/** 遮罩层：未开通时盖在指标上，露出钩子但不给完整数据 */
+function LockedOverlay({
+  onActivate,
   onOpenSimReport,
-  onConvert,
 }: {
-  lifecycle: Lifecycle;
+  onActivate: () => void;
   onOpenSimReport: () => void;
-  onConvert: () => void;
 }) {
-  if (lifecycle === 'presale') {
-    return (
-      <div className="bg-gradient-to-br from-[#1A2A3A] to-[#1E3A46] rounded-xl px-5 py-4 text-white">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-[11px] text-white/70">
-              <Sparkles size={12} className="text-[#7BE0C0]" />
-              基于站点历史负荷与光伏数据的策略仿真
-            </div>
-            <div className="mt-1.5 flex items-baseline gap-2 flex-wrap">
-              <span className="text-xl font-black font-mono">
-                +{fmt(TY_SIM_DELTA.net, 0)}
-              </span>
-              <span className="text-[12px] text-white/70">元 / 月</span>
-              <span className="px-2 py-0.5 rounded-md bg-[#7BE0C0]/18 text-[#9DECD3] text-[11px] font-bold font-mono">
-                提升 {fmt(TY_SIM_DELTA.liftPct, 1)}%
-              </span>
-              <span className="text-[11px] text-white/55">
-                总收益 {fmt(TY_SIM_KPI.total.real, 0)} → {fmt(TY_SIM_KPI.total.sim, 0)} 元
-              </span>
-            </div>
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl bg-white/60 backdrop-blur-[2px] px-6 text-center">
+      <div className="w-12 h-12 rounded-2xl bg-white border border-[#E3E8EE] shadow-[0_4px_14px_rgba(26,42,58,0.10)] flex items-center justify-center">
+        <Lock size={19} className="text-[#1E9C7E]" />
+      </div>
+      <div>
+        <div className="text-[14px] font-black text-[#1A2A3A]">开通后解锁完整收益拆解</div>
+        <p className="text-[11px] text-[#7F8C8D] mt-1.5 max-w-[430px] leading-relaxed">
+          本站点 <span className="font-bold text-[#1A2A3A]">11 项</span> AI 增益指标、全月 31 天日收益对比曲线、
+          限电止损复盘，开通试运行即时可见 —— 试用期内随时可退出。
+        </p>
+      </div>
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={onOpenSimReport}
+          className="px-3.5 py-2 rounded-lg text-[12px] font-bold text-[#2C3E50] border border-[#E3E8EE] bg-white hover:bg-[#F7F9FB] transition-colors"
+        >
+          先看仿真测算
+        </button>
+        <button
+          type="button"
+          onClick={onActivate}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors shadow-sm"
+        >
+          <Rocket size={14} />
+          免费开通 30 天试用
+        </button>
+      </div>
+      <div className="flex items-center gap-3 text-[10px] text-[#93A1B0]">
+        <span className="flex items-center gap-1">
+          <CheckCircle2 size={11} className="text-[#1E9C7E]" />
+          免审批自动开通
+        </span>
+        <span className="flex items-center gap-1">
+          <CheckCircle2 size={11} className="text-[#1E9C7E]" />
+          无需改造设备
+        </span>
+        <span className="flex items-center gap-1">
+          <CheckCircle2 size={11} className="text-[#1E9C7E]" />
+          试用期随时退出
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** 未开通：收益测算钩子（售前营销主视觉） */
+function AiHeroPresale({
+  onActivate,
+  onOpenSimReport,
+}: {
+  onActivate: () => void;
+  onOpenSimReport: () => void;
+}) {
+  const g = AI_GAIN;
+  return (
+    <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#1A2A3A] via-[#1E3A46] to-[#17705A] text-white px-6 py-5">
+      <div className="absolute -right-10 -top-10 w-44 h-44 rounded-full bg-[#7BE0C0]/10 blur-2xl" />
+      <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-[11px] text-[#9DECD3] font-bold">
+            <Sparkles size={13} />
+            天盈 AI · 本站收益测算
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={onOpenSimReport}
-              className="px-3.5 py-2 rounded-lg text-[12px] font-bold text-white/85 border border-white/25 hover:bg-white/10 transition-colors"
-            >
-              查看完整仿真报告
-            </button>
-            <button
-              type="button"
-              onClick={onOpenSimReport}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] transition-colors"
-            >
-              <Rocket size={14} />
-              一键开通 30 天试用
-            </button>
+          <div className="mt-2 text-[15px] font-bold leading-snug">
+            按本站点历史运行数据回算，AI 智能调度每月可多创收
+          </div>
+          <div className="mt-1.5 flex items-baseline gap-2.5 flex-wrap">
+            <span className="text-[34px] font-black font-mono leading-none tracking-tight">
+              ¥{fmt(g.aiBoost, 0)}
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-[#7BE0C0]/20 text-[#9DECD3] text-[12px] font-bold font-mono">
+              +{fmt(g.aiBoostPct, 1)}%
+            </span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] text-white/75">
+            <span>
+              综合度电成本 <span className="font-bold text-white">¥{fmt(g.unitCost, 3)}</span>
+              <span className="text-[#9DECD3] ml-1">再降 ¥{fmt(g.unitCostDelta, 3)}</span>
+            </span>
+            <span>
+              AI 运行 <span className="font-bold text-white">{g.aiDays}</span> / {g.days} 天
+            </span>
+            <span>
+              光伏消纳率 <span className="font-bold text-white">{fmt(g.pv.consumptionRate, 1)}%</span>
+              <span className="text-[#9DECD3] ml-1">+{fmt(g.pv.consumptionDelta, 1)} pct</span>
+            </span>
           </div>
         </div>
-      </div>
-    );
-  }
 
-  if (lifecycle === 'trial') {
-    return (
-      <div className="bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE] rounded-xl border border-[#FFE0A3] px-5 py-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-[11px] text-[#B7791F]">
-              <Clock size={12} />
-              试用期已运行 {TY_TRIAL.elapsedDays} / {TY_TRIAL.totalDays} 天
-            </div>
-            <div className="mt-1.5 flex items-baseline gap-2 flex-wrap">
-              <span className="text-xl font-black font-mono text-[#B7791F]">
-                {fmt(TY_TRIAL.savedTotal, 0)}
-              </span>
-              <span className="text-[12px] text-[#8A6D3B]">元 · 试用期累计省钱</span>
-              <span className="px-2 py-0.5 rounded-md bg-[#B7791F]/12 text-[#B7791F] text-[11px] font-bold font-mono">
-                较传统基线 +{fmt(TY_TRIAL.liftPct, 1)}%
-              </span>
-            </div>
-            <div className="text-[11px] text-[#8A6D3B] mt-1">
-              预估年化可节省 {fmt(TY_TRIAL.annualized, 0)} 元 · 对比基线
-              {TY_TRIAL.baselineName}
-            </div>
+        <div className="shrink-0 w-full lg:w-[248px] rounded-xl bg-white/8 border border-white/15 p-4">
+          <div className="flex items-center gap-1.5 text-[11px] text-[#9DECD3] font-bold">
+            <Gift size={12} />
+            开通即得
           </div>
+          <ul className="mt-2.5 space-y-1.5 text-[11px] text-white/85">
+            {[
+              '30 天 AI 智能调度试用',
+              '11 项增益指标完整解锁',
+              '策略运行报告全量视图',
+              '专属顾问 1v1 收益解读',
+            ].map(t => (
+              <li key={t} className="flex items-center gap-1.5">
+                <CheckCircle2 size={12} className="text-[#7BE0C0] shrink-0" />
+                {t}
+              </li>
+            ))}
+          </ul>
           <button
             type="button"
-            onClick={onConvert}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors shrink-0"
+            onClick={onActivate}
+            className="mt-3.5 w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] transition-colors"
           >
-            <ArrowUpRight size={14} />
-            一键升级正式版
+            <Rocket size={14} />
+            一键免费开通
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] rounded-xl border border-[#B7E4D3] px-5 py-4">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-[11px] text-[#17705A]">
-            <ShieldCheck size={12} />
-            正式运行 {TY_FORMAL.runningMonths} 个月
-          </div>
-          <div className="mt-1.5 flex items-baseline gap-2 flex-wrap">
-            <span className="text-xl font-black font-mono text-[#17705A]">
-              {fmt(TY_FORMAL.cumSaved, 0)}
-            </span>
-            <span className="text-[12px] text-[#2C7A6E]">元 · 长期累积收益</span>
-            <span className="px-2 py-0.5 rounded-md bg-[#17705A]/10 text-[#17705A] text-[11px] font-bold font-mono">
-              本月 {fmt(TY_FORMAL.cumulative[TY_FORMAL.cumulative.length - 1].saved, 0)} 元
-            </span>
-          </div>
-          <div className="text-[11px] text-[#2C7A6E] mt-1">
-            最近算法迭代 {TY_FORMAL.modelLog[0].version}（{TY_FORMAL.modelLog[0].date}）
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={onOpenSimReport}
-            className="px-3.5 py-2 rounded-lg text-[12px] font-bold text-[#17705A] border border-[#B7E4D3] bg-white/60 hover:bg-white transition-colors"
+            className="mt-2 w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-bold text-white/80 border border-white/20 hover:bg-white/10 transition-colors"
           >
             查看仿真报告
+            <ArrowRight size={12} />
           </button>
         </div>
       </div>
@@ -533,209 +519,344 @@ function TopModule({
   );
 }
 
-/** 归因区：按状态切换口径 */
-function Attribution({ lifecycle }: { lifecycle: Lifecycle }) {
-  if (lifecycle === 'presale') {
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {TY_SIM_WHY.map(w => (
-          <div key={w.title} className="bg-white rounded-xl border border-[#EAEDF2] p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-md bg-[#1A2A3A] text-white text-[11px] font-bold flex items-center justify-center">
-                  {w.no}
-                </span>
-                <span className="text-[12px] font-bold text-[#1A2A3A]">{w.title}</span>
-              </div>
-              <span className={`font-mono text-sm font-black ${w.tone === 'up' ? 'text-[#E5484D]' : 'text-[#1E9C7E]'}`}>
-                {w.amount}
-              </span>
-            </div>
-            <p className="text-[11px] text-[#5A6B7C] leading-relaxed">{w.mechanism}</p>
-            <p className="text-[11px] text-[#8A98A6] leading-relaxed mt-1.5 pt-1.5 border-t border-[#EAEDF2]">
-              {w.evidence}
-            </p>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (lifecycle === 'trial') {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {TY_TRIAL.attribution.map(a => (
-          <div key={a.key} className="bg-white rounded-xl border border-[#EAEDF2] p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-md bg-[#B7791F] text-white text-[11px] font-bold flex items-center justify-center">
-                  {a.no}
-                </span>
-                <span className="text-[12px] font-bold text-[#1A2A3A]">{a.title}</span>
-              </div>
-            </div>
-            <div className="text-lg font-black font-mono text-[#E5484D]">
-              {fmt(a.amount, 0)}
-              <span className="text-[11px] font-normal text-[#9AA7B4] ml-1">元</span>
-            </div>
-            <div className="text-[11px] text-[#8A98A6] mt-0.5">{a.desc}</div>
-            <p className="text-[11px] text-[#8A98A6] leading-relaxed mt-2 pt-2 border-t border-[#EAEDF2]">
-              {a.evidence}
-            </p>
-          </div>
-        ))}
-      </div>
-    );
-  }
+/** 试运行 / 正式运行：顶部成绩条（只用真实指标） */
+function AiScoreStrip({ lifecycle, onConvert }: { lifecycle: Lifecycle; onConvert: () => void }) {
+  const g = AI_GAIN;
+  const isTrial = lifecycle === 'trial';
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-      {TY_FORMAL.attribution.map(a => (
-        <div key={a.key} className="bg-white rounded-xl border border-[#EAEDF2] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-5 h-5 rounded-md bg-[#1E9C7E] text-white text-[11px] font-bold flex items-center justify-center">
-              {a.no}
-            </span>
-            <span className="text-[12px] font-bold text-[#1A2A3A]">{a.title}</span>
+    <div
+      className={`rounded-xl px-5 py-4 border ${
+        isTrial
+          ? 'bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE] border-[#FFE0A3]'
+          : 'bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] border-[#B7E4D3]'
+      }`}
+    >
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div
+            className={`flex items-center gap-2 text-[11px] font-bold ${
+              isTrial ? 'text-[#B7791F]' : 'text-[#17705A]'
+            }`}
+          >
+            {isTrial ? <Clock size={12} /> : <ShieldCheck size={12} />}
+            {isTrial
+              ? `试运行已运行 ${TY_TRIAL_META.elapsedDays} / ${TY_TRIAL_META.totalDays} 天 · 对比基线：${TY_TRIAL_META.baselineName}`
+              : `AI 智能托管中 · 本月运行成绩（当月 ${g.days} 天）`}
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-lg font-black font-mono text-[#17705A]">{a.value}</span>
-            <span className="text-[11px] font-bold text-[#E5484D] font-mono">{a.trend}</span>
+
+          <div className="mt-2 flex flex-wrap items-end gap-x-7 gap-y-2">
+            <div>
+              <div className={`text-[10px] ${isTrial ? 'text-[#8A6D3B]' : 'text-[#2C7A6E]'}`}>
+                全月综合运行总收益
+              </div>
+              <div
+                className={`text-[22px] font-black font-mono leading-tight ${
+                  isTrial ? 'text-[#B7791F]' : 'text-[#17705A]'
+                }`}
+              >
+                {(g.totalRevenue / 10000).toFixed(2)}
+                <span className="text-[11px] font-normal ml-1">万元</span>
+              </div>
+            </div>
+            <div>
+              <div className={`text-[10px] ${isTrial ? 'text-[#8A6D3B]' : 'text-[#2C7A6E]'}`}>
+                AI 提升收益
+              </div>
+              <div className="text-[16px] font-black font-mono text-[#E5484D] leading-tight">
+                ¥{fmt(g.aiBoost, 0)}
+                <span className="text-[11px] font-normal text-[#8A6D3B] ml-1">
+                  +{fmt(g.aiBoostPct, 1)}%
+                </span>
+              </div>
+            </div>
+            <div>
+              <div className={`text-[10px] ${isTrial ? 'text-[#8A6D3B]' : 'text-[#2C7A6E]'}`}>
+                综合度电成本
+              </div>
+              <div className="text-[16px] font-black font-mono text-[#1A2A3A] leading-tight">
+                ¥{fmt(g.unitCost, 3)}
+                <span className="text-[11px] font-normal text-[#1E9C7E] ml-1">
+                  -¥{fmt(g.unitCostDelta, 3)}
+                </span>
+              </div>
+            </div>
+            <div>
+              <div className={`text-[10px] ${isTrial ? 'text-[#8A6D3B]' : 'text-[#2C7A6E]'}`}>
+                AI 运行时长
+              </div>
+              <div className="text-[16px] font-black font-mono text-[#1A2A3A] leading-tight">
+                {fmt(g.aiRuntimePct, 2)}
+                <span className="text-[11px] font-normal ml-1">%（{fmt(g.aiRuntimeHours, 2)}h）</span>
+              </div>
+            </div>
           </div>
-          <div className="text-[11px] text-[#8A98A6] mt-0.5">{a.desc}</div>
-          <p className="text-[11px] text-[#8A98A6] leading-relaxed mt-2 pt-2 border-t border-[#EAEDF2]">
-            {a.evidence}
-          </p>
         </div>
-      ))}
+
+        {isTrial && (
+          <div className="flex flex-col items-stretch gap-2 shrink-0">
+            <div className="rounded-lg bg-white/70 border border-[#FFE0A3] px-3 py-2 text-center">
+              <div className="text-[10px] text-[#8A6D3B]">试用期剩余</div>
+              <div className="text-[15px] font-black font-mono text-[#B7791F]">
+                {TY_TRIAL_META.remainingDays} 天
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onConvert}
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors"
+            >
+              <ArrowUpRight size={14} />
+              一键升级正式版
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-/** 对比曲线区：三种状态三条口径 */
-function CompareSection({ lifecycle }: { lifecycle: Lifecycle }) {
-  if (lifecycle === 'trial') {
-    return (
-      <ChartCard
-        title="策略调度对比曲线"
-        unit="元 / 日"
-        note="基线仿真与实际 AI 轨迹吃的是同一份负荷与光伏数据，两者收益之差可直接归因到策略差异本身，而非天气或生产计划变化。"
-        height={250}
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={TY_TRIAL.curves.days} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EFF2F5" />
-            <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#93A1B0' }} axisLine={{ stroke: '#EAEDF2' }} tickLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#93A1B0' }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Line type="monotone" dataKey="baseline" name={TY_TRIAL.curves.baselineName} stroke="#B6C1CC" strokeWidth={2} strokeDasharray="5 4" dot={false} />
-            <Line type="monotone" dataKey="ai" name={TY_TRIAL.curves.aiName} stroke={C.green} strokeWidth={2.5} dot={false} />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </ChartCard>
-    );
-  }
-
-  if (lifecycle === 'formal') {
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <ChartCard
-            title="长期累积收益趋势"
-            unit="元"
-            note="累积收益按月度实际结算口径统计，逐月与虚拟基线归因结果核对一致。"
-            height={250}
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={TY_FORMAL.cumulative} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="cumFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={C.green} stopOpacity={0.35} />
-                    <stop offset="100%" stopColor={C.green} stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EFF2F5" />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#93A1B0' }} axisLine={{ stroke: '#EAEDF2' }} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#93A1B0' }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Area type="monotone" dataKey="cum" name="累积收益" stroke={C.green} strokeWidth={2} fill="url(#cumFill)" />
-                <Line type="monotone" dataKey="saved" name="当月收益" stroke={C.amber} strokeWidth={2} dot={{ r: 3 }} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-
-        <div className="bg-white rounded-xl border border-[#EAEDF2] p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <GitBranch size={13} className="text-[#5A6B7C]" />
-            <span className="text-[13px] font-bold text-[#1A2A3A]">AI 算法模型迭代日志</span>
-          </div>
-          <div className="space-y-3">
-            {TY_FORMAL.modelLog.map((l, i) => (
-              <div key={l.version} className="flex gap-2.5">
-                <div className="flex flex-col items-center shrink-0">
-                  <span
-                    className={`w-2 h-2 rounded-full mt-1 ${i === 0 ? 'bg-[#1E9C7E]' : 'bg-[#D5DBE2]'}`}
-                  />
-                  {i !== TY_FORMAL.modelLog.length - 1 && <span className="w-px flex-1 bg-[#EAEDF2] my-1" />}
-                </div>
-                <div className="min-w-0 pb-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-bold text-[#1A2A3A] font-mono">{l.version}</span>
-                    <span className="text-[10px] text-[#9AA7B4]">{l.date}</span>
-                  </div>
-                  <p className="text-[11px] text-[#7F8C8D] leading-relaxed mt-0.5">{l.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // presale：与实际运行对照
+/** 核心三项指标卡（策略运行报告 LEVEL 1 精简） */
+function AiCoreCards() {
+  const g = AI_GAIN;
   return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="bg-white rounded-xl border border-[#EAEDF2] p-4">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] text-[#8A98A6]">全月综合运行总收益</span>
+          <span className="w-6 h-6 rounded-lg bg-[#E8F7F1] flex items-center justify-center">
+            <Coins size={13} className="text-[#1E9C7E]" />
+          </span>
+        </div>
+        <div className="mt-2 flex items-baseline gap-1">
+          <span className="text-[24px] font-black font-mono text-[#1A2A3A] leading-none">
+            {(g.totalRevenue / 10000).toFixed(2)}
+          </span>
+          <span className="text-[11px] text-[#8A98A6]">万元</span>
+        </div>
+        <div className="text-[11px] text-[#93A1B0] mt-1.5">
+          光伏 {(g.pv.revenue / 10000).toFixed(2)} 万 + 储能 {(g.ess.revenue / 10000).toFixed(2)} 万
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-[#EAEDF2] p-4">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] text-[#8A98A6]">AI 提升收益</span>
+          <span className="w-6 h-6 rounded-lg bg-[#FDECEC] flex items-center justify-center">
+            <TrendingUp size={13} className="text-[#E5484D]" />
+          </span>
+        </div>
+        <div className="mt-2 flex items-baseline gap-1.5">
+          <span className="text-[24px] font-black font-mono text-[#E5484D] leading-none">
+            ¥{fmt(g.aiBoost, 0)}
+          </span>
+          <span className="text-[11px] font-bold text-[#1E9C7E] bg-[#E6F4F0] px-1.5 py-0.5 rounded font-mono">
+            +{fmt(g.aiBoostPct, 1)}%
+          </span>
+        </div>
+        <div className="text-[11px] text-[#93A1B0] mt-1.5">较基准策略（同输入条件）</div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-[#EAEDF2] p-4">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] text-[#8A98A6]">综合度电成本</span>
+          <span className="w-6 h-6 rounded-lg bg-[#F1FBF7] flex items-center justify-center">
+            <Gauge size={13} className="text-[#17705A]" />
+          </span>
+        </div>
+        <div className="mt-2 flex items-baseline gap-1.5">
+          <span className="text-[24px] font-black font-mono text-[#1A2A3A] leading-none">
+            ¥{fmt(g.unitCost, 3)}
+          </span>
+          <span className="text-[11px] font-bold text-[#1E9C7E] bg-[#E6F4F0] px-1.5 py-0.5 rounded font-mono">
+            -¥{fmt(g.unitCostDelta, 3)}
+          </span>
+        </div>
+        <div className="text-[11px] text-[#93A1B0] mt-1.5">
+          基准 ¥{fmt(g.unitCostBase, 3)} /kWh，降幅 {fmt(g.unitCostPct, 1)}%
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 光伏 / 储能 双翼精简（各取 3 项最有说服力的指标） */
+function AiWings() {
+  const g = AI_GAIN;
+
+  const pvItems = [
+    { label: '光伏消纳率', value: `${fmt(g.pv.consumptionRate, 1)}%`, delta: `+${fmt(g.pv.consumptionDelta, 1)} pct`, base: `基准 ${fmt(g.pv.consumptionBase, 1)}%` },
+    { label: '光伏入储电量', value: `${g.pv.toStorage}`, unit: '万kWh', delta: `+${fmt(g.pv.toStorageDelta, 1)}%`, base: `基准 ${g.pv.toStorageBase}万kWh` },
+    { label: '限电止损', value: `¥${fmt(g.pv.curtailmentSaved, 0)}`, delta: `止损 ${fmt(g.pv.curtailmentEnergy, 1)} kWh`, base: `日均减亏 ¥${fmt(AI_CURTAILMENT.avgSavedDaily, 2)}` },
+  ];
+  const essItems = [
+    { label: '储能综合利用率', value: `${fmt(g.ess.utilRate, 1)}%`, delta: `+${fmt(g.ess.utilDelta, 1)}%`, base: `基准 ${fmt(g.ess.utilBase, 1)}%` },
+    { label: '储能充电成本', value: `¥${fmt(g.ess.chargeCost, 3)}`, delta: `${fmt(g.ess.chargeCostDelta, 1)}%`, base: `基准 ¥${fmt(g.ess.chargeCostBase, 3)}/kWh` },
+    { label: '储能放电价格', value: `¥${fmt(g.ess.dischargePrice, 3)}`, delta: `+${fmt(g.ess.dischargePriceDelta, 1)}%`, base: `基准 ¥${fmt(g.ess.dischargePriceBase, 3)}/kWh` },
+  ];
+
+  const Wing = ({
+    tone,
+    icon,
+    title,
+    revenue,
+    share,
+    narrative,
+    items,
+  }: {
+    tone: string;
+    icon: React.ReactNode;
+    title: string;
+    revenue: number;
+    share: number;
+    narrative: string;
+    items: { label: string; value: string; unit?: string; delta: string; base: string }[];
+  }) => (
     <div className="bg-white rounded-xl border border-[#EAEDF2] p-4">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-[13px] font-bold text-[#1A2A3A]">仿真收益逐项对照</h3>
-        <span className="text-[11px] text-[#93A1B0]">口径：实际运行 → AI 策略仿真</span>
+      <div className="flex items-start justify-between pb-3 border-b border-[#EAEDF2]">
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-5 rounded-full" style={{ background: tone }} />
+          <span className="text-[13px] font-bold text-[#1A2A3A] flex items-center gap-1.5">
+            {icon}
+            {title}
+          </span>
+          <span
+            className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+            style={{ background: `${tone}14`, color: tone }}
+          >
+            占比 {fmt(share, 1)}%
+          </span>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] text-[#93A1B0]">当月收益</div>
+          <div className="text-[15px] font-black font-mono" style={{ color: tone }}>
+            {(revenue / 10000).toFixed(2)}
+            <span className="text-[10px] font-normal text-[#8A98A6] ml-0.5">万元</span>
+          </div>
+        </div>
       </div>
-      <div className="overflow-hidden rounded-lg border border-[#EAEDF2]">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-[#FBFCFD]">
-              <th className="text-left px-3 py-2 text-[11px] font-bold text-[#8A98A6]">指标</th>
-              <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">实际运行</th>
-              <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">AI 策略仿真</th>
-              <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">绝对差</th>
-              <th className="text-left px-3 py-2 text-[11px] font-bold text-[#8A98A6]">说明</th>
-            </tr>
-          </thead>
-          <tbody>
-            {TY_SIM_ROWS.map(r => {
-              const diff = r.sim - r.real;
-              const isLast = r.item === '总收益';
-              return (
-                <tr key={r.item} className={`border-t border-[#EAEDF2] ${isLast ? 'bg-[#F4FBF8]' : ''}`}>
-                  <td className={`px-3 py-2 text-[12px] whitespace-nowrap ${isLast ? 'font-bold text-[#1A2A3A]' : 'text-[#2C3E50]'}`}>
-                    {r.item}
-                    <span className="text-[10px] text-[#9AA7B4] ml-1">{r.unit}</span>
-                  </td>
-                  <td className="px-3 py-2 text-right text-[12px] font-mono text-[#7F8C8D] whitespace-nowrap">{fmt(r.real, 0)}</td>
-                  <td className="px-3 py-2 text-right text-[12px] font-mono font-bold text-[#1A2A3A] whitespace-nowrap">{fmt(r.sim, 0)}</td>
-                  <td className={`px-3 py-2 text-right text-[12px] font-mono font-bold whitespace-nowrap ${diff > 0 ? 'text-[#E5484D]' : diff < 0 ? 'text-[#1E9C7E]' : 'text-[#9AA7B4]'}`}>
-                    {diff === 0 ? '—' : fmtSigned(diff, 0)}
-                  </td>
-                  <td className="px-3 py-2 text-[11px] text-[#7F8C8D]">{r.note}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+
+      <p className="text-[11px] text-[#7F8C8D] leading-relaxed mt-3">{narrative}</p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3">
+        {items.map(it => (
+          <div key={it.label} className="rounded-lg bg-[#FBFCFD] border border-[#EAEDF2] px-3 py-2.5">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[11px] font-bold text-[#5A6B7C] truncate">{it.label}</span>
+              <span
+                className="shrink-0 text-[10px] font-bold font-mono px-1.5 py-0.5 rounded"
+                style={{ background: `${tone}14`, color: tone }}
+              >
+                {it.delta}
+              </span>
+            </div>
+            <div className="mt-1.5 text-[15px] font-black font-mono text-[#1A2A3A]">
+              {it.value}
+              {it.unit && <span className="text-[10px] font-normal text-[#8A98A6] ml-0.5">{it.unit}</span>}
+            </div>
+            <div className="text-[10px] text-[#9AA7B4] mt-0.5">{it.base}</div>
+          </div>
+        ))}
       </div>
+    </div>
+  );
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <Wing
+        tone={C.amber}
+        icon={<Sun size={14} className="text-[#F59E0B]" />}
+        title="光伏收益"
+        revenue={g.pv.revenue}
+        share={g.pv.sharePct}
+        narrative={`AI 把光伏电量更多留在站内：消纳率 ${fmt(g.pv.consumptionRate, 1)}%，比基准高 ${fmt(g.pv.consumptionDelta, 1)} 个百分点；入储电量 ${g.pv.toStorage} 万kWh，同比基准增长 ${fmt(g.pv.toStorageDelta, 1)}%。`}
+        items={pvItems}
+      />
+      <Wing
+        tone={C.blue}
+        icon={<Zap size={14} className="text-[#2563EB]" />}
+        title="储能收益"
+        revenue={g.ess.revenue}
+        share={g.ess.sharePct}
+        narrative={`AI 把充放电挪到该去的时段：充电成本降到 ¥${fmt(g.ess.chargeCost, 3)}/kWh，放电价格提到 ¥${fmt(g.ess.dischargePrice, 3)}/kWh，充放价差从 ¥${fmt(g.ess.spreadBase, 3)} 扩到 ¥${fmt(g.ess.spread, 3)}。`}
+        items={essItems}
+      />
+    </div>
+  );
+}
+
+/** 日收益对比曲线（策略运行报告「本月运行策略收益统计」精简） */
+function AiDailyChart() {
+  return (
+    <ChartCard
+      title="全月日收益对比"
+      unit="元 / 日"
+      height={250}
+      note={`绿色为 AI 在基准策略之上多创造的收益，全月合计 ¥${fmt(AI_GAIN.aiBoost, 0)}；灰色为基准策略收益。当月 ${AI_GAIN.days} 天中 AI 运行 ${AI_GAIN.aiDays} 天。`}
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={AI_DAILY} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EFF2F5" />
+          <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#93A1B0' }} axisLine={{ stroke: '#EAEDF2' }} tickLine={false} interval={1} />
+          <YAxis tick={{ fontSize: 10, fill: '#93A1B0' }} axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={tooltipStyle} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Bar dataKey="base" name="基础策略收益" stackId="rev" fill="#CBD5E1" radius={[0, 0, 0, 0]} />
+          <Bar dataKey="boost" name="AI 提升收益" stackId="rev" fill={C.green} radius={[3, 3, 0, 0]} />
+          <Line type="monotone" dataKey="total" name="当日总收益" stroke="#1A2A3A" strokeWidth={1.5} dot={false} strokeDasharray="4 3" />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+
+/** 口径说明条 */
+function CaliberNote() {
+  return (
+    <div className="flex items-start gap-2 rounded-xl bg-white border border-[#EAEDF2] px-4 py-3">
+      <Info size={13} className="text-[#93A1B0] mt-0.5 shrink-0" />
+      <p className="text-[11px] text-[#7F8C8D] leading-relaxed">
+        <span className="font-bold text-[#5A6B7C]">口径说明：</span>
+        {AI_GAIN.caliberNote}
+      </p>
+    </div>
+  );
+}
+
+/** tab2 主体 */
+function AiStrategyTab({
+  lifecycle,
+  onActivate,
+  onConvert,
+  onOpenSimReport,
+}: BusinessReportPageProps) {
+  const locked = lifecycle === 'presale';
+
+  return (
+    <div className="space-y-4">
+      {/* 状态专属顶部模块 */}
+      {locked ? (
+        <AiHeroPresale onActivate={onActivate} onOpenSimReport={onOpenSimReport} />
+      ) : (
+        <AiScoreStrip lifecycle={lifecycle} onConvert={onConvert} />
+      )}
+
+      <div className="flex items-center gap-2">
+        <span className="w-1 h-3.5 rounded-full bg-[#1E9C7E]" />
+        <span className="text-[13px] font-bold text-[#1A2A3A]">AI 智能调度效益分析</span>
+        <span className="text-[11px] text-[#93A1B0]">策略运行报告 · 精简视图</span>
+      </div>
+
+      <div className="relative">
+        <div className={locked ? 'space-y-4 blur-[6px] opacity-70 pointer-events-none select-none' : 'space-y-4'}>
+          <AiCoreCards />
+          <AiWings />
+          <AiDailyChart />
+        </div>
+        {locked && <LockedOverlay onActivate={onActivate} onOpenSimReport={onOpenSimReport} />}
+      </div>
+
+      <CaliberNote />
     </div>
   );
 }
@@ -747,6 +868,7 @@ export default function BusinessReportPage({
   lifecycle,
   onOpenSimReport,
   onConvert,
+  onActivate,
 }: BusinessReportPageProps) {
   const [tab, setTab] = useState<'biz' | 'ai'>('biz');
   const [period, setPeriod] = useState('2026-09');
@@ -780,13 +902,25 @@ export default function BusinessReportPage({
           <StatusBadge lifecycle={lifecycle} />
         </div>
 
-        <button
-          type="button"
-          className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-bold rounded-md border border-[#EAEDF2] text-[#2C3E50] hover:bg-[#F7F9FB] transition-colors"
-        >
-          <Download className="w-4 h-4" />
-          导出报告
-        </button>
+        <div className="flex items-center gap-2">
+          {lifecycle === 'presale' && (
+            <button
+              type="button"
+              onClick={onActivate}
+              className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-bold rounded-md bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors shadow-xs"
+            >
+              <Rocket className="w-4 h-4" />
+              免费开通试用
+            </button>
+          )}
+          <button
+            type="button"
+            className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-bold rounded-md border border-[#EAEDF2] text-[#2C3E50] hover:bg-[#F7F9FB] transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            导出报告
+          </button>
+        </div>
       </div>
 
       {/* tab 栏 */}
@@ -797,23 +931,25 @@ export default function BusinessReportPage({
               key={t.key}
               type="button"
               onClick={() => setTab(t.key)}
-              className={`pb-2.5 text-sm font-medium transition-colors relative ${
+              className={`pb-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 ${
                 tab === t.key
                   ? 'text-[#1A2A3A] font-bold after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-[#1E9C7E]'
                   : 'text-[#7F8C8D] hover:text-[#1A2A3A]'
               }`}
             >
               {t.label}
-              {t.key === 'ai' && (
-                <span className="ml-1.5 px-1.5 py-0.5 rounded bg-[#E8F7F1] text-[#17705A] text-[10px] font-bold">
-                  AI
-                </span>
-              )}
+              {t.key === 'ai' &&
+                (lifecycle === 'presale' ? (
+                  <Lock size={11} className="text-[#93A1B0]" />
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded bg-[#E8F7F1] text-[#17705A] text-[10px] font-bold">
+                    AI
+                  </span>
+                ))}
             </button>
           ))}
         </div>
 
-        {/* tab 内容 */}
         <div className="p-5">
           {tab === 'biz' ? (
             <div className="space-y-4">
@@ -830,52 +966,12 @@ export default function BusinessReportPage({
               <IndicatorAnalysis />
             </div>
           ) : (
-            <div className="space-y-4">
-              <TopModule lifecycle={lifecycle} onOpenSimReport={onOpenSimReport} onConvert={onConvert} />
-
-              <div className="flex items-center gap-2">
-                <span className="w-1 h-3.5 rounded-full bg-[#1E9C7E]" />
-                <span className="text-[13px] font-bold text-[#1A2A3A]">
-                  AI 智能调度效益分析
-                </span>
-                <span className="text-[11px] text-[#93A1B0]">
-                  {lifecycle === 'presale'
-                    ? '仿真预评估 · 与实际运行同输入对比'
-                    : lifecycle === 'trial'
-                      ? '反向仿真 · 实测 AI vs 后台基线'
-                      : '虚拟基线归因 · 实测 AI vs 基线'}
-                </span>
-              </div>
-
-              <CompareSection lifecycle={lifecycle} />
-              <Attribution lifecycle={lifecycle} />
-
-              {/* 状态说明 */}
-              <div className="flex items-start gap-2 rounded-xl bg-white border border-[#EAEDF2] px-4 py-3">
-                <Info size={13} className="text-[#93A1B0] mt-0.5 shrink-0" />
-                <p className="text-[11px] text-[#7F8C8D] leading-relaxed">
-                  {lifecycle === 'presale' ? (
-                    <>
-                      <span className="font-bold text-[#5A6B7C]">未开通状态：</span>
-                      本 tab 展示的是基于历史负荷与光伏数据回算的仿真结果，用于评估 AI 策略的降本空间；
-                      开通试运行后，此处将替换为实测数据口径。
-                    </>
-                  ) : lifecycle === 'trial' ? (
-                    <>
-                      <span className="font-bold text-[#5A6B7C]">试运行状态：</span>
-                      本 tab 与策略运行报告共用同一套模板，仅顶部模块替换为【试用期累计省钱】、
-                      末尾附【一键升级正式版】入口，报告主体结构与正式版一致。
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-bold text-[#5A6B7C]">正式运行状态：</span>
-                      本 tab 与策略运行报告共用同一套模板；相比试用期，顶部模块替换为
-                      【长期累积收益趋势】与【AI 算法模型迭代日志】，并移除试用促转化入口。
-                    </>
-                  )}
-                </p>
-              </div>
-            </div>
+            <AiStrategyTab
+              lifecycle={lifecycle}
+              onOpenSimReport={onOpenSimReport}
+              onConvert={onConvert}
+              onActivate={onActivate}
+            />
           )}
         </div>
       </div>

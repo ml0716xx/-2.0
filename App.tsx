@@ -181,6 +181,7 @@ const App: React.FC = () => {
           lifecycle={lifecycle}
           onOpenSimReport={() => setIsSimReportOpen(true)}
           onConvert={handleConvertToFormal}
+          onActivate={handleActivateTrial}
         />
       );
     }
