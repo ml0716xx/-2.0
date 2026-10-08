@@ -32,6 +32,8 @@ import {
   ChevronUp,
   ExternalLink,
   Maximize2,
+  Info,
+  Rocket,
 } from "lucide-react";
 
 import {
@@ -58,6 +60,8 @@ import {
 import StrategyConfigModal from "./StrategyConfigModal";
 import StrategyRunConfigPage from "./StrategyRunConfigPage";
 import { MonthlyStrategyDayConfig } from "./StrategySimulationConfigPage";
+import { type Lifecycle } from "./BusinessReportPage";
+import { TY_TRIAL, TY_FORMAL, fmt as fmtNum } from "./tianyingReportData";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
@@ -134,7 +138,26 @@ const CustomXAxisTick = (props: any) => {
   );
 };
 
-const StrategyReportPage: React.FC = () => {
+export interface StrategyReportPageProps {
+  /** 客户生命周期：未开通 / 试运行 / 正式运行 */
+  lifecycle: Lifecycle;
+  /** 未开通 → 试运行 */
+  onActivate: () => void;
+  /** 试运行 → 正式运行 */
+  onConvert: () => void;
+  /** 演示用：直接切换生命周期 */
+  onSwitchLifecycle: (l: Lifecycle) => void;
+  /** 打开《天盈 AI 仿真报告》弹窗 */
+  onOpenSimReport: () => void;
+}
+
+const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
+  lifecycle,
+  onActivate,
+  onConvert,
+  onSwitchLifecycle,
+  onOpenSimReport,
+}) => {
   const [selectedMonth, setSelectedMonth] = useState("2026-07");
   const [selectedDay, setSelectedDay] = useState<string | null>("15日");
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -822,6 +845,26 @@ const StrategyReportPage: React.FC = () => {
             策略运行报告
           </h1>
 
+          {/* 生命周期状态角标：三种状态唯一视觉锚点 */}
+          {lifecycle === 'presale' && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F4F6F9] border border-[#E3E8EE] text-[11px] font-bold text-[#5A6B7C]">
+              <Info className="w-3 h-3" />
+              未开通 · 仅展示仿真预评估
+            </span>
+          )}
+          {lifecycle === 'trial' && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FFF7E6] border border-[#FFE0A3] text-[11px] font-bold text-[#B7791F]">
+              <Clock className="w-3 h-3" />
+              试运行中 · 剩余 {TY_TRIAL.remainingDays} 天
+            </span>
+          )}
+          {lifecycle === 'formal' && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#E8F7F1] border border-[#B7E4D3] text-[11px] font-bold text-[#17705A]">
+              <ShieldCheck className="w-3 h-3" />
+              正式版 · AI 智能托管中
+            </span>
+          )}
+
           <div className="flex items-center gap-2 border border-[#EAEDF2] bg-white rounded-md px-3 py-1.5 shadow-xs">
             <Calendar className="w-4 h-4 text-[#7F8C8D]" />
             <input
@@ -842,6 +885,32 @@ const StrategyReportPage: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2.5">
+          {/* 运行模式切换（演示用）：正式运行 / 试运行共用同一套报告模板 */}
+          {lifecycle !== 'presale' && (
+            <div className="flex items-center gap-1 bg-[#F4F6F9] p-1 rounded-lg border border-[#EAEDF2]">
+              <button
+                onClick={() => onSwitchLifecycle('trial')}
+                className={`px-3 py-1 rounded-md text-[12px] font-bold transition-all ${
+                  lifecycle === 'trial'
+                    ? 'bg-white text-[#B7791F] shadow-xs border border-[#FFE0A3]'
+                    : 'text-[#7F8C8D] hover:text-[#2C3E50]'
+                }`}
+              >
+                试运行
+              </button>
+              <button
+                onClick={() => onSwitchLifecycle('formal')}
+                className={`px-3 py-1 rounded-md text-[12px] font-bold transition-all ${
+                  lifecycle === 'formal'
+                    ? 'bg-white text-[#17705A] shadow-xs border border-[#B7E4D3]'
+                    : 'text-[#7F8C8D] hover:text-[#2C3E50]'
+                }`}
+              >
+                正式运行
+              </button>
+            </div>
+          )}
+
           <button 
             onClick={() => setIsConfigSubpageOpen(true)}
             disabled={isAnalyzing}
@@ -865,6 +934,91 @@ const StrategyReportPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* 生命周期专属模块：三种状态唯一的内容差异区（报告主体保持 90% 不变） */}
+      {lifecycle === 'presale' && (
+        <div className="rounded-xl border border-[#E3E8EE] bg-white px-5 py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+          <div className="flex items-start gap-3">
+            <Sparkles className="w-4 h-4 text-[#1E9C7E] mt-0.5 shrink-0" />
+            <div>
+              <div className="text-[13px] font-bold text-[#1A2A3A]">尚未开通 AI 智能调度</div>
+              <p className="text-[11px] text-[#7F8C8D] mt-0.5 leading-relaxed">
+                当前下方内容为策略仿真的预评估结果。开通试运行后，本报告将自动切换为「实测 AI 轨迹 vs 后台基线仿真」的双轨迹口径。
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={onOpenSimReport}
+              className="px-3.5 py-2 rounded-md text-[12px] font-bold text-[#2C3E50] border border-[#EAEDF2] hover:bg-[#F7F9FB] transition-colors"
+            >
+              查看仿真报告
+            </button>
+            <button
+              onClick={onActivate}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-md text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors"
+            >
+              <Rocket className="w-3.5 h-3.5" />
+              一键开通 30 天试用
+            </button>
+          </div>
+        </div>
+      )}
+
+      {lifecycle === 'trial' && (
+        <div className="rounded-xl border border-[#FFE0A3] bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE] px-5 py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+          <div>
+            <div className="flex items-center gap-2 text-[11px] font-bold text-[#B7791F]">
+              <Clock className="w-3 h-3" />
+              试用期已运行 {TY_TRIAL.elapsedDays} / {TY_TRIAL.totalDays} 天 · 对比基线：{TY_TRIAL.baselineName}
+            </div>
+            <div className="mt-1.5 flex items-baseline gap-2 flex-wrap">
+              <span className="text-[22px] font-black font-mono text-[#B7791F] leading-none">
+                {fmtNum(TY_TRIAL.savedTotal, 0)}
+              </span>
+              <span className="text-[12px] text-[#8A6D3B]">元 · 试用期累计省钱</span>
+              <span className="px-2 py-0.5 rounded-md bg-[#B7791F]/12 text-[#B7791F] text-[11px] font-bold font-mono">
+                较传统基线 +{fmtNum(TY_TRIAL.liftPct, 1)}%
+              </span>
+            </div>
+            <div className="text-[11px] text-[#8A6D3B] mt-1">
+              预估年化可节省 {fmtNum(TY_TRIAL.annualized, 0)} 元 · 试用期内可随时退出
+            </div>
+          </div>
+          <button
+            onClick={onConvert}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-md text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors shrink-0"
+          >
+            <ArrowUpRight className="w-3.5 h-3.5" />
+            一键升级正式版
+          </button>
+        </div>
+      )}
+
+      {lifecycle === 'formal' && (
+        <div className="rounded-xl border border-[#B7E4D3] bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] px-5 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div>
+              <div className="text-[11px] font-bold text-[#17705A]">长期累积收益（{TY_FORMAL.runningMonths} 个月）</div>
+              <div className="text-[18px] font-black font-mono text-[#17705A] leading-tight">
+                {fmtNum(TY_FORMAL.cumSaved, 0)}
+                <span className="text-[11px] font-normal text-[#2C7A6E] ml-1">元</span>
+              </div>
+            </div>
+            <div className="h-8 w-px bg-[#B7E4D3]" />
+            <div>
+              <div className="text-[11px] font-bold text-[#17705A]">最近算法迭代</div>
+              <div className="text-[12px] font-bold text-[#2C7A6E] mt-0.5">
+                {TY_FORMAL.modelLog[0].version}
+                <span className="text-[10px] font-normal text-[#5A9E8B] ml-1.5">{TY_FORMAL.modelLog[0].date}</span>
+              </div>
+            </div>
+          </div>
+          <div className="text-[11px] text-[#2C7A6E] leading-relaxed max-w-[420px]">
+            {TY_FORMAL.modelLog[0].desc}
+          </div>
+        </div>
+      )}
 
       {/* CORE STATS & ASSOCIATIVE VALUE DRIVERS DASHBOARD */}
       {(() => {

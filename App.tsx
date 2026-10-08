@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Database, ChevronRight, ChevronLeft } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Database, ChevronRight, ChevronLeft, Sparkles, CheckCircle2 } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import EnergyFlowDiagram from './components/EnergyFlowDiagram';
 import StatsCard from './components/StatsCard';
@@ -23,9 +23,20 @@ import AlgorithmPredictionPage2 from './components/AlgorithmPredictionPage2';
 import StrategyReportPage from './components/StrategyReportPage';
 import AlgorithmMonitoringPage from './components/AlgorithmMonitoringPage';
 import ElectricityReportPage from './components/ElectricityReportPage';
-import RevenueReportPage from './components/RevenueReportPage';
-import TopologyManagementPage from './components/TopologyManagementPage';
+import RevenueReportPage from './components/RevenueReportPage';import TopologyManagementPage from './components/TopologyManagementPage';
+import BusinessReportPage, { type Lifecycle } from './components/BusinessReportPage';
+import TianyingSimReportModal from './components/TianyingSimReportModal';
 import { EnergyStat, RevenueStat, AlarmItem, StrategyGroup } from './types';
+
+/** 「本月不再提示」的本地存储键；值存当前月份 key（YYYY-MM） */
+const SIM_DISMISS_KEY = 'ty_sim_report_dismiss_month';
+
+/**
+ * 本次会话是否已自动弹过仿真报告。
+ * 模块级变量 + 在定时器触发时才置位：StrictMode 下 effect 会「执行→清理→再执行」，
+ * 若在 effect 开头就置位，第二次执行会直接 return，而清理阶段已清掉定时器，弹窗将永不出现。
+ */
+let simAutoShown = false;
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'today' | 'yesterday' | 'total'>('today');
@@ -33,6 +44,46 @@ const App: React.FC = () => {
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
   const [overviewDiagramType, setOverviewDiagramType] = useState<'flow' | 'wiring'>('wiring');
+
+  /** 客户生命周期：未开通（售前） → 试运行 → 正式运行 */
+  const [lifecycle, setLifecycle] = useState<Lifecycle>('presale');
+  /** 《天盈 AI 仿真报告》弹窗 */
+  const [isSimReportOpen, setIsSimReportOpen] = useState(false);
+  /** 状态流转提示 */
+  const [lifecycleToast, setLifecycleToast] = useState<string | null>(null);
+
+  const currentMonthKey = new Date().toISOString().slice(0, 7);
+
+  /* 售前阶段：进入系统后自动弹出仿真报告；勾选「本月不再提示」后当月不再弹 */
+  useEffect(() => {
+    if (simAutoShown) return;
+    if (lifecycle !== 'presale') return;
+    if (localStorage.getItem(SIM_DISMISS_KEY) === currentMonthKey) return;
+    const timer = window.setTimeout(() => {
+      simAutoShown = true;
+      setIsSimReportOpen(true);
+    }, 900);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const showToast = (msg: string) => {
+    setLifecycleToast(msg);
+    window.setTimeout(() => setLifecycleToast(null), 4200);
+  };
+
+  /** 开通试运行（弹窗 CTA） */
+  const handleActivateTrial = () => {
+    setLifecycle('trial');
+    setIsSimReportOpen(false);
+    showToast('AI 智能调度试用已开通：30 天试用期已开始，策略运行报告与经营分析报告已切换为试运行口径。');
+  };
+
+  /** 试运行 → 正式运行 */
+  const handleConvertToFormal = () => {
+    setLifecycle('formal');
+    showToast('已升级为正式版：AI 智能调度进入常态化托管，试用期专项模块已替换为长期累积收益与模型迭代日志。');
+  };
 
   // Mock data with yesterday values
   const [energyStats] = useState<EnergyStat[]>([
@@ -114,7 +165,24 @@ const App: React.FC = () => {
       return <AlarmManagementPage />;
     }
     if (currentPage === '策略运行报告') {
-      return <StrategyReportPage />;
+      return (
+        <StrategyReportPage
+          lifecycle={lifecycle}
+          onActivate={handleActivateTrial}
+          onConvert={handleConvertToFormal}
+          onSwitchLifecycle={setLifecycle}
+          onOpenSimReport={() => setIsSimReportOpen(true)}
+        />
+      );
+    }
+    if (currentPage === '经营分析报告') {
+      return (
+        <BusinessReportPage
+          lifecycle={lifecycle}
+          onOpenSimReport={() => setIsSimReportOpen(true)}
+          onConvert={handleConvertToFormal}
+        />
+      );
     }
     if (currentPage === '电量报表' || currentPage === '统计报表') {
       return <ElectricityReportPage />;
@@ -231,12 +299,27 @@ const App: React.FC = () => {
                   </button>
                 </div>
 
-                <button 
-                  onClick={() => setCurrentPage('策略监控')}
-                  className="bg-emerald-50 hover:bg-emerald-100/80 px-4 py-1.5 rounded-xl text-xs font-bold text-emerald-700 transition-all border border-emerald-200/80 flex items-center gap-1 cursor-pointer"
-                >
-                  点击查看策略监控 &rarr;
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setIsSimReportOpen(true)}
+                    className="relative bg-white hover:bg-slate-50 px-4 py-1.5 rounded-xl text-xs font-bold text-slate-700 transition-all border border-slate-200 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#1E9C7E]" />
+                    天盈 AI 仿真报告
+                    {lifecycle === 'presale' && (
+                      <span className="ml-0.5 px-1.5 py-0.5 rounded-md bg-[#E8F7F1] text-[#17705A] text-[10px] font-bold">
+                        NEW
+                      </span>
+                    )}
+                  </button>
+
+                  <button 
+                    onClick={() => setCurrentPage('策略监控')}
+                    className="bg-emerald-50 hover:bg-emerald-100/80 px-4 py-1.5 rounded-xl text-xs font-bold text-emerald-700 transition-all border border-emerald-200/80 flex items-center gap-1 cursor-pointer"
+                  >
+                    点击查看策略监控 &rarr;
+                  </button>
+                </div>
               </div>
 
               <div className="h-full flex-1 min-h-0">
@@ -307,6 +390,22 @@ const App: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* 《天盈 AI 仿真报告》弹窗（售前触达） */}
+      <TianyingSimReportModal
+        isOpen={isSimReportOpen}
+        onClose={() => setIsSimReportOpen(false)}
+        onActivate={handleActivateTrial}
+        onDismissThisMonth={() => localStorage.setItem(SIM_DISMISS_KEY, currentMonthKey)}
+      />
+
+      {/* 生命周期流转提示 */}
+      {lifecycleToast && (
+        <div className="fixed bottom-6 right-6 z-[70] max-w-[420px] bg-[#1A2A3A]/95 text-white px-5 py-3.5 rounded-xl shadow-2xl flex items-start gap-3 border border-[#2C3E50] backdrop-blur-xs">
+          <CheckCircle2 className="w-4 h-4 text-[#7BE0C0] mt-0.5 shrink-0" />
+          <span className="text-xs font-bold leading-relaxed">{lifecycleToast}</span>
+        </div>
+      )}
     </div>
   );
 };

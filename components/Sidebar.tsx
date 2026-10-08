@@ -16,7 +16,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
     '监控中心': true,
     '策略管理': true,
     '统计报表': true,
-    '微网管理': true
+    '微网管理': true,
+    '智能报告': true
   });
 
   const toggleMenu = (menuName: string) => {
@@ -45,7 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
       name: '智能报告', 
       icon: <FileText className="w-5 h-5" />,
       hasSub: true,
-      subItems: ['策略运行报告']
+      subItems: ['策略运行报告', '经营分析报告']
     },
     { name: '报警管理', icon: <Bell className="w-5 h-5" /> },
     { 
