@@ -43,7 +43,8 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState('监控概览');
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
-  const [overviewDiagramType, setOverviewDiagramType] = useState<'flow' | 'wiring'>('wiring');
+  /** 监控概览默认展示能流图（原 3D 光储能流图） */
+  const [overviewDiagramType, setOverviewDiagramType] = useState<'flow' | 'wiring'>('flow');
 
   /** 客户生命周期：未开通（售前） → 试运行 → 正式运行 */
   const [lifecycle, setLifecycle] = useState<Lifecycle>('presale');
@@ -286,7 +287,7 @@ const App: React.FC = () => {
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    3D光储能流图
+                    能流图
                   </button>
                   <button
                     onClick={() => setOverviewDiagramType('wiring')}
