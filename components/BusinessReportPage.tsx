@@ -70,6 +70,8 @@ import {
   fmt,
 } from './tianyingReportData';
 import TianyingSimReportBody from './TianyingSimReportBody';
+import CurtailmentValueAdd from './CurtailmentValueAdd';
+import { curtailmentTotalSaved } from './curtailmentData';
 
 /** 生命周期：未开通 / 试运行 / 正式运行 */
 export type Lifecycle = 'presale' | 'trial' | 'formal';
@@ -774,6 +776,9 @@ function AiStrategyTab({
   onConvert,
   onOpenSimReport,
 }: BusinessReportPageProps) {
+  /** 子视图：主视图（AI 效益分析）/ 增值特性（限电止损专项） */
+  const [aiSubTab, setAiSubTab] = useState<'main' | 'valueadd'>('main');
+
   /* 未开通（售前）：把《天盈 AI 仿真报告》正文铺开展示，末尾引导开通试用。
      注意这里不做遮罩 —— 遮罩会让客户看不到价值，反而降低开通意愿。 */
   if (lifecycle === 'presale') {
@@ -798,20 +803,63 @@ function AiStrategyTab({
 
   return (
     <div className="space-y-4">
-      {/* 试运行 / 正式运行：指标已解锁，展示真实运行成绩 */}
+      {/* 试运行 / 正式运行：主视图与增值特性两个子视图，与策略运行报告同构 */}
       <AiScoreStrip lifecycle={lifecycle} onConvert={onConvert} />
 
-      <div className="flex items-center gap-2">
-        <span className="w-1 h-3.5 rounded-full bg-[#1E9C7E]" />
-        <span className="text-[13px] font-bold text-[#1A2A3A]">AI 智能调度效益分析</span>
-        <span className="text-[11px] text-[#93A1B0]">策略运行报告 · 精简视图</span>
+      {/* 子 tab 栏：增值特性带金色角标与本月收益，与策略运行报告一致 */}
+      <div className="border-b border-[#EAEDF2] flex items-center gap-8">
+        <button
+          type="button"
+          onClick={() => setAiSubTab('main')}
+          className={`pb-2.5 text-sm font-medium transition-colors relative ${
+            aiSubTab === 'main'
+              ? 'text-[#1A2A3A] font-bold after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-[#1E9C7E]'
+              : 'text-[#7F8C8D] hover:text-[#1A2A3A]'
+          }`}
+        >
+          AI 效益分析
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setAiSubTab('valueadd')}
+          className={`pb-2.5 text-sm font-medium transition-colors relative flex items-center gap-2 ${
+            aiSubTab === 'valueadd'
+              ? 'text-[#B45309] font-bold after:content-[""] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-[#D97706]'
+              : 'text-[#7F8C8D] hover:text-[#1A2A3A]'
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-[#D97706]" />
+            增值特性
+          </span>
+          <span className="px-1.5 py-0.5 rounded bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#B45309] text-[10px] font-bold border border-[#FDE68A]">
+            增值
+          </span>
+          <span className="px-2 py-0.5 rounded-full bg-[#FFF7ED] text-[#C2410C] text-[11px] font-bold font-mono border border-[#FED7AA]">
+            本月 +¥{curtailmentTotalSaved.toLocaleString()}
+          </span>
+        </button>
       </div>
 
-      <AiCoreCards />
-      <AiWings />
-      <AiDailyChart />
+      {aiSubTab === 'main' ? (
+        <>
+          <div className="flex items-center gap-2">
+            <span className="w-1 h-3.5 rounded-full bg-[#1E9C7E]" />
+            <span className="text-[13px] font-bold text-[#1A2A3A]">AI 智能调度效益分析</span>
+            <span className="text-[11px] text-[#93A1B0]">策略运行报告 · 精简视图</span>
+          </div>
 
-      <CaliberNote />
+          <AiCoreCards />
+          <AiWings />
+          <AiDailyChart />
+
+          <CaliberNote />
+        </>
+      ) : (
+        /* 增值特性：与「策略运行报告 · 增值特性」同一个组件，展示效果完全一致 */
+        <CurtailmentValueAdd />
+      )}
     </div>
   );
 }
