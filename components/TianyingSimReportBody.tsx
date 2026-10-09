@@ -74,8 +74,18 @@ const SIM_GROUPS = ['电量类', '收益类'] as const;
  * 典型日逐 15min 充放电曲线。
  * 展示口径与 ml0716xx/--1「运营数据 · 典型日分析」一致：
  * 双 Y 轴（储能功率 / SOC）+ 实际与仿真各两条线 + 图下 24h 电价档位色带。
+ * 关键收益增量直接挂在图表头右侧 —— 看曲线时不必再往下滑找数字。
  */
-function CaseDayCurveChart({ points, date }: { points: CaseDayPoint[]; date: string }) {
+function CaseDayCurveChart({
+  points,
+  date,
+  metrics,
+}: {
+  points: CaseDayPoint[];
+  date: string;
+  /** 图表头右侧关键指标：标签 + 仿真相对实际的差值 */
+  metrics: { label: string; diff: number }[];
+}) {
   const T = TY_CURVE_TEXT;
   const pw = (v: number) => (v === 0 ? '0.0' : (v > 0 ? '+' : '') + v.toFixed(1));
   const pwTag = (v: number) => (v > 0 ? T.pwState.charge : v < 0 ? T.pwState.discharge : T.pwState.idle);
@@ -89,13 +99,28 @@ function CaseDayCurveChart({ points, date }: { points: CaseDayPoint[]; date: str
 
   return (
     <div className="rounded-xl border border-[#EAEDF2] overflow-hidden">
-      {/* 图表标题 */}
-      <div className="px-5 py-3 border-b border-[#EAEDF2] bg-[#FBFCFD] flex items-start justify-between flex-wrap gap-2">
+      {/* 图表标题：右侧常驻关键收益增量，曲线与数字同屏可见 */}
+      <div className="px-5 py-3 border-b border-[#EAEDF2] bg-[#FBFCFD] flex items-start justify-between flex-wrap gap-3">
         <div>
           <h4 className="text-[13px] font-bold text-[#1A2A3A]">
             {T.chartTitle} · {date}
           </h4>
           <p className="text-[11px] text-[#93A1B0] mt-0.5">{T.rule}</p>
+        </div>
+        <div className="flex items-center gap-4 shrink-0">
+          {metrics.map((m, i) => (
+            <div key={m.label} className={i > 0 ? 'pl-4 border-l border-[#EAEDF2]' : undefined}>
+              <div className="text-[10px] text-[#8A98A6]">{m.label}</div>
+              <div
+                className={`text-base leading-tight font-black font-mono mt-0.5 ${
+                  m.diff > 0 ? 'text-[#E5484D]' : 'text-[#1E9C7E]'
+                }`}
+              >
+                {fmtSigned(m.diff, 0)}
+                <span className="text-[10px] font-normal text-[#9AA7B4] ml-0.5">元</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -554,38 +579,14 @@ export default function TianyingSimReportBody({
 
         {/* 逐 15min 充放电曲线：展示口径与 ml0716xx/--1 的典型日分析一致 */}
         <div className="mb-3">
-          <CaseDayCurveChart points={TY_CASE_CURVES[caseDay.date] ?? []} date={caseDay.date} />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
-          <div className="rounded-xl border border-[#EAEDF2] px-4 py-3">
-            <div className="text-[11px] text-[#8A98A6]">当日储能收益差</div>
-            <div
-              className={`text-lg font-black font-mono mt-0.5 ${
-                caseDay.storageDiff > 0 ? 'text-[#E5484D]' : 'text-[#1E9C7E]'
-              }`}
-            >
-              {fmtSigned(caseDay.storageDiff, 0)}
-              <span className="text-[11px] font-normal text-[#9AA7B4] ml-1">元</span>
-            </div>
-          </div>
-          <div className="rounded-xl border border-[#EAEDF2] px-4 py-3">
-            <div className="text-[11px] text-[#8A98A6]">当日总收益差</div>
-            <div
-              className={`text-lg font-black font-mono mt-0.5 ${
-                caseDay.totalDiff > 0 ? 'text-[#E5484D]' : 'text-[#1E9C7E]'
-              }`}
-            >
-              {fmtSigned(caseDay.totalDiff, 0)}
-              <span className="text-[11px] font-normal text-[#9AA7B4] ml-1">元</span>
-            </div>
-          </div>
-          <div className="rounded-xl border border-[#EAEDF2] px-4 py-3">
-            <div className="text-[11px] text-[#8A98A6]">案例日口径</div>
-            <div className="text-[12px] font-bold text-[#1A2A3A] mt-1">
-              按储能收益差排序取当月前 3 个典型日
-            </div>
-          </div>
+          <CaseDayCurveChart
+            points={TY_CASE_CURVES[caseDay.date] ?? []}
+            date={caseDay.date}
+            metrics={[
+              { label: '当日储能收益差', diff: caseDay.storageDiff },
+              { label: '当日总收益差', diff: caseDay.totalDiff },
+            ]}
+          />
         </div>
 
         <div className="overflow-hidden rounded-lg border border-[#EAEDF2] mb-3">
