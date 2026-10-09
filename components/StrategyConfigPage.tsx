@@ -766,11 +766,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                     <button onClick={onActivate} className="flex items-center gap-2 px-6 py-2.5 bg-[#1E9C7E] hover:bg-[#17705A] text-white rounded-2xl font-black text-sm transition-all shadow-xl shadow-emerald-100">
                       <Rocket className="w-4 h-4" /> 一键开通 30 天试用
                     </button>
-                  ) : (
-                    <span className="text-[11px] font-bold text-slate-400">
-                      AI 策略由天盈 AI 托管，不支持编辑与复制
-                    </span>
-                  )
+                  ) : null
                 ) : (
                   <>
                     <button onClick={handleEdit} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-2xl font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100 group">
@@ -858,14 +854,6 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
             {/* 试用态：内容上方保留试用期提示与升级入口（正式态不展示） */}
             {isAiTemplate && hasBlocks && lifecycle === 'trial' && (
               <AiActivationGuide lifecycle={lifecycle} onActivate={onActivate} onConvert={onConvert} />
-            )}
-
-            {/* 内容口径：当前展示所选模拟日期的调度参数 */}
-            {isAiTemplate && hasBlocks && !aiLocked && (
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 -mb-4">
-                <Calendar className="w-3.5 h-3.5" />
-                以下为 {simDate} 的模拟调度参数
-              </div>
             )}
 
             {/* 试用 / 正式态渲染调度参数（未开通态不可见） */}
@@ -965,7 +953,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
                           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                            储能放电预留容量 (Discharge Margin)
+                            储能放电预留容量
                             {isEditing && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>}
                           </div>
                           {isEditing ? <div className="flex items-center gap-2"><input type="number" value={block.reserveDischarge} onChange={(e) => updateBlockValue(block.id, 'reserveDischarge', e.target.value)} className="w-24 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-black focus:ring-2 ring-emerald-100 outline-none" /><span className="text-xs text-slate-400 font-bold">%</span></div> : <div className="text-sm font-black text-emerald-600">{block.reserveDischarge}%</div>}
@@ -973,7 +961,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                         <div className="space-y-1 text-right">
                           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 justify-end">
                             {isEditing && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>}
-                            储能充电预留容量 (Charge Margin)
+                            储能充电预留容量
                           </div>
                           {isEditing ? <div className="flex items-center gap-2 justify-end"><input type="number" value={block.reserveCharge} onChange={(e) => updateBlockValue(block.id, 'reserveCharge', e.target.value)} className="w-24 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-black focus:ring-2 ring-emerald-100 outline-none" /><span className="text-xs text-slate-400 font-bold">%</span></div> : <div className="text-sm font-black text-amber-600">{block.reserveCharge}%</div>}
                         </div>
@@ -995,7 +983,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                               </div>
                             )}
                           </div>
-                          <div className="flex-1 h-full bg-white flex items-center justify-center text-[9px] text-slate-400 font-black tracking-widest uppercase italic opacity-50">{(90 - parseInt(block.reserveDischarge) - parseInt(block.reserveCharge))}% Operating Zone</div>
+                          <div className="flex-1 h-full bg-white flex items-center justify-center text-[9px] text-slate-400 font-black tracking-widest uppercase italic opacity-50">{(90 - parseInt(block.reserveDischarge) - parseInt(block.reserveCharge))}% 运行区间</div>
                           <div 
                             className={`h-full bg-amber-400/90 flex items-center justify-center text-[10px] text-white font-black transition-all duration-300 border-l border-white/50 group relative ${isEditing ? 'cursor-col-resize' : ''}`} 
                             style={{ width: `${block.reserveCharge}%` }}
@@ -1124,7 +1112,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
 
                                       <foreignObject x="50" y="86" width="530" height="40">
                                         <div xmlns="http://www.w3.org/1999/xhtml" className="flex flex-col">
-                                          <span className="text-[13px] font-black text-amber-600">【黄色警戒】超容阈值 (P<sub className="text-[9px]">cap</sub> &lt; S<sub className="text-[9px]">trafo</sub>)</span>
+                                          <span className="text-[13px] font-black text-amber-600">【黄色警戒】超容阈值</span>
                                           <span className="text-[11px] text-slate-500 mt-0.5">调控触发点。一旦功率达到这里，储能系统立即开始“干活”（削峰）。</span>
                                         </div>
                                       </foreignObject>
@@ -1145,7 +1133,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
 
                                       <foreignObject x="50" y="326" width="530" height="40">
                                         <div xmlns="http://www.w3.org/1999/xhtml" className="flex flex-col">
-                                          <span className="text-[13px] font-black text-amber-600">【黄色警戒】逆流阈值 (P<sub className="text-[9px]">rev</sub> &gt; 0)</span>
+                                          <span className="text-[13px] font-black text-amber-600">【黄色警戒】逆流阈值</span>
                                           <span className="text-[11px] text-slate-500 mt-0.5">调控触发点。一旦功率跌到这里，系统立即开始“干活”（限制放电或反向充电）。</span>
                                         </div>
                                       </foreignObject>
@@ -1200,7 +1188,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                               <div onClick={() => updateBlockValue(block.id, 'subPeriods', [...block.subPeriods, { start: '00:00', end: '01:00', type: '充电', power: 0 }])} className="p-2 bg-emerald-50 rounded-xl cursor-pointer hover:bg-emerald-100">
                                 <Plus className="w-4 h-4 text-emerald-600" />
                               </div>
-                              <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">Add Scheduling Period</span>
+                              <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">新增调度时段</span>
                             </div>
                           </div>
                           <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">

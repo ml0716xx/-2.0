@@ -2204,8 +2204,8 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
                 </div>
 
                 <div className="bg-slate-50 p-2.5 rounded-xl text-[11px] text-slate-500 border border-slate-100 space-y-1">
-                  <div><span className="font-semibold text-slate-700">唯一标识 ID:</span> {selectedElement.id}</div>
-                  <div><span className="font-semibold text-slate-700">元件类型 Type:</span> {selectedElement.type}</div>
+                  <div><span className="font-semibold text-slate-700">唯一标识:</span> {selectedElement.id}</div>
+                  <div><span className="font-semibold text-slate-700">元件类型:</span> {selectedElement.type}</div>
                 </div>
 
                 <div className="space-y-3">

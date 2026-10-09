@@ -131,7 +131,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
           <HelpCircle className="w-4 h-4" />
           <span className="text-xs">智能微网服务中心</span>
         </div>
-        <p className="text-[10px] text-slate-300">Copyright 2011-2025</p>
+        <p className="text-[10px] text-slate-300">版权所有 2011-2025</p>
       </div>
     </aside>
   );

@@ -199,8 +199,8 @@ const PowerStrategySection: React.FC = () => {
         <div className="relative group/chart" ref={containerRef} onMouseMove={handleMouseMove} onMouseLeave={() => setHoverData(null)}>
           <div className="h-[350px] w-full relative px-12 pt-10">
             {/* 轴标签 */}
-            <div className="absolute left-0 top-0 text-[10px] text-slate-400 font-black uppercase tracking-widest">Power (kW)</div>
-            <div className="absolute right-0 top-0 text-[10px] text-purple-400 font-black uppercase tracking-widest text-right">Battery (%)</div>
+            <div className="absolute left-0 top-0 text-[10px] text-slate-400 font-black uppercase tracking-widest">功率 (kW)</div>
+            <div className="absolute right-0 top-0 text-[10px] text-purple-400 font-black uppercase tracking-widest text-right">电池 SOC (%)</div>
 
             {/* 网格刻度 */}
             {[200, 150, 100, 50, 0].map((v) => (

@@ -327,7 +327,7 @@ const DetailModal = ({ isOpen, onClose, data, initialType }: { isOpen: boolean, 
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-800">全量数据预测与实测对比分析</h2>
-                  <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">Cross-Source Multi-Layer Temporal Visualization</p>
+                  <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1">多源数据多层时序可视化</p>
                 </div>
               </div>
 
@@ -432,15 +432,15 @@ const DetailModal = ({ isOpen, onClose, data, initialType }: { isOpen: boolean, 
               <div className="flex items-center gap-6 justify-center">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-[1px] bg-slate-400 border-t-2 border-dashed" />
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Forecast Curve</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">预测曲线</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-[3px] bg-slate-800" />
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Actual Curve</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">实测曲线</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-4 bg-indigo-100 rounded-sm" />
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Confidence Interval</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">置信区间</span>
                 </div>
               </div>
             </div>

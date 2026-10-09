@@ -138,7 +138,7 @@ const EnergyRevenueSection: React.FC = () => {
                           </div>
                         )}
                         <div className="pt-2 mt-2 border-t border-slate-800 flex justify-between items-center text-[10px]">
-                          <span className="text-slate-500 uppercase tracking-tighter font-bold italic">Analytics</span>
+                          <span className="text-slate-500 uppercase tracking-tighter font-bold italic">分析</span>
                           <span className="text-emerald-500 font-black">+4.2% ↑</span>
                         </div>
                       </div>
