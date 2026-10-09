@@ -30,7 +30,6 @@ import {
   ShieldCheck,
   Rocket,
   Clock,
-  BadgeCheck,
   PlugZap,
   Info,
   CheckCircle2,
@@ -355,32 +354,6 @@ function IndicatorAnalysis() {
    tab2 · AI 策略数据（策略运行报告的精简视图）
    ========================================================================== */
 
-/** 状态角标：三种状态唯一视觉锚点 */
-function StatusBadge({ lifecycle }: { lifecycle: Lifecycle }) {
-  if (lifecycle === 'presale') {
-    return (
-      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F4F6F9] border border-[#E3E8EE] text-[11px] font-bold text-[#5A6B7C]">
-        <Sparkles size={12} />
-        未开通 · 仿真预评估
-      </span>
-    );
-  }
-  if (lifecycle === 'trial') {
-    return (
-      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FFF7E6] border border-[#FFE0A3] text-[11px] font-bold text-[#B7791F]">
-        <Clock size={12} />
-        试运行中 · 剩余 {TY_TRIAL_META.remainingDays} 天
-      </span>
-    );
-  }
-  return (
-    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#E8F7F1] border border-[#B7E4D3] text-[11px] font-bold text-[#17705A]">
-      <BadgeCheck size={12} />
-      正式版 · AI 智能托管中
-    </span>
-  );
-}
-
 /** 未开通：收益测算钩子（售前营销主视觉） */
 function AiHeroPresale({
   onActivate,
@@ -469,16 +442,17 @@ function AiHeroPresale({
  * 试运行 / 正式运行：顶部状态条
  * 只承担「状态 + 转化」——核心业务数字（全月综合运行总收益 / AI 提升收益 /
  * 综合度电成本 / AI 运行时长）统一由下方核心指标块承载，同一数字不出现两次。
+ * 正式态只留「正式运行中」这一句客观状态，不做「AI 智能托管中」这类无信息量的描述。
  */
 function AiScoreStrip({ lifecycle, onConvert }: { lifecycle: Lifecycle; onConvert: () => void }) {
   const isTrial = lifecycle === 'trial';
 
   return (
     <div
-      className={`rounded-xl px-5 py-3.5 border ${
+      className={`rounded-xl px-5 border ${
         isTrial
-          ? 'bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE] border-[#FFE0A3]'
-          : 'bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] border-[#B7E4D3]'
+          ? 'py-3.5 bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE] border-[#FFE0A3]'
+          : 'py-2.5 bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] border-[#B7E4D3]'
       }`}
     >
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -490,7 +464,7 @@ function AiScoreStrip({ lifecycle, onConvert }: { lifecycle: Lifecycle; onConver
           {isTrial ? <Clock size={13} className="shrink-0" /> : <ShieldCheck size={13} className="shrink-0" />}
           {isTrial
             ? `试运行已运行 ${TY_TRIAL_META.elapsedDays} / ${TY_TRIAL_META.totalDays} 天 · 对比基线：${TY_TRIAL_META.baselineName}`
-            : 'AI 智能托管中 · 本月运行成绩见下方核心指标'}
+            : '正式运行中'}
         </div>
 
         {isTrial && (
@@ -823,8 +797,6 @@ export default function BusinessReportPage({
           <span className="text-[12px] text-[#7F8C8D]">
             {BIZ_META.entity} · {BIZ_META.siteLabel}
           </span>
-
-          <StatusBadge lifecycle={lifecycle} />
         </div>
 
         <div className="flex items-center gap-2">

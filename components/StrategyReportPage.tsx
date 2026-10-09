@@ -27,7 +27,6 @@ import {
   Battery,
   ExternalLink,
   Maximize2,
-  Info,
   Rocket,
 } from "lucide-react";
 
@@ -733,26 +732,8 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
             策略运行报告
           </h1>
 
-          {/* 生命周期状态角标：三种状态唯一视觉锚点 */}
-          {lifecycle === 'presale' && (
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F4F6F9] border border-[#E3E8EE] text-[11px] font-bold text-[#5A6B7C]">
-              <Info className="w-3 h-3" />
-              未开通 · 仅展示仿真预评估
-            </span>
-          )}
-          {lifecycle === 'trial' && (
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FFF7E6] border border-[#FFE0A3] text-[11px] font-bold text-[#B7791F]">
-              <Clock className="w-3 h-3" />
-              试运行中 · 剩余 {TY_TRIAL_META.remainingDays} 天
-            </span>
-          )}
-          {lifecycle === 'formal' && (
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#E8F7F1] border border-[#B7E4D3] text-[11px] font-bold text-[#17705A]">
-              <ShieldCheck className="w-3 h-3" />
-              正式版 · AI 智能托管中
-            </span>
-          )}
-
+          {/* 生命周期状态不在此处展示：AI 状态统一由正文顶部条承担，
+              否则「剩余 12 天」这类数字会在页头与顶部条各出现一次 */}
           <div className="flex items-center gap-2 border border-[#EAEDF2] bg-white rounded-md px-3 py-1.5 shadow-xs">
             <Calendar className="w-4 h-4 text-[#7F8C8D]" />
             <input
@@ -879,13 +860,14 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
         </div>
       )}
 
+      {/* 正式态只留一句客观状态，与「经营分析报告 · AI 策略数据」同口径；
+          核心数字统一由下方正文核心指标块承载 */}
       {lifecycle === 'formal' && (
-        <div className="rounded-xl border border-[#B7E4D3] bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-1 shrink-0">
+        <div className="rounded-xl border border-[#B7E4D3] bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] px-5 py-2.5 flex items-center gap-3 shrink-0">
           <span className="flex items-center gap-2 text-[12px] font-bold text-[#17705A]">
             <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-            AI 智能托管中
+            正式运行中
           </span>
-          <span className="text-[11px] text-[#2C7A6E]">本月运行成绩见下方核心指标</span>
         </div>
       )}
 
