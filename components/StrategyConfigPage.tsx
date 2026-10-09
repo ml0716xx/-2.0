@@ -66,6 +66,10 @@ const AI_TIER_STYLE: Record<AiTier, string> = {
 
 
 
+/** 本地日期 → YYYY-MM-DD（用于 date 输入框） */
+const toISODate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 interface StrategyConfigPageProps {
   /** 客户生命周期状态（未开通 / 试用 / 正式运行） */
   lifecycle?: ConfigLifecycle;
@@ -231,6 +235,14 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
 
   // 公共配置状态
   const [activeTab, setActiveTab] = useState<'common' | 'selfConsumption' | 'mode'>('common');
+
+  /**
+   * AI 策略按日期模拟：默认 T 日，最远可选到 T+1（含）。
+   * 标准档 / PRO 档的调度参数是逐日模拟结果，故需要日期维度。
+   */
+  const todayISO = toISODate(new Date());
+  const tomorrowISO = toISODate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+  const [simDate, setSimDate] = useState(todayISO);
 
   const [templates, setTemplates] = useState<StrategyTemplate[]>([
     {
@@ -686,16 +698,78 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                       : '策略配置详情'}
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
-                  <div className={`w-1.5 h-1.5 rounded-full ${currentTemplate.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-                  <span className={`text-[10px] ${currentTemplate.isActive ? 'text-emerald-500' : 'text-slate-400'} font-bold uppercase tracking-widest`}>
-                    {currentTemplate.isActive
-                      ? '当前已激活应用至站点'
-                      : isAiTemplate
-                        ? '天盈 AI 依据站点特征自动生成 · 参数内容待补充'
+                  <div
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isAiTemplate
+                        ? lifecycle === 'trial'
+                          ? 'bg-amber-500'
+                          : lifecycle === 'formal'
+                            ? 'bg-emerald-500'
+                            : 'bg-slate-300'
+                        : currentTemplate.isActive
+                          ? 'bg-emerald-500'
+                          : 'bg-slate-300'
+                    }`}
+                  ></div>
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-widest ${
+                      isAiTemplate
+                        ? lifecycle === 'trial'
+                          ? 'text-amber-500'
+                          : lifecycle === 'formal'
+                            ? 'text-emerald-500'
+                            : 'text-slate-400'
+                        : currentTemplate.isActive
+                          ? 'text-emerald-500'
+                          : 'text-slate-400'
+                    }`}
+                  >
+                    {isAiTemplate
+                      ? lifecycle === 'presale'
+                        ? '未开通 · 调度参数不可见'
+                        : lifecycle === 'trial'
+                          ? `试运行中 · 已试运行 ${TY_TRIAL_META.elapsedDays} / ${TY_TRIAL_META.totalDays} 天`
+                          : '正式运行 · 当前已激活应用至站点'
+                      : currentTemplate.isActive
+                        ? '当前已激活应用至站点'
                         : '草稿/离线编辑中'}
                   </span>
                 </div>
               </div>
+
+              {/* AI 策略按日期模拟：默认 T 日，最远 T+1；未开通态置灰不可选 */}
+              {isAiTemplate && (
+                <div
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 ${
+                    aiLocked ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'
+                  }`}
+                  title={aiLocked ? '开通后可选择模拟日期' : 'AI 策略按所选日期进行模拟'}
+                >
+                  <Calendar className={`w-4 h-4 ${aiLocked ? 'text-slate-300' : 'text-slate-400'}`} />
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">模拟日期</span>
+                    <input
+                      type="date"
+                      value={simDate}
+                      max={tomorrowISO}
+                      disabled={aiLocked}
+                      onChange={(e) => setSimDate(e.target.value)}
+                      className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer w-[112px] disabled:text-slate-300 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                  {(simDate === todayISO || simDate === tomorrowISO) && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${
+                        simDate === todayISO
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                          : 'bg-amber-50 text-amber-600 border-amber-200'
+                      }`}
+                    >
+                      {simDate === todayISO ? 'T 日' : 'T+1'}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             
             <div className="flex items-center flex-wrap gap-3">
@@ -797,6 +871,15 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
             {/* 试用态：内容上方保留试用期提示与升级入口（正式态不展示） */}
             {isAiTemplate && hasBlocks && lifecycle === 'trial' && (
               <AiActivationGuide lifecycle={lifecycle} onActivate={onActivate} onConvert={onConvert} />
+            )}
+
+            {/* 内容口径：当前展示所选模拟日期的调度参数 */}
+            {isAiTemplate && hasBlocks && !aiLocked && (
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 -mb-4">
+                <Calendar className="w-3.5 h-3.5" />
+                以下为 {simDate} 的模拟调度参数
+                {simDate === todayISO ? '（T 日）' : simDate === tomorrowISO ? '（T+1 日）' : ''}
+              </div>
             )}
 
             {/* 试用 / 正式态渲染调度参数（未开通态不可见） */}
