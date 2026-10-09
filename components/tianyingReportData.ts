@@ -214,11 +214,31 @@ export const TY_PRICE = {
     { key: 'valley', label: '谷', price: 0.2975, window: '22:00–06:00' },
   ],
   salePrice: 0.391,
-  chargeWeighted: 0.3124,
-  dischargeWeighted: 0.9168,
-  spread: 0.6044,
-  note: '购电分时三档为站点执行电价；充电/放电加权电价为仿真侧按逐 15min 用电量加权结果。',
+  note: '购电分时三档为站点执行电价；加权电价按逐 15min 用电量加权，两侧共用同一套分时电价，差异只来自电量落在哪个时段。',
 } as const;
+
+/* ------------------------- 加权电价：实际运行 → AI 仿真 ------------------------- */
+/*
+ * 同一套分时电价下，加权电价的差异只来自「电量落在哪个时段」：
+ *   · 充电加权电价 — AI 把充电往谷段挪，加权值下降（降 = 省钱）
+ *   · 放电加权电价 — AI 把放电往峰段挪，加权值上升（升 = 多赚）
+ *   · 充放电毛价差 = 放电加权 − 充电加权，两侧由此派生，不单独写死
+ * 实际侧是原先的未优化口径，AI 仿真侧即原 TY_PRICE 的三个值。
+ */
+const CHG_W = { real: 0.3428, sim: 0.3124 };
+const DIS_W = { real: 0.8805, sim: 0.9168 };
+
+/** 加权电价对比行（元/kWh；dec 为展示小数位） */
+export const TY_PRICE_COMPARE = [
+  { label: '充电加权电价', real: CHG_W.real, sim: CHG_W.sim, dec: 4 },
+  { label: '放电加权电价', real: DIS_W.real, sim: DIS_W.sim, dec: 4 },
+  {
+    label: '充放电毛价差',
+    real: DIS_W.real - CHG_W.real,
+    sim: DIS_W.sim - CHG_W.sim,
+    dec: 4,
+  },
+] as const;
 
 /** 案例日逐项对照行（元 = 收益项，其余为电量项） */
 interface CaseRow {

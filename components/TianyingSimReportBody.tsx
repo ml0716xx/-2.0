@@ -43,6 +43,7 @@ import {
   TY_SIM_ROWS,
   TY_SIM_WHY,
   TY_PRICE,
+  TY_PRICE_COMPARE,
   TY_CASE_DAYS,
   TY_CASE_CURVES,
   TY_CURVE_TEXT,
@@ -491,18 +492,42 @@ export default function TianyingSimReportBody({
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-            {[
-              { label: '售电电价（余电上网）', value: fmt(TY_PRICE.salePrice, 4) },
-              { label: '充电加权电价', value: fmt(TY_PRICE.chargeWeighted, 4) },
-              { label: '放电加权电价', value: fmt(TY_PRICE.dischargeWeighted, 4) },
-              { label: '充放电毛价差', value: fmt(TY_PRICE.spread, 4) },
-            ].map(it => (
-              <div key={it.label} className="rounded-lg bg-[#FBFCFD] border border-[#EAEDF2] px-3 py-2">
-                <div className="text-[10px] text-[#8A98A6]">{it.label}</div>
-                <div className="text-[12px] font-mono font-bold text-[#1A2A3A] mt-0.5">{it.value}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+            {/* 售电电价：两侧同价，无对比，单值展示 */}
+            <div className="rounded-lg bg-[#FBFCFD] border border-[#EAEDF2] px-3 py-2">
+              <div className="text-[10px] text-[#8A98A6]">售电电价（余电上网）</div>
+              <div className="text-[12px] font-mono font-bold text-[#1A2A3A] mt-0.5">
+                {fmt(TY_PRICE.salePrice, 4)}
+                <span className="text-[9px] font-normal text-[#B6C1CC] ml-0.5">元/kWh</span>
               </div>
-            ))}
+              <div className="text-[10px] text-[#B6C1CC] mt-0.5">两侧同价</div>
+            </div>
+
+            {/* 加权电价三项：实际运行 → AI 策略仿真，并标出降低 / 提升幅度 */}
+            {TY_PRICE_COMPARE.map(it => {
+              const diff = it.sim - it.real;
+              const pct = (diff / it.real) * 100;
+              const up = diff > 0;
+              return (
+                <div key={it.label} className="rounded-lg bg-[#FBFCFD] border border-[#EAEDF2] px-3 py-2">
+                  <div className="text-[10px] text-[#8A98A6]">{it.label}</div>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-[11px] font-mono text-[#9AA7B4]">{fmt(it.real, it.dec)}</span>
+                    <ArrowRight size={9} className="text-[#D5DBE2] shrink-0 self-center" />
+                    <span className="text-[12px] font-mono font-bold text-[#1A2A3A]">{fmt(it.sim, it.dec)}</span>
+                    <span className="text-[9px] font-normal text-[#B6C1CC]">元/kWh</span>
+                  </div>
+                  <div
+                    className={`text-[10px] font-mono font-bold mt-0.5 ${
+                      up ? 'text-[#E5484D]' : 'text-[#1E9C7E]'
+                    }`}
+                  >
+                    {up ? '提升' : '降低'} {fmt(Math.abs(diff), it.dec)}（{up ? '+' : '-'}
+                    {fmt(Math.abs(pct), 1)}%）
+                  </div>
+                </div>
+              );
+            })}
           </div>
           <div className="text-[10px] text-[#9AA7B4] mt-2.5 leading-relaxed">{TY_PRICE.note}</div>
         </div>
