@@ -5,7 +5,7 @@
    触达方式：Web 端自动弹出，支持「本月不再提示」
    目标动作：阅读仿真收益 → 点击【一键免费开通 30 天 AI 智能调度】
 
-   三章节与运营端「推送仿真报告」同源（运行概况 / 仿真收益对比 / 典型日分析），
+   正文两章节（仿真收益对比 / 典型日分析）与运营端「推送仿真报告」同源，
    区别在于：本弹窗是客户侧看到的报告正文，不再有章节勾选与推送预览，
    底部换成试用转化 CTA。数字全部取自 tianyingReportData.ts。
    ========================================================================== */
@@ -19,7 +19,6 @@ import {
   ArrowRight,
   Zap,
   CheckCircle2,
-  ShieldCheck,
   Rocket,
 } from 'lucide-react';
 import {
@@ -62,7 +61,6 @@ export default function TianyingSimReportModal({
 
   if (!isOpen) return null;
 
-  const reportNo = `${TY_META.reportNoPrefix}-${TY_META.period.replace('-', '')}-01`;
   const growth = TY_SIM_DELTA.liftPct;
   const totalReal = TY_SIM_KPI.total.real;
   const totalSim = TY_SIM_KPI.total.sim;
@@ -157,15 +155,7 @@ export default function TianyingSimReportModal({
         <div className="shrink-0 border-t border-[#EAEDF2] bg-white px-6 py-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[12px] text-[#5A6B7C]">
-                <ShieldCheck size={13} className="text-[#1E9C7E]" />
-                <span>报告编号</span>
-                <span className="font-mono text-[#1A2A3A]">{reportNo}</span>
-                <span className="text-[#D5DBE2]">·</span>
-                <span>接收方</span>
-                <span className="font-semibold text-[#1A2A3A]">站点业主 · 用户端</span>
-              </div>
-              <label className="flex items-center gap-1.5 mt-2 cursor-pointer select-none w-fit">
+              <label className="flex items-center gap-1.5 cursor-pointer select-none w-fit">
                 <input
                   type="checkbox"
                   checked={dontRemind}

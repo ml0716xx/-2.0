@@ -1,8 +1,9 @@
 /* ==========================================================================
    《天盈 AI 仿真报告》· 正文（可复用）
    --------------------------------------------------------------------------
-   三章节与运营端「推送仿真报告」同源：
-     1 运行概况 / 2 仿真收益对比 / 3 典型日分析
+   两章节，全部围绕「仿真比实际多赚多少」：
+     1 仿真收益对比（实际运行与仿真收益合在一张逐项表里看，不再单列实测指标）
+     2 典型日分析（案例日均为 AI 优于实际的正向案例）
 
    三处共用同一份正文，避免同一份内容写三遍：
      · 售前《天盈 AI 仿真报告》弹窗（TianyingSimReportModal）
@@ -15,14 +16,11 @@
 import React, { useState } from 'react';
 import {
   Sparkles,
-  Battery,
-  Sun,
   Zap,
   ArrowRight,
   CheckCircle2,
   Rocket,
   Info,
-  TrendingUp,
 } from 'lucide-react';
 import {
   BarChart,
@@ -40,8 +38,6 @@ import {
 } from 'recharts';
 import {
   TY_META,
-  TY_SITE,
-  TY_RAW_ROWS,
   TY_SIM_KPI,
   TY_SIM_DELTA,
   TY_SIM_ROWS,
@@ -69,6 +65,9 @@ const TIER_META: Record<string, { label: string; color: string }> = {
   flat: { label: '平', color: '#60A5FA' },
   valley: { label: '谷', color: '#34D399' },
 };
+
+/** 逐项对照表的分组顺序（电量在前、收益在后，组名格纵向合并） */
+const SIM_GROUPS = ['电量类', '收益类'] as const;
 
 /**
  * 典型日逐 15min 充放电曲线。
@@ -283,12 +282,6 @@ function CaseDayCurveChart({ points, date }: { points: CaseDayPoint[]; date: str
         </span>
         <span className="text-[#9AA7B4]">{T.socNote}</span>
       </div>
-
-      {/* 曲线口径说明 */}
-      <div className="px-5 py-2.5 border-t border-[#EAEDF2] text-[11px] text-[#7F8C8D] leading-relaxed">
-        <span className="font-bold text-[#5A6B7C]">曲线口径：</span>
-        {T.curveCaliber}
-      </div>
     </div>
   );
 }
@@ -335,11 +328,6 @@ export default function TianyingSimReportBody({
 }: TianyingSimReportBodyProps) {
   const [caseIdx, setCaseIdx] = useState(0);
 
-  const growth = TY_SIM_DELTA.liftPct;
-  const totalReal = TY_SIM_KPI.total.real;
-  const totalSim = TY_SIM_KPI.total.sim;
-  const storageDiff = TY_SIM_DELTA.storageDiff;
-  const pvDiff = TY_SIM_DELTA.pvDiff;
   const caseDay = TY_CASE_DAYS[caseIdx];
 
   /** 收益构成对比柱图数据 */
@@ -350,63 +338,17 @@ export default function TianyingSimReportBody({
 
   return (
     <div className="space-y-4">
-      {/* ------------------------- 1. 运行概况 ------------------------- */}
-      <Section no="1" title="运行概况" hint="站点配置与实测运行指标">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
-          {[
-            { label: '光伏装机', value: TY_SITE.pvCapacityKwp, unit: 'kWp' },
-            { label: '逆变器', value: TY_SITE.pvInverters, unit: '台' },
-            { label: '储能容量', value: TY_SITE.essCapacityKwh, unit: 'kWh' },
-            { label: '储能设备', value: TY_SITE.essUnits, unit: '台' },
-            { label: 'PCS 功率', value: TY_SITE.essPowerKw, unit: 'kW' },
-            { label: 'SOC 区间', value: TY_SITE.socRange, unit: '' },
-          ].map(it => (
-            <div key={it.label} className="rounded-lg border border-[#EAEDF2] bg-[#FBFCFD] px-3 py-2">
-              <div className="text-[11px] text-[#8A98A6]">{it.label}</div>
-              <div className="text-sm font-bold font-mono text-[#1A2A3A] mt-0.5">
-                {it.value}
-                {it.unit && <span className="text-[10px] font-normal text-[#8A98A6] ml-0.5">{it.unit}</span>}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="text-[12px] font-bold text-[#5A6B7C] mb-2">实测运行指标</div>
-        <div className="overflow-hidden rounded-lg border border-[#EAEDF2]">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-[#FBFCFD]">
-                <th className="text-left px-3 py-2 text-[11px] font-bold text-[#8A98A6]">指标</th>
-                <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">数值</th>
-                <th className="text-left px-3 py-2 text-[11px] font-bold text-[#8A98A6]">口径说明</th>
-              </tr>
-            </thead>
-            <tbody>
-              {TY_RAW_ROWS.map(r => (
-                <tr key={r.name} className="border-t border-[#EAEDF2]">
-                  <td className="px-3 py-2 text-[12px] text-[#2C3E50] whitespace-nowrap">{r.name}</td>
-                  <td className="px-3 py-2 text-right text-[12px] font-mono font-bold text-[#1A2A3A] whitespace-nowrap">
-                    {fmt(r.value, 2)}
-                    <span className="text-[10px] font-normal text-[#8A98A6] ml-0.5">{r.unit}</span>
-                  </td>
-                  <td className="px-3 py-2 text-[11px] text-[#7F8C8D]">{r.note}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Section>
-
-      {/* ------------------------- 2. 仿真收益对比 ------------------------- */}
-      <Section no="2" title="仿真收益对比" hint="相同负荷与光伏输入下重排储能充放电计划">
-        <div className="rounded-xl border border-[#EAEDF2] p-4 mb-4">
-          <div className="flex items-center justify-between mb-2">
+      {/* ------------------------- 1. 仿真收益对比 ------------------------- */}
+      <Section no="1" title="仿真收益对比" hint="实际运行基准 vs AI 策略仿真逐项对照">
+        {/* 收益构成柱图：压成一行的高度，储能/光伏的分项解释在下方「收益增量来源」里，这里不重复 */}
+        <div className="rounded-xl border border-[#EAEDF2] px-4 pt-3 pb-2 mb-4">
+          <div className="flex items-center justify-between">
             <span className="text-[12px] font-bold text-[#5A6B7C]">收益构成：实际运行 → AI 策略仿真</span>
             <span className="text-[11px] text-[#8A98A6]">单位：元（全月）</span>
           </div>
-          <div className="h-[190px]">
+          <div className="h-[124px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} margin={{ top: 18, right: 16, left: 4, bottom: 4 }} barGap={8}>
+              <BarChart data={barData} margin={{ top: 16, right: 16, left: 4, bottom: 0 }} barGap={8}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EFF2F5" />
                 <XAxis
                   dataKey="name"
@@ -444,59 +386,62 @@ export default function TianyingSimReportBody({
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex items-center gap-4 mt-1.5 flex-wrap">
-            <span className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: C.blue }} />
-              储能收益 {fmt(TY_SIM_KPI.storage.real, 0)} → {fmt(TY_SIM_KPI.storage.sim, 0)} 元
-            </span>
-            <span className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: C.green }} />
-              光伏收益 {fmt(TY_SIM_KPI.pv.real, 0)} → {fmt(TY_SIM_KPI.pv.sim, 0)} 元
-            </span>
-          </div>
         </div>
 
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[12px] font-bold text-[#5A6B7C]">逐项对照：实际运行 → AI 策略仿真</span>
+        </div>
         <div className="overflow-hidden rounded-lg border border-[#EAEDF2] mb-4">
           <table className="w-full">
             <thead>
               <tr className="bg-[#FBFCFD]">
+                <th className="text-left px-3 py-2 text-[11px] font-bold text-[#8A98A6] w-[58px]">类别</th>
                 <th className="text-left px-3 py-2 text-[11px] font-bold text-[#8A98A6]">指标</th>
                 <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">实际运行</th>
                 <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">AI 策略仿真</th>
                 <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">绝对差</th>
-                <th className="text-left px-3 py-2 text-[11px] font-bold text-[#8A98A6]">说明</th>
               </tr>
             </thead>
             <tbody>
-              {TY_SIM_ROWS.map(r => {
-                const diff = r.sim - r.real;
-                const isLast = r.item === '总收益';
-                return (
-                  <tr key={r.item} className={`border-t border-[#EAEDF2] ${isLast ? 'bg-[#F4FBF8]' : ''}`}>
-                    <td
-                      className={`px-3 py-2 text-[12px] whitespace-nowrap ${
-                        isLast ? 'font-bold text-[#1A2A3A]' : 'text-[#2C3E50]'
-                      }`}
-                    >
-                      {r.item}
-                      <span className="text-[10px] text-[#9AA7B4] ml-1">{r.unit}</span>
-                    </td>
-                    <td className="px-3 py-2 text-right text-[12px] font-mono text-[#7F8C8D] whitespace-nowrap">
-                      {fmt(r.real, 0)}
-                    </td>
-                    <td className="px-3 py-2 text-right text-[12px] font-mono font-bold text-[#1A2A3A] whitespace-nowrap">
-                      {fmt(r.sim, 0)}
-                    </td>
-                    <td
-                      className={`px-3 py-2 text-right text-[12px] font-mono font-bold whitespace-nowrap ${
-                        diff > 0 ? 'text-[#E5484D]' : diff < 0 ? 'text-[#1E9C7E]' : 'text-[#9AA7B4]'
-                      }`}
-                    >
-                      {diff === 0 ? '—' : fmtSigned(diff, 0)}
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-[#7F8C8D]">{r.note}</td>
-                  </tr>
-                );
+              {SIM_GROUPS.map(g => {
+                const rows = TY_SIM_ROWS.filter(r => r.group === g);
+                return rows.map((r, i) => {
+                  const diff = r.sim - r.real;
+                  const isTotal = r.item === '总收益';
+                  return (
+                    <tr key={r.item} className={`border-t border-[#EAEDF2] ${isTotal ? 'bg-[#F4FBF8]' : ''}`}>
+                      {i === 0 && (
+                        <td
+                          rowSpan={rows.length}
+                          className="px-3 py-2 text-[11px] font-bold text-[#5A6B7C] align-middle border-r border-[#EAEDF2] whitespace-nowrap"
+                        >
+                          {g}
+                        </td>
+                      )}
+                      <td
+                        className={`px-3 py-2 text-[12px] whitespace-nowrap ${
+                          isTotal ? 'font-bold text-[#1A2A3A]' : 'text-[#2C3E50]'
+                        }`}
+                      >
+                        {r.item}
+                        <span className="text-[10px] text-[#9AA7B4] ml-1">{r.unit}</span>
+                      </td>
+                      <td className="px-3 py-2 text-right text-[12px] font-mono text-[#7F8C8D] whitespace-nowrap">
+                        {fmt(r.real, r.dec)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-[12px] font-mono font-bold text-[#1A2A3A] whitespace-nowrap">
+                        {fmt(r.sim, r.dec)}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right text-[12px] font-mono font-bold whitespace-nowrap ${
+                          diff > 0 ? 'text-[#E5484D]' : diff < 0 ? 'text-[#1E9C7E]' : 'text-[#9AA7B4]'
+                        }`}
+                      >
+                        {Math.abs(diff) < 10 ** -r.dec / 2 ? '—' : fmtSigned(diff, r.dec)}
+                      </td>
+                    </tr>
+                  );
+                });
               })}
             </tbody>
           </table>
@@ -565,8 +510,8 @@ export default function TianyingSimReportBody({
         </div>
       </Section>
 
-      {/* ------------------------- 3. 典型日分析 ------------------------- */}
-      <Section no="3" title="典型日分析" hint="案例日逐项对照与判读">
+      {/* ------------------------- 2. 典型日分析 ------------------------- */}
+      <Section no="2" title="典型日分析" hint="案例日逐项对照与判读">
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           {TY_CASE_DAYS.map((d, i) => (
             <button
@@ -615,7 +560,7 @@ export default function TianyingSimReportBody({
           <div className="rounded-xl border border-[#EAEDF2] px-4 py-3">
             <div className="text-[11px] text-[#8A98A6]">案例日口径</div>
             <div className="text-[12px] font-bold text-[#1A2A3A] mt-1">
-              按储能收益差排序取前 3，另附 1 个反向日对照
+              按储能收益差排序取当月前 3 个典型日
             </div>
           </div>
         </div>

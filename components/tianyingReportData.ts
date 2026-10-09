@@ -35,8 +35,6 @@ export const TY_META = {
   period: '2026-09',
   periodLabel: '2026年09月',
   version: 'AI 策略仿真 V1.0',
-  /** 报告编号前缀，展示时拼月份 */
-  reportNoPrefix: 'TY-SIM',
   /** 报告口径说明，弹窗与页面共用 */
   caliberNote:
     '本报告基于站点历史实际负荷与光伏出力数据，在相同输入条件下回算 AI 调度策略，与实际运行结果逐项对比。两侧采用同一份负荷与光伏数据，差异可直接归因于策略本身。',
@@ -53,18 +51,6 @@ export const TY_SITE = {
   essPowerKw: 500,
   socRange: '5% ~ 95%',
 } as const;
-
-/** 原始运行指标（两侧共用的站点实测值，来自报表表计原值） */
-export const TY_RAW_ROWS: { name: string; value: number; unit: string; note: string }[] = [
-  { name: '光伏发电量', value: 28406, unit: 'kWh', note: '当月累计，平均每日 946.88 kWh' },
-  { name: '光伏上网电量', value: 412, unit: 'kWh', note: '余电上网，占发电量 1.45%' },
-  { name: '光伏自用电量', value: 27994, unit: 'kWh', note: '就地消纳，消纳率 98.55%' },
-  { name: '储能充电量', value: 49700, unit: 'kWh', note: '当月累计' },
-  { name: '储能放电量', value: 45500, unit: 'kWh', note: '当月累计' },
-  { name: '储能利用率', value: 91.55, unit: '%', note: '放电量 ÷ 充电量' },
-  { name: '电网上网电量', value: 48.59, unit: '万kWh', note: '电网下网电量' },
-  { name: '微网用电量', value: 50.97, unit: '万kWh', note: '负载总用电量' },
-];
 
 /* ==========================================================================
    一、售前《天盈 AI 仿真报告》
@@ -86,21 +72,92 @@ export const TY_SIM_DELTA = {
   liftPct: ((TY_SIM_KPI.total.sim - TY_SIM_KPI.total.real) / TY_SIM_KPI.total.real) * 100,
 } as const;
 
-/** 逐项对照表（弹窗「仿真收益对比」与 AI 策略数据 tab 未开通态共用） */
+/* 逐项对照表取数：电量与收益同表，实际运行即本表的基准列 */
+const CHG = { real: 49700, sim: 54300 };
+const DIS = { real: 45500, sim: 49700 };
+/** 储能利用率 = 放电量 ÷ 充电量 */
+const utilPct = (dis: number, chg: number) => (dis / chg) * 100;
+/**
+ * 日均充放次数 = 放电量 ÷ 额定容量 ÷ 当月天数。
+ * 当月天数取 30：与曲线底部「当日放电量 × 30 ≈ 表格放电量」的日粒度口径一致
+ * （2026-09 实际 30 天）。
+ */
+const cyclesPerDay = (dis: number) => dis / TY_SITE.essCapacityKwh / 30;
+
+/**
+ * 逐项对照表（弹窗「仿真收益对比」与 AI 策略数据 tab 未开通态共用）
+ * 实际运行与仿真收益合在一张表里看：实际运行就是本表的基准列。
+ *
+ * 只留「两侧确有差异、且能解释收益差」的项：光伏发电量两侧完全相同、
+ * 上网与自用电量的变动仅在 26 kWh 量级，留在表里只会稀释储能这条主线，
+ * 光伏侧因此只保留收益行。
+ * `note` 字段保留在数据层备用，当前 UI 不渲染（表格已去掉「说明」列）。
+ */
 export const TY_SIM_ROWS: {
+  group: '电量类' | '收益类';
   item: string;
   real: number;
   sim: number;
   unit: string;
+  /** 该行小数位：电量/收益取整，比率保留 2 位 */
+  dec: number;
   note: string;
 }[] = [
-  { item: '储能充电量', real: 49700, sim: 54300, unit: 'kWh', note: 'AI 在谷段增加充电' },
-  { item: '储能放电量', real: 45500, sim: 49700, unit: 'kWh', note: 'AI 在峰段增加放电' },
-  { item: '储能收益', real: 30900, sim: 39050, unit: '元', note: '收益增量主来源' },
-  { item: '光伏上网电量', real: 412, sim: 386, unit: 'kWh', note: '余电去向微调' },
-  { item: '光伏自用电量', real: 27994, sim: 28020, unit: 'kWh', note: '自用比例基本持平' },
-  { item: '光伏收益', real: 30300, sim: 29980, unit: '元', note: '消纳率已高位，变化有限' },
-  { item: '总收益', real: 61200, sim: 69030, unit: '元', note: '储能 +8,150 元、光伏 -320 元' },
+  {
+    group: '电量类',
+    item: '储能充电量',
+    real: CHG.real,
+    sim: CHG.sim,
+    unit: 'kWh',
+    dec: 0,
+    note: 'AI 在谷段增加充电',
+  },
+  {
+    group: '电量类',
+    item: '储能放电量',
+    real: DIS.real,
+    sim: DIS.sim,
+    unit: 'kWh',
+    dec: 0,
+    note: 'AI 在峰段增加放电',
+  },
+  {
+    group: '电量类',
+    item: '储能利用率',
+    real: utilPct(DIS.real, CHG.real),
+    sim: utilPct(DIS.sim, CHG.sim),
+    unit: '%',
+    dec: 2,
+    note: '放电量 ÷ 充电量',
+  },
+  {
+    group: '电量类',
+    item: '日均充放次数',
+    real: cyclesPerDay(DIS.real),
+    sim: cyclesPerDay(DIS.sim),
+    unit: '次/日',
+    dec: 2,
+    note: '放电量 ÷ 额定容量 ÷ 当月天数',
+  },
+  { group: '收益类', item: '储能收益', real: 30900, sim: 39050, unit: '元', dec: 0, note: '收益增量主来源' },
+  {
+    group: '收益类',
+    item: '光伏收益',
+    real: 30300,
+    sim: 29980,
+    unit: '元',
+    dec: 0,
+    note: '消纳率已高位，变化有限',
+  },
+  {
+    group: '收益类',
+    item: '总收益',
+    real: 61200,
+    sim: 69030,
+    unit: '元',
+    dec: 0,
+    note: '储能 +8,150 元、光伏 -320 元',
+  },
 ];
 
 /** 收益增量来源（量价分解） */
@@ -141,50 +198,68 @@ export const TY_PRICE = {
   note: '购电分时三档为站点执行电价；充电/放电加权电价为仿真侧按逐 15min 用电量加权结果。',
 } as const;
 
-/** 典型日：AI 仿真侧充放电时段结构（每月取 3 个典型日代表不同电价结构） */
+/** 案例日逐项对照行（元 = 收益项，其余为电量项） */
+interface CaseRow {
+  name: string;
+  real: number;
+  sim: number;
+}
+
+const isMoney = (n: string) => n.includes('(元)');
+
+/**
+ * 案例日：按储能收益差排序取当月前 3 个典型日。
+ * 只取 AI 优于实际的正向案例 —— 给客户看的是「策略能多赚多少」，
+ * 不放「实际侧恰好更优」的反向日。
+ * 收益差一律由 rows 派生，避免卡片数字与下方表格对不上。
+ */
+const caseDay = (date: string, tag: string, rows: CaseRow[], reading: string) => ({
+  date,
+  tag,
+  rows,
+  /** 当日储能收益差 = 储能收益行（仿真 − 实际） */
+  storageDiff: rows
+    .filter(r => isMoney(r.name) && r.name.startsWith('储能'))
+    .reduce((s, r) => s + (r.sim - r.real), 0),
+  /** 当日总收益差 = 全部收益行（仿真 − 实际）之和 */
+  totalDiff: rows.filter(r => isMoney(r.name)).reduce((s, r) => s + (r.sim - r.real), 0),
+  reading,
+});
+
 export const TY_CASE_DAYS = [
-  {
-    date: '2026-09-12',
-    tag: '差异最大',
-    storageDiff: 486,
-    totalDiff: 452,
-    rows: [
+  caseDay(
+    '2026-09-12',
+    '差异最大',
+    [
       { name: '储能充电量 (kWh)', real: 1652, sim: 1836 },
       { name: '储能放电量 (kWh)', real: 1518, sim: 1694 },
       { name: '储能收益 (元)', real: 1030, sim: 1516 },
       { name: '光伏收益 (元)', real: 1010, sim: 1004 },
     ],
-    reading:
-      'AI 将 184 kWh 充电量从平段挪至谷段，放电量增加 176 kWh 且集中在峰段，当日储能收益差 +486 元，是当月差异最大的典型日。',
-  },
-  {
-    date: '2026-09-20',
-    tag: '代表日',
-    storageDiff: 312,
-    totalDiff: 298,
-    rows: [
+    'AI 将 184 kWh 充电量从平段挪至谷段，放电量增加 176 kWh 且集中在峰段，当日储能收益差 +486 元，是当月差异最大的典型日。',
+  ),
+  caseDay(
+    '2026-09-20',
+    '代表日',
+    [
       { name: '储能充电量 (kWh)', real: 1610, sim: 1742 },
       { name: '储能放电量 (kWh)', real: 1480, sim: 1615 },
       { name: '储能收益 (元)', real: 1002, sim: 1314 },
       { name: '光伏收益 (元)', real: 986, sim: 972 },
     ],
-    reading:
-      '当日光伏出力中等、负荷平稳，AI 的增益主要来自峰谷时段重排，放电量增幅 9.1%，收益增幅 31.1%。',
-  },
-  {
-    date: '2026-09-25',
-    tag: '反向日',
-    storageDiff: -58,
-    totalDiff: -74,
-    rows: [
-      { name: '储能充电量 (kWh)', real: 1704, sim: 1668 },
-      { name: '储能放电量 (kWh)', real: 1562, sim: 1540 },
-      { name: '储能收益 (元)', real: 1088, sim: 1030 },
-      { name: '光伏收益 (元)', real: 1042, sim: 1026 },
+    '当日光伏出力中等、负荷平稳，AI 的增益主要来自峰谷时段重排，放电量增幅 9.1%，收益增幅 31.1%。',
+  ),
+  caseDay(
+    '2026-09-08',
+    '常态日',
+    [
+      { name: '储能充电量 (kWh)', real: 1596, sim: 1720 },
+      { name: '储能放电量 (kWh)', real: 1462, sim: 1602 },
+      { name: '储能收益 (元)', real: 1005, sim: 1273 },
+      { name: '光伏收益 (元)', real: 978, sim: 966 },
     ],
-    reading:
-      '当日实际运行侧恰好在峰段完成大部分放电，AI 仿真未再提升，收益差为 -58 元，属策略边际收窄的正常波动。',
-  },
+    '当日光伏出力偏低、负荷平稳，AI 把 124 kWh 充电量挪到谷段、放电量增加 140 kWh 且集中在峰段，储能收益差 +268 元。',
+  ),
 ];
 
 /* --------------------------------------------------------------------------
@@ -229,10 +304,9 @@ const plan = (startSoc: number, charge: Seg[], discharge: Seg[]): CurvePlan => (
 });
 
 /**
- * 三天两侧共 6 条曲线的时段计划。
+ * 三个案例日两侧共 6 条曲线的时段计划。
  * 仿真侧：充电集中在谷段（22:00–06:00）、放电集中在峰段（08:00–11:00、18:00–21:00）。
  * 实际侧：充电时段部分跨入平段、放电时段略早于峰段起始，体现「固定规则策略没踩准价位」。
- * 反向日（09-25）例外：实际侧时段结构反而更优，所以其曲线比仿真侧更贴峰谷。
  */
 export const TY_CASE_CURVE_PLANS: Record<string, { sim: CurvePlan; real: CurvePlan }> = {
   '2026-09-12': {
@@ -243,10 +317,9 @@ export const TY_CASE_CURVE_PLANS: Record<string, { sim: CurvePlan; real: CurvePl
     sim: plan(11, [[0, 22, 868], [46, 66, 750], [88, 94, 124]], [[32, 44, 830], [72, 84, 785]]),
     real: plan(16, [[4, 24, 690], [48, 68, 760], [88, 94, 160]], [[34, 44, 740], [74, 84, 740]]),
   },
-  '2026-09-25': {
-    sim: plan(12, [[0, 22, 840], [46, 66, 700], [88, 94, 128]], [[32, 44, 790], [72, 84, 750]]),
-    // 反向日：实际侧时段更优（放电紧贴峰段、充电更多落在谷段）
-    real: plan(14, [[2, 22, 740], [48, 68, 780], [88, 94, 184]], [[33, 44, 800], [73, 84, 762]]),
+  '2026-09-08': {
+    sim: plan(12, [[0, 22, 860], [46, 66, 740], [88, 94, 120]], [[32, 44, 850], [72, 84, 752]]),
+    real: plan(16, [[4, 24, 680], [48, 68, 760], [88, 94, 156]], [[34, 44, 732], [74, 84, 730]]),
   },
 };
 
@@ -312,7 +385,7 @@ function buildDayCurves(date: string): CaseDayPoint[] {
 export const TY_CASE_CURVES: Record<string, CaseDayPoint[]> = {
   '2026-09-12': buildDayCurves('2026-09-12'),
   '2026-09-20': buildDayCurves('2026-09-20'),
-  '2026-09-25': buildDayCurves('2026-09-25'),
+  '2026-09-08': buildDayCurves('2026-09-08'),
 };
 
 /** 24h 电价档位色带（按时间顺序，1 格 = 15min，共 96 格） */
@@ -321,7 +394,7 @@ export const TY_TOU_SEGMENTS = Array.from({ length: 96 }, (_, i) => ({ slot: i, 
 /** 曲线图例与口径说明 */
 export const TY_CURVE_TEXT = {
   chartTitle: '典型日逐 15min 充放电曲线',
-  rule: '案例日选取：按储能收益差排序取前 3，并排除“充放电量更高但收益更低”的反向日，另附 1 个反向日用于对照。',
+  rule: '案例日选取：按储能收益差排序取当月前 3 个典型日，均为 AI 策略优于实际运行的案例。',
   switchLabel: '案例日',
   legend: {
     realPower: '实际运行 · 储能功率',
@@ -334,8 +407,6 @@ export const TY_CURVE_TEXT = {
   axisTier: '电价档位',
   powerNote: '（正充负放）',
   pwState: { charge: '充电', discharge: '放电', idle: '待机' },
-  curveCaliber:
-    '实际运行侧取当日报表电量并按分时档位还原到 15min；AI 仿真侧取仿真结果原始 15min 序列。功率为正表示充电、为负表示放电，与 SOC 升降方向一致。',
   socNote: '两侧 SOC 全程落在 5%–95% 配置区间内。',
   footLabels: { charge: '当日充电量', discharge: '当日放电量', real: '实际', sim: '仿真' },
   tierLine: '电价档位',
