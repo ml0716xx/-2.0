@@ -145,7 +145,14 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     if (currentPage === '策略配置') {
-      return <StrategyConfigPage />;
+      return (
+        <StrategyConfigPage
+          lifecycle={lifecycle}
+          onActivate={handleActivateTrial}
+          onConvert={handleConvertToFormal}
+          onSwitchLifecycle={setLifecycle}
+        />
+      );
     }
     if (currentPage === '策略运行') {
       return <StrategySchedulePage2 />;

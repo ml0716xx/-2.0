@@ -3,10 +3,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Plus, Edit, Trash2, ChevronRight, Clock, 
   Zap, Save, ArrowLeft, ChevronDown, HelpCircle, Info, Calendar, X, Copy, ChevronUp,
-  TrendingUp, Sparkles
+  TrendingUp, Sparkles, Lock, Rocket, ArrowUpRight, ShieldCheck
 } from 'lucide-react';
 import CommonConfigPanel from './CommonConfigPanel';
 import ModeManagementPanel from './ModeManagementPanel';
+import { TY_TRIAL_META } from './tianyingReportData';
+
+/** 客户生命周期：未开通（售前） / 试用 / 正式运行 —— 与策略运行报告、经营分析报告同源 */
+export type ConfigLifecycle = 'presale' | 'trial' | 'formal';
 
 interface SubPeriod {
   start: string;
@@ -62,7 +66,162 @@ const AI_TIER_STYLE: Record<AiTier, string> = {
 
 
 
-const StrategyConfigPage: React.FC = () => {
+interface StrategyConfigPageProps {
+  /** 客户生命周期状态（未开通 / 试用 / 正式运行） */
+  lifecycle?: ConfigLifecycle;
+  /** 未开通 → 试用 */
+  onActivate?: () => void;
+  /** 试用 → 正式运行 */
+  onConvert?: () => void;
+  /** 演示用：直接切换三态，便于核对各状态的引导形态 */
+  onSwitchLifecycle?: (l: ConfigLifecycle) => void;
+}
+
+/** 三态的状态角标（与策略运行报告同配色） */
+const LifecycleBadge: React.FC<{ lifecycle: ConfigLifecycle }> = ({ lifecycle }) => {
+  if (lifecycle === 'trial') {
+    return (
+      <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FFF7E6] border border-[#FFE0A3] text-[10px] font-bold text-[#B7791F]">
+        <Clock className="w-3 h-3" />
+        试用中 · 剩余 {TY_TRIAL_META.remainingDays} 天
+      </span>
+    );
+  }
+  if (lifecycle === 'formal') {
+    return (
+      <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#E8F7F1] border border-[#B7E4D3] text-[10px] font-bold text-[#17705A]">
+        <ShieldCheck className="w-3 h-3" />
+        正式运行 · AI 智能托管
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F4F6F9] border border-[#E3E8EE] text-[10px] font-bold text-[#5A6B7C]">
+      <Info className="w-3 h-3" />
+      未开通
+    </span>
+  );
+};
+
+/**
+ * 策略列表区的开通引导卡：三种状态各一套文案与 CTA
+ *   未开通  → 说明 AI 策略需开通后使用，主 CTA「一键开通 30 天试用」
+ *   试用中  → 说明 AI 正按实测数据校准，主 CTA「一键升级正式版」
+ *   正式运行 → 纯状态说明，无 CTA
+ */
+const AiActivationGuide: React.FC<{
+  lifecycle: ConfigLifecycle;
+  onActivate?: () => void;
+  onConvert?: () => void;
+  /** 紧凑模式：用于左侧列表栏（短文案 + 通栏按钮） */
+  compact?: boolean;
+}> = ({ lifecycle, onActivate, onConvert, compact }) => {
+  const shell =
+    lifecycle === 'presale'
+      ? 'border-[#E3E8EE] bg-white'
+      : lifecycle === 'trial'
+        ? 'border-[#FFE0A3] bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE]'
+        : 'border-[#B7E4D3] bg-[#E8F7F1]';
+
+  return (
+    <div className={`rounded-xl border px-4 py-3 flex flex-col gap-2 ${shell}`}>
+      <div className="flex items-start gap-2.5">
+        {lifecycle === 'presale' ? (
+          <Lock className="w-4 h-4 text-[#1E9C7E] mt-0.5 shrink-0" />
+        ) : lifecycle === 'trial' ? (
+          <Clock className="w-4 h-4 text-[#B7791F] mt-0.5 shrink-0" />
+        ) : (
+          <ShieldCheck className="w-4 h-4 text-[#17705A] mt-0.5 shrink-0" />
+        )}
+        <div className="min-w-0">
+          <div className="text-[12px] font-bold text-[#1A2A3A]">
+            {lifecycle === 'presale'
+              ? 'AI 策略需开通后使用'
+              : lifecycle === 'trial'
+                ? `AI 策略试用中 · 剩余 ${TY_TRIAL_META.remainingDays} 天`
+                : 'AI 策略正式运行中'}
+          </div>
+          <p className="text-[11px] text-[#7F8C8D] mt-0.5 leading-relaxed">
+            {compact
+              ? lifecycle === 'presale'
+                ? '开通 30 天试用即可调用下方 3 档 AI 策略。'
+                : lifecycle === 'trial'
+                  ? `AI 正按实测数据校准参数（${TY_TRIAL_META.elapsedDays}/${TY_TRIAL_META.totalDays} 天）。`
+                  : 'AI 持续托管与迭代，无需人工干预。'
+              : lifecycle === 'presale'
+                ? '下方 3 档 AI 策略（基础 / 标准 / PRO）由天盈 AI 依据站点负荷、电价与光伏出力自动生成。开通 30 天试用即可调用，试用期内可随时取消。'
+                : lifecycle === 'trial'
+                  ? `天盈 AI 正按站点实测数据逐日校准三档策略参数（已试运行 ${TY_TRIAL_META.elapsedDays} / ${TY_TRIAL_META.totalDays} 天），升级正式版后进入长期托管与模型迭代。`
+                  : '三档 AI 策略已进入常态化托管，天盈 AI 按站点实测数据持续迭代参数，无需人工干预。'}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        {lifecycle === 'presale' && onActivate && (
+          <button
+            onClick={onActivate}
+            className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors ${compact ? 'w-full' : ''}`}
+          >
+            <Rocket className="w-3.5 h-3.5" />
+            一键开通 30 天试用
+          </button>
+        )}
+        {lifecycle === 'trial' && onConvert && (
+          <button
+            onClick={onConvert}
+            className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors ${compact ? 'w-full' : ''}`}
+          >
+            <ArrowUpRight className="w-3.5 h-3.5" />
+            一键升级正式版
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/** 演示用三态切换：便于核对三种状态的引导形态 */
+const LifecycleSwitcher: React.FC<{
+  lifecycle: ConfigLifecycle;
+  onSwitch?: (l: ConfigLifecycle) => void;
+}> = ({ lifecycle, onSwitch }) => {
+  if (!onSwitch) return null;
+  return (
+    <div className="flex items-center gap-0.5 bg-[#F4F6F9] p-1 rounded-lg border border-[#EAEDF2]">
+      {(
+        [
+          ['presale', '未开通'],
+          ['trial', '试用'],
+          ['formal', '正式运行'],
+        ] as [ConfigLifecycle, string][]
+      ).map(([k, label]) => (
+        <button
+          key={k}
+          onClick={() => onSwitch(k)}
+          className={`px-3 py-1 rounded-md text-[12px] font-bold transition-all ${
+            lifecycle === k
+              ? k === 'trial'
+                ? 'bg-white text-[#B7791F] shadow-xs border border-[#FFE0A3]'
+                : k === 'formal'
+                  ? 'bg-white text-[#17705A] shadow-xs border border-[#B7E4D3]'
+                  : 'bg-white text-[#5A6B7C] shadow-xs border border-[#E3E8EE]'
+              : 'text-[#7F8C8D] hover:text-[#2C3E50]'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
+  lifecycle = 'presale',
+  onActivate,
+  onConvert,
+  onSwitchLifecycle,
+}) => {
   const [selectedId, setSelectedId] = useState('01');
   const [isEditing, setIsEditing] = useState(false);
   const [focusedThresholdBlockId, setFocusedThresholdBlockId] = useState<string | null>(null);
@@ -246,7 +405,8 @@ const StrategyConfigPage: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col gap-4">
       {/* 顶部标签页切换 */}
-      <div className="flex items-center gap-8 border-b border-slate-100 pb-3">
+      <div className="flex items-center justify-between gap-8 border-b border-slate-100 pb-3">
+        <div className="flex items-center gap-8">
         <button
           onClick={() => setActiveTab('common')}
           className={`text-base font-bold pb-2 transition-all relative cursor-pointer ${
@@ -289,6 +449,9 @@ const StrategyConfigPage: React.FC = () => {
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
           )}
         </button>
+        </div>
+
+        <LifecycleSwitcher lifecycle={lifecycle} onSwitch={onSwitchLifecycle} />
       </div>
 
       {activeTab === 'common' ? (
@@ -311,14 +474,31 @@ const StrategyConfigPage: React.FC = () => {
               if (!list.length) return null;
               return (
                 <div key={g.key} className="pt-3 first:pt-0">
-                  {/* 分组标题 */}
-                  <div className="flex items-center justify-between px-2 pb-2">
-                    <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {/* 分组标题：AI 分组额外标注当前生命周期状态 */}
+                  <div className="flex items-center justify-between px-2 pb-2 gap-2">
+                    <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">
                       {g.key === 'ai' && <Sparkles className="w-3 h-3 text-amber-500" />}
                       {g.title}
                     </span>
-                    <span className="text-[10px] font-bold text-slate-300 font-mono">{list.length}</span>
+                    {g.key === 'ai' ? (
+                      <LifecycleBadge lifecycle={lifecycle} />
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-300 font-mono">{list.length}</span>
+                    )}
                   </div>
+
+                  {/* 开通引导：AI 策略分组专属 */}
+                  {g.key === 'ai' && (
+                    <div className="mb-2">
+                      <AiActivationGuide
+                        lifecycle={lifecycle}
+                        onActivate={onActivate}
+                        onConvert={onConvert}
+                        compact
+                      />
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     {list.map((t) => (
                       <button
@@ -334,6 +514,9 @@ const StrategyConfigPage: React.FC = () => {
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className={`w-2 h-2 rounded-full shrink-0 ${t.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                           <span className={`text-sm font-bold truncate ${selectedId === t.id ? 'text-emerald-700' : 'text-slate-600'}`}>{t.name}</span>
+                          {t.group === 'ai' && lifecycle === 'presale' && (
+                            <Lock className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                          )}
                           {t.group === 'ai' && t.aiTier && (
                             <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE[t.aiTier]}`}>
                               {t.aiTier}
@@ -385,9 +568,15 @@ const StrategyConfigPage: React.FC = () => {
             <div className="flex items-center flex-wrap gap-3">
               {!isEditing ? (
                 isAiTemplate ? (
-                  <button onClick={() => handleCopyTemplate(currentTemplate.id)} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-2xl font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100 group">
-                    <Copy className="w-4 h-4" /> 复制为自定义策略
-                  </button>
+                  lifecycle === 'presale' && onActivate ? (
+                    <button onClick={onActivate} className="flex items-center gap-2 px-6 py-2.5 bg-[#1E9C7E] hover:bg-[#17705A] text-white rounded-2xl font-black text-sm transition-all shadow-xl shadow-emerald-100">
+                      <Rocket className="w-4 h-4" /> 一键开通 30 天试用
+                    </button>
+                  ) : (
+                    <button onClick={() => handleCopyTemplate(currentTemplate.id)} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-2xl font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100 group">
+                      <Copy className="w-4 h-4" /> 复制为自定义策略
+                    </button>
+                  )
                 ) : (
                   <>
                     <button onClick={handleEdit} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-2xl font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100 group">
@@ -415,20 +604,44 @@ const StrategyConfigPage: React.FC = () => {
           </div>
 
           <div className="space-y-8">
-            {/* AI 策略内容待补充：先占位，后续再填入各档位的调度参数 */}
+            {/* AI 策略内容待补充：按生命周期三态给出不同的状态说明与开通引导 */}
             {!hasBlocks && (
-              <div className="flex flex-col items-center justify-center py-24 text-center gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-amber-500" />
+              <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                <div
+                  className={`w-14 h-14 rounded-2xl border flex items-center justify-center ${
+                    lifecycle === 'presale'
+                      ? 'bg-slate-50 border-slate-100'
+                      : lifecycle === 'trial'
+                        ? 'bg-amber-50 border-amber-100'
+                        : 'bg-[#E8F7F1] border-[#B7E4D3]'
+                  }`}
+                >
+                  {lifecycle === 'presale' ? (
+                    <Lock className="w-6 h-6 text-slate-400" />
+                  ) : lifecycle === 'trial' ? (
+                    <Clock className="w-6 h-6 text-amber-500" />
+                  ) : (
+                    <ShieldCheck className="w-6 h-6 text-[#17705A]" />
+                  )}
                 </div>
                 <h3 className="text-base font-black text-slate-800 tracking-tight">
                   {currentTemplate.name}
                   {currentTemplate.aiTier ? `【${currentTemplate.aiTier}】` : ''}
                 </h3>
                 <p className="text-sm text-slate-400 font-medium max-w-md leading-relaxed">
-                  该策略由天盈 AI 依据站点负荷、电价与光伏出力特征自动生成，调度参数内容待补充。
-                  如需调整，可先复制为自定义策略再编辑。
+                  {lifecycle === 'presale'
+                    ? '该策略由天盈 AI 依据站点负荷、电价与光伏出力特征自动生成，开通试用后下发生效。'
+                    : lifecycle === 'trial'
+                      ? '该策略处于试用期，天盈 AI 正按站点实测数据逐日校准调度参数。'
+                      : '该策略已进入正式运行，由天盈 AI 持续托管与迭代，无需人工干预。'}
                 </p>
+                <div className="w-full max-w-xl text-left mt-3">
+                  <AiActivationGuide
+                    lifecycle={lifecycle}
+                    onActivate={onActivate}
+                    onConvert={onConvert}
+                  />
+                </div>
               </div>
             )}
             {hasBlocks && currentTemplate.blocks.map((block) => (
