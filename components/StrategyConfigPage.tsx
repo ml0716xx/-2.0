@@ -116,6 +116,9 @@ const AiActivationGuide: React.FC<{
   /** 紧凑模式：用于左侧列表栏（短文案 + 通栏按钮） */
   compact?: boolean;
 }> = ({ lifecycle, onActivate, onConvert, compact }) => {
+  // 正式运行态：AI 策略已在使用中，无转化动作，不再额外展示引导
+  if (lifecycle === 'formal') return null;
+
   const shell =
     lifecycle === 'presale'
       ? 'border-[#E3E8EE] bg-white'
@@ -487,8 +490,8 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                     )}
                   </div>
 
-                  {/* 开通引导：AI 策略分组专属 */}
-                  {g.key === 'ai' && (
+                  {/* 开通引导：AI 策略分组专属（正式运行态不展示） */}
+                  {g.key === 'ai' && lifecycle !== 'formal' && (
                     <div className="mb-2">
                       <AiActivationGuide
                         lifecycle={lifecycle}
@@ -635,13 +638,15 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                       ? '该策略处于试用期，天盈 AI 正按站点实测数据逐日校准调度参数。'
                       : '该策略已进入正式运行，由天盈 AI 持续托管与迭代，无需人工干预。'}
                 </p>
-                <div className="w-full max-w-xl text-left mt-3">
-                  <AiActivationGuide
-                    lifecycle={lifecycle}
-                    onActivate={onActivate}
-                    onConvert={onConvert}
-                  />
-                </div>
+                {lifecycle !== 'formal' && (
+                  <div className="w-full max-w-xl text-left mt-3">
+                    <AiActivationGuide
+                      lifecycle={lifecycle}
+                      onActivate={onActivate}
+                      onConvert={onConvert}
+                    />
+                  </div>
+                )}
               </div>
             )}
             {hasBlocks && currentTemplate.blocks.map((block) => (
