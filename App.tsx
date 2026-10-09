@@ -9,8 +9,8 @@ import AlarmPanel from './components/AlarmPanel';
 import StrategyPanel from './components/StrategyPanel';
 import Header from './components/Header';
 import WeatherPanel from './components/WeatherPanel';
-import PowerStrategySection from './components/PowerStrategySection';
 import EnergyRevenueSection from './components/EnergyRevenueSection';
+import StrategyMonitorPage from './components/StrategyMonitorPage';
 import SocialContributionSection from './components/SocialContributionSection';
 import StrategyConfigPage from './components/StrategyConfigPage';
 import StrategySchedulePage from './components/StrategySchedulePage';
@@ -199,27 +199,7 @@ const App: React.FC = () => {
       return <TopologyManagementPage onNavigate={setCurrentPage} />;
     }
     if (currentPage === '策略监控') {
-      return (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-slate-800">策略监控</h1>
-            <button 
-              onClick={() => setCurrentPage('监控中心')} 
-              className="text-sm text-emerald-600 hover:text-emerald-700 font-medium transition-colors flex items-center gap-1"
-            >
-              &larr; 返回监控中心
-            </button>
-          </div>
-          <div className="grid grid-cols-12 gap-4">
-            <div className="col-span-12 xl:col-span-8">
-              <PowerStrategySection />
-            </div>
-            <div className="col-span-12 xl:col-span-4">
-              <StrategyPanel strategy={strategyGroup} />
-            </div>
-          </div>
-        </div>
-      );
+      return <StrategyMonitorPage onBack={() => setCurrentPage('监控中心')} />;
     }
 
     return (
