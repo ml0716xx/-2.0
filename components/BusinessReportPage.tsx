@@ -27,7 +27,6 @@ import {
   Zap,
   ArrowRight,
   ArrowUpRight,
-  ShieldCheck,
   Rocket,
   Clock,
   PlugZap,
@@ -439,52 +438,35 @@ function AiHeroPresale({
 }
 
 /**
- * 试运行 / 正式运行：顶部状态条
- * 只承担「状态 + 转化」——核心业务数字（全月综合运行总收益 / AI 提升收益 /
+ * 试运行期状态条：只在试运行态渲染，正式态不挂任何状态条，直接进核心指标。
+ * 只承担「试运行进度 + 转化」——核心业务数字（全月综合运行总收益 / AI 提升收益 /
  * 综合度电成本 / AI 运行时长）统一由下方核心指标块承载，同一数字不出现两次。
- * 正式态只留「正式运行中」这一句客观状态，不做「AI 智能托管中」这类无信息量的描述。
  */
-function AiScoreStrip({ lifecycle, onConvert }: { lifecycle: Lifecycle; onConvert: () => void }) {
-  const isTrial = lifecycle === 'trial';
-
+function TrialStrip({ onConvert }: { onConvert: () => void }) {
   return (
-    <div
-      className={`rounded-xl px-5 border ${
-        isTrial
-          ? 'py-3.5 bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE] border-[#FFE0A3]'
-          : 'py-2.5 bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] border-[#B7E4D3]'
-      }`}
-    >
+    <div className="rounded-xl px-5 py-3.5 border bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE] border-[#FFE0A3]">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div
-          className={`flex items-center gap-2 text-[12px] font-bold ${
-            isTrial ? 'text-[#B7791F]' : 'text-[#17705A]'
-          }`}
-        >
-          {isTrial ? <Clock size={13} className="shrink-0" /> : <ShieldCheck size={13} className="shrink-0" />}
-          {isTrial
-            ? `试运行已运行 ${TY_TRIAL_META.elapsedDays} / ${TY_TRIAL_META.totalDays} 天 · 对比基线：${TY_TRIAL_META.baselineName}`
-            : '正式运行中'}
+        <div className="flex items-center gap-2 text-[12px] font-bold text-[#B7791F]">
+          <Clock size={13} className="shrink-0" />
+          试运行已运行 {TY_TRIAL_META.elapsedDays} / {TY_TRIAL_META.totalDays} 天 · 对比基线：{TY_TRIAL_META.baselineName}
         </div>
 
-        {isTrial && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-            <div className="rounded-lg bg-white/70 border border-[#FFE0A3] px-3 py-1.5 text-center">
-              <span className="text-[10px] text-[#8A6D3B] mr-1.5">试用期剩余</span>
-              <span className="text-[14px] font-black font-mono text-[#B7791F]">
-                {TY_TRIAL_META.remainingDays} 天
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={onConvert}
-              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors"
-            >
-              <ArrowUpRight size={14} />
-              一键升级正式版
-            </button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+          <div className="rounded-lg bg-white/70 border border-[#FFE0A3] px-3 py-1.5 text-center">
+            <span className="text-[10px] text-[#8A6D3B] mr-1.5">试用期剩余</span>
+            <span className="text-[14px] font-black font-mono text-[#B7791F]">
+              {TY_TRIAL_META.remainingDays} 天
+            </span>
           </div>
-        )}
+          <button
+            type="button"
+            onClick={onConvert}
+            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors"
+          >
+            <ArrowUpRight size={14} />
+            一键升级正式版
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -734,7 +716,7 @@ function AiStrategyTab({
   return (
     <div className="space-y-4">
       {/* 试运行 / 正式运行：效益分析 + 增值特性同属 AI 策略，一段读完，不再分子 tab */}
-      <AiScoreStrip lifecycle={lifecycle} onConvert={onConvert} />
+      {lifecycle === 'trial' && <TrialStrip onConvert={onConvert} />}
 
       <div className="flex items-center gap-2">
         <span className="w-1 h-3.5 rounded-full bg-[#1E9C7E]" />

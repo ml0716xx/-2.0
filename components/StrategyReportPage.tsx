@@ -19,7 +19,6 @@ import {
   Coins,
   BatteryCharging,
   ArrowDownRight,
-  ShieldCheck,
   Layers,
   ArrowRight,
   HelpCircle,
@@ -860,16 +859,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
         </div>
       )}
 
-      {/* 正式态只留一句客观状态，与「经营分析报告 · AI 策略数据」同口径；
-          核心数字统一由下方正文核心指标块承载 */}
-      {lifecycle === 'formal' && (
-        <div className="rounded-xl border border-[#B7E4D3] bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] px-5 py-2.5 flex items-center gap-3 shrink-0">
-          <span className="flex items-center gap-2 text-[12px] font-bold text-[#17705A]">
-            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-            正式运行中
-          </span>
-        </div>
-      )}
+      {/* 正式态不挂状态条：直接进正文核心指标，与「经营分析报告 · AI 策略数据」同口径 */}
 
       {/* CORE STATS & ASSOCIATIVE VALUE DRIVERS DASHBOARD */}
       {/* 未开通状态：报告主体替换为《天盈 AI 仿真报告》正文，不做遮罩，末尾引导开通试用 */}
