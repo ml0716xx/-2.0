@@ -48,8 +48,8 @@ interface StrategyTemplate {
 
 /** 列表分组标题（顺序即展示顺序） */
 const TEMPLATE_GROUPS: { key: TemplateGroup; title: string; desc: string }[] = [
-  { key: 'custom', title: '自定义策略', desc: '站端人工配置，可自由编辑与复制' },
   { key: 'ai', title: 'AI 策略', desc: '天盈 AI 依据站点特征自动生成' },
+  { key: 'custom', title: '自定义策略', desc: '站端人工配置，可自由编辑与复制' },
 ];
 
 /** AI 策略档位徽章配色 */
@@ -334,16 +334,10 @@ const StrategyConfigPage: React.FC = () => {
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className={`w-2 h-2 rounded-full shrink-0 ${t.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                           <span className={`text-sm font-bold truncate ${selectedId === t.id ? 'text-emerald-700' : 'text-slate-600'}`}>{t.name}</span>
-                          {t.group === 'custom' ? (
-                            <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
-                              自定义
+                          {t.group === 'ai' && t.aiTier && (
+                            <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE[t.aiTier]}`}>
+                              {t.aiTier}
                             </span>
-                          ) : (
-                            t.aiTier && (
-                              <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE[t.aiTier]}`}>
-                                {t.aiTier}
-                              </span>
-                            )
                           )}
                         </div>
                         <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${selectedId === t.id ? 'translate-x-0 opacity-100 text-emerald-400' : 'translate-x-4 opacity-0 text-slate-300 group-hover:opacity-100'}`} />
@@ -374,11 +368,6 @@ const StrategyConfigPage: React.FC = () => {
                     : isAiTemplate
                       ? `${currentTemplate.name}【${currentTemplate.aiTier}】`
                       : '策略配置详情'}
-                  {!isEditing && !isAiTemplate && (
-                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
-                      自定义
-                    </span>
-                  )}
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
                   <div className={`w-1.5 h-1.5 rounded-full ${currentTemplate.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
