@@ -7,6 +7,12 @@ import {
 } from 'lucide-react';
 import CommonConfigPanel from './CommonConfigPanel';
 import ModeManagementPanel from './ModeManagementPanel';
+import LightIntelligencePanel, {
+  EMPTY_BINDING,
+  PRESET_WEATHER_TYPES,
+  type WeatherBindings,
+  type WeatherType,
+} from './LightIntelligencePanel';
 import { TY_TRIAL_META } from './tianyingReportData';
 
 /** 客户生命周期：未开通（售前） / 试用 / 正式运行 —— 与策略运行报告、经营分析报告同源 */
@@ -244,6 +250,22 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
   const tomorrowISO = toISODate(new Date(Date.now() + 24 * 60 * 60 * 1000));
   const [simDate, setSimDate] = useState(todayISO);
 
+  /**
+   * AI 策略【基础】= 轻智能：按天气绑定自定义策略。
+   * 天气类型由后台维护（此处为预置 4 类），前端只消费列表；每种天气绑定 1 个自定义策略。
+   */
+  const weatherTypes: WeatherType[] = PRESET_WEATHER_TYPES;
+  const [weatherBindings, setWeatherBindings] = useState<WeatherBindings>({
+    sunny: { mode: 'template', templateId: '01' },
+    cloudy: EMPTY_BINDING,
+    overcast: EMPTY_BINDING,
+    snowrain: EMPTY_BINDING,
+  });
+
+  const handleBindWeather = (weatherKey: string, binding: { mode: 'none' | 'template'; templateId: string | null }) => {
+    setWeatherBindings((prev) => ({ ...prev, [weatherKey]: binding }));
+  };
+
   const [templates, setTemplates] = useState<StrategyTemplate[]>([
     {
       id: '01',
@@ -435,6 +457,12 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
   const hasBlocks = currentTemplate.blocks.length > 0;
   /** 未开通态：AI 策略的调度参数不可见，先引导开通（自定义策略不受生命周期影响） */
   const aiLocked = isAiTemplate && lifecycle === 'presale';
+  /** 基础档即「轻智能」：按天气绑定自定义策略，无逐日模拟的调度参数 */
+  const isBasicAi = isAiTemplate && currentTemplate.aiTier === '基础';
+  /** 轻智能可绑定的策略：仅自定义策略 */
+  const customTemplates = templates
+    .filter((t) => t.group === 'custom')
+    .map((t) => ({ id: t.id, name: t.name }));
 
   const socContainerRef = useRef<HTMLDivElement>(null);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
@@ -694,7 +722,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                   {isEditing
                     ? `编辑: ${currentTemplate.name}`
                     : isAiTemplate
-                      ? `${currentTemplate.name}【${currentTemplate.aiTier}】`
+                      ? `${currentTemplate.name}【${currentTemplate.aiTier}】${isBasicAi ? ' · 轻智能' : ''}`
                       : '策略配置详情'}
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
@@ -726,7 +754,9 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                   >
                     {isAiTemplate
                       ? lifecycle === 'presale'
-                        ? '未开通 · 调度参数不可见'
+                        ? isBasicAi
+                          ? '未开通 · 天气策略不可配置'
+                          : '未开通 · 调度参数不可见'
                         : lifecycle === 'trial'
                           ? `试运行中 · 已试运行 ${TY_TRIAL_META.elapsedDays} / ${TY_TRIAL_META.totalDays} 天`
                           : '正式运行 · 当前已激活应用至站点'
@@ -739,8 +769,8 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
             </div>
             
             <div className="flex items-center flex-wrap gap-3">
-              {/* AI 策略按日期模拟：默认 T 日，最远 T+1；未开通态置灰不可选 */}
-              {isAiTemplate && (
+              {/* AI 策略按日期模拟：默认 T 日，最远 T+1；未开通态置灰不可选（轻智能是按天气配置，无日期维度） */}
+              {isAiTemplate && !isBasicAi && (
                 <div
                   className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
                     aiLocked ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'
@@ -805,8 +835,9 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                   {currentTemplate.aiTier ? `【${currentTemplate.aiTier}】` : ''}
                 </h3>
                 <p className="text-sm text-slate-400 font-medium max-w-md leading-relaxed">
-                  该策略由天盈 AI 依据站点负荷、电价与光伏出力特征自动生成，
-                  开通 30 天试用后可查看调度参数并下发至站点。
+                  {isBasicAi
+                    ? '轻智能按站点所在地天气自动切换自定义策略，开通 30 天试用后可配置各天气对应的策略组合。'
+                    : '该策略由天盈 AI 依据站点负荷、电价与光伏出力特征自动生成，开通 30 天试用后可查看调度参数并下发至站点。'}
                 </p>
                 <div className="w-full max-w-xl text-left mt-3">
                   <AiActivationGuide
@@ -818,8 +849,27 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
               </div>
             )}
 
-            {/* 试用 / 正式态但尚无内容（AI 策略基础档）：说明内容待补充 */}
-            {!hasBlocks && !aiLocked && (
+            {/* AI 策略【基础】= 轻智能：按天气绑定自定义策略（未开通态已被上方整块锁定） */}
+            {!aiLocked && isBasicAi && (
+              <LightIntelligencePanel
+                weatherTypes={weatherTypes}
+                bindings={weatherBindings}
+                customTemplates={customTemplates}
+                onBind={handleBindWeather}
+                onViewTemplate={(id) => {
+                  setSelectedId(id);
+                  setIsEditing(false);
+                }}
+                guide={
+                  lifecycle === 'trial' ? (
+                    <AiActivationGuide lifecycle={lifecycle} onActivate={onActivate} onConvert={onConvert} />
+                  ) : null
+                }
+              />
+            )}
+
+            {/* 试用 / 正式态但尚无内容：说明内容待补充 */}
+            {!hasBlocks && !aiLocked && !isBasicAi && (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
                 <div
                   className={`w-14 h-14 rounded-2xl border flex items-center justify-center ${

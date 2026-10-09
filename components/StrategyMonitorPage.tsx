@@ -231,7 +231,7 @@ const LegendGroup: React.FC<{
 );
 
 /** 曲线悬浮读数 */
-const ChartTooltip: React.FC<any> = ({ active, payload, label, mode }) => {
+const ChartTooltip: React.FC<any> = ({ active, payload, label, mode, strategy }) => {
   if (!active || !payload?.length) return null;
   const p: SlotPoint = payload[0].payload;
   const rows =
@@ -505,7 +505,7 @@ const StrategyMonitorPage: React.FC = () => {
                   }}
                 />
               )}
-              <Tooltip content={<ChartTooltip mode={viewTab} />} cursor={{ stroke: '#CBD5E1', strokeDasharray: '4 4' }} />
+              <Tooltip content={<ChartTooltip mode={viewTab} strategy={strategy} />} cursor={{ stroke: '#CBD5E1', strokeDasharray: '4 4' }} />
 
               {viewTab === 'full' ? (
                 <>
