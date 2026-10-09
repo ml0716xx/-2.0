@@ -15,7 +15,7 @@ import LightIntelligencePanel, {
 } from './LightIntelligencePanel';
 import { TY_TRIAL_META } from './tianyingReportData';
 
-/** 客户生命周期：未开通（售前） / 试用 / 正式运行 —— 与策略运行报告、经营分析报告同源 */
+/** 客户生命周期：未开通（售前） / 试运行 / 正式运行 —— 与策略运行报告、经营分析报告同源 */
 export type ConfigLifecycle = 'presale' | 'trial' | 'formal';
 
 interface SubPeriod {
@@ -77,11 +77,11 @@ const toISODate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 interface StrategyConfigPageProps {
-  /** 客户生命周期状态（未开通 / 试用 / 正式运行） */
+  /** 客户生命周期状态（未开通 / 试运行 / 正式运行） */
   lifecycle?: ConfigLifecycle;
-  /** 未开通 → 试用 */
+  /** 未开通 → 试运行 */
   onActivate?: () => void;
-  /** 试用 → 正式运行 */
+  /** 试运行 → 正式运行 */
   onConvert?: () => void;
   /** 演示用：直接切换三态，便于核对各状态的引导形态 */
   onSwitchLifecycle?: (l: ConfigLifecycle) => void;
@@ -93,7 +93,7 @@ const LifecycleBadge: React.FC<{ lifecycle: ConfigLifecycle }> = ({ lifecycle })
     return (
       <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FFF7E6] border border-[#FFE0A3] text-[10px] font-bold text-[#B7791F]">
         <Clock className="w-3 h-3" />
-        试用中 · 剩余 {TY_TRIAL_META.remainingDays} 天
+        试运行中 · 剩余 {TY_TRIAL_META.remainingDays} 天
       </span>
     );
   }
@@ -116,56 +116,38 @@ const LifecycleBadge: React.FC<{ lifecycle: ConfigLifecycle }> = ({ lifecycle })
 /**
  * 策略列表区的开通引导卡：三种状态各一套文案与 CTA
  *   未开通  → 说明 AI 策略需开通后使用，主 CTA「一键开通 30 天试用」
- *   试用中  → 说明 AI 正按实测数据校准，主 CTA「一键升级正式版」
- *   正式运行 → 纯状态说明，无 CTA
+ *   试运行中 → 说明 AI 正按实测数据校准，主 CTA「一键升级正式版」
+ *   正式运行 → 无引导
+ * 开通与升级入口只保留在列表区，策略详情内不再重复展示。
  */
 const AiActivationGuide: React.FC<{
   lifecycle: ConfigLifecycle;
   onActivate?: () => void;
   onConvert?: () => void;
-  /** 紧凑模式：用于左侧列表栏（短文案 + 通栏按钮） */
-  compact?: boolean;
-}> = ({ lifecycle, onActivate, onConvert, compact }) => {
+}> = ({ lifecycle, onActivate, onConvert }) => {
   // 正式运行态：AI 策略已在使用中，无转化动作，不再额外展示引导
   if (lifecycle === 'formal') return null;
 
-  const shell =
-    lifecycle === 'presale'
-      ? 'border-[#E3E8EE] bg-white'
-      : lifecycle === 'trial'
-        ? 'border-[#FFE0A3] bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE]'
-        : 'border-[#B7E4D3] bg-[#E8F7F1]';
+  const shell = lifecycle === 'presale' ? 'border-[#E3E8EE] bg-white' : 'border-[#FFE0A3] bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE]';
 
   return (
     <div className={`rounded-xl border px-4 py-3 flex flex-col gap-2 ${shell}`}>
       <div className="flex items-start gap-2.5">
         {lifecycle === 'presale' ? (
           <Lock className="w-4 h-4 text-[#1E9C7E] mt-0.5 shrink-0" />
-        ) : lifecycle === 'trial' ? (
-          <Clock className="w-4 h-4 text-[#B7791F] mt-0.5 shrink-0" />
         ) : (
-          <ShieldCheck className="w-4 h-4 text-[#17705A] mt-0.5 shrink-0" />
+          <Clock className="w-4 h-4 text-[#B7791F] mt-0.5 shrink-0" />
         )}
         <div className="min-w-0">
           <div className="text-[12px] font-bold text-[#1A2A3A]">
             {lifecycle === 'presale'
               ? 'AI 策略需开通后使用'
-              : lifecycle === 'trial'
-                ? `AI 策略试用中 · 剩余 ${TY_TRIAL_META.remainingDays} 天`
-                : 'AI 策略正式运行中'}
+              : `AI 策略试运行中 · 剩余 ${TY_TRIAL_META.remainingDays} 天`}
           </div>
           <p className="text-[11px] text-[#7F8C8D] mt-0.5 leading-relaxed">
-            {compact
-              ? lifecycle === 'presale'
-                ? '开通 30 天试用即可调用下方 3 档 AI 策略。'
-                : lifecycle === 'trial'
-                  ? `AI 正按实测数据校准参数（${TY_TRIAL_META.elapsedDays}/${TY_TRIAL_META.totalDays} 天）。`
-                  : 'AI 持续托管与迭代，无需人工干预。'
-              : lifecycle === 'presale'
-                ? '下方 3 档 AI 策略（基础 / 标准 / PRO）由天盈 AI 依据站点负荷、电价与光伏出力自动生成。开通 30 天试用即可调用，试用期内可随时取消。'
-                : lifecycle === 'trial'
-                  ? `天盈 AI 正按站点实测数据逐日校准三档策略参数（已试运行 ${TY_TRIAL_META.elapsedDays} / ${TY_TRIAL_META.totalDays} 天），升级正式版后进入长期托管与模型迭代。`
-                  : '三档 AI 策略已进入常态化托管，天盈 AI 按站点实测数据持续迭代参数，无需人工干预。'}
+            {lifecycle === 'presale'
+              ? '开通 30 天试用即可调用下方 3 档 AI 策略。'
+              : `AI 正按实测数据校准参数，已试运行 ${TY_TRIAL_META.elapsedDays} / ${TY_TRIAL_META.totalDays} 天。`}
           </p>
         </div>
       </div>
@@ -174,7 +156,7 @@ const AiActivationGuide: React.FC<{
         {lifecycle === 'presale' && onActivate && (
           <button
             onClick={onActivate}
-            className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors ${compact ? 'w-full' : ''}`}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors w-full"
           >
             <Rocket className="w-3.5 h-3.5" />
             一键开通 30 天试用
@@ -183,7 +165,7 @@ const AiActivationGuide: React.FC<{
         {lifecycle === 'trial' && onConvert && (
           <button
             onClick={onConvert}
-            className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors ${compact ? 'w-full' : ''}`}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors w-full"
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
             一键升级正式版
@@ -205,7 +187,7 @@ const LifecycleSwitcher: React.FC<{
       {(
         [
           ['presale', '未开通'],
-          ['trial', '试用'],
+          ['trial', '试运行'],
           ['formal', '正式运行'],
         ] as [ConfigLifecycle, string][]
       ).map(([k, label]) => (
@@ -264,6 +246,52 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
 
   const handleBindWeather = (weatherKey: string, binding: { mode: 'none' | 'template'; templateId: string | null }) => {
     setWeatherBindings((prev) => ({ ...prev, [weatherKey]: binding }));
+  };
+
+  /**
+   * 轻智能里直接新建自定义策略：建成后落到「自定义策略」分组，供绑定与后续编辑。
+   * 初始配置与「策略运行报告 · 手动自定义策略」下方的默认计划时段保持一致：
+   *   00:00~07:00 充电 300kW（充电预留 95%）、18:00~22:00 放电 300kW（放电预留 95%）
+   */
+  const handleCreateCustomTemplate = (name: string): string => {
+    const id = `custom-${Date.now().toString(36)}`;
+    setTemplates((prev) => [
+      ...prev,
+      {
+        id,
+        name,
+        group: 'custom',
+        isActive: false,
+        hasWarning: false,
+        blocks: [
+          {
+            id: `${id}-b1`,
+            startTime: '00:00',
+            endTime: '07:00',
+            threshold: '0',
+            reserveCharge: '95',
+            reserveDischarge: '0',
+            strategyType: '峰谷套利',
+            dischargeThreshold: '0',
+            isCollapsed: true,
+            subPeriods: [{ start: '00:00', end: '07:00', type: '充电', power: 300 }],
+          },
+          {
+            id: `${id}-b2`,
+            startTime: '18:00',
+            endTime: '22:00',
+            threshold: '0',
+            reserveCharge: '0',
+            reserveDischarge: '95',
+            strategyType: '峰谷套利',
+            dischargeThreshold: '0',
+            isCollapsed: true,
+            subPeriods: [{ start: '18:00', end: '22:00', type: '放电', power: 300 }],
+          },
+        ],
+      },
+    ]);
+    return id;
   };
 
   const [templates, setTemplates] = useState<StrategyTemplate[]>([
@@ -637,8 +665,8 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
         <div className="w-72 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col shrink-0 animate-in slide-in-from-left duration-300">
           <div className="p-4 border-b border-slate-50 flex items-center justify-between">
             <h3 className="font-black text-slate-800 tracking-tight text-sm">策略组合列表</h3>
-            <button className="flex items-center gap-1 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all shadow-sm text-[11px] px-2 py-1 font-bold">
-              <Plus className="w-3 h-3" /> 新增
+            <button className="flex items-center gap-1 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all shadow-sm text-[11px] px-2.5 py-1 font-bold whitespace-nowrap">
+              <Plus className="w-3 h-3 shrink-0" /> 新增自定义策略
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-1">
@@ -660,14 +688,13 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                     )}
                   </div>
 
-                  {/* 开通引导：AI 策略分组专属（正式运行态不展示） */}
+                  {/* 开通引导：AI 策略分组专属（正式运行态不展示），全页唯一的开通/升级入口 */}
                   {g.key === 'ai' && lifecycle !== 'formal' && (
                     <div className="mb-2">
                       <AiActivationGuide
                         lifecycle={lifecycle}
                         onActivate={onActivate}
                         onConvert={onConvert}
-                        compact
                       />
                     </div>
                   )}
@@ -791,13 +818,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
               )}
 
               {!isEditing ? (
-                isAiTemplate ? (
-                  lifecycle === 'presale' && onActivate ? (
-                    <button onClick={onActivate} className="flex items-center gap-2 px-6 py-2.5 bg-[#1E9C7E] hover:bg-[#17705A] text-white rounded-2xl font-black text-sm transition-all shadow-xl shadow-emerald-100">
-                      <Rocket className="w-4 h-4" /> 一键开通 30 天试用
-                    </button>
-                  ) : null
-                ) : (
+                isAiTemplate ? null : (
                   <>
                     <button onClick={handleEdit} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-2xl font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100 group">
                       <Edit className="w-4 h-4" /> 修改策略
@@ -824,7 +845,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
           </div>
 
           <div className="space-y-8">
-            {/* 未开通态：AI 策略调度参数不可见，先引导开通 */}
+            {/* 未开通态：AI 策略参数不可见，整块锁定（开通入口在左侧列表区） */}
             {aiLocked && (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
                 <div className="w-14 h-14 rounded-2xl border flex items-center justify-center bg-slate-50 border-slate-100">
@@ -836,39 +857,28 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                 </h3>
                 <p className="text-sm text-slate-400 font-medium max-w-md leading-relaxed">
                   {isBasicAi
-                    ? '轻智能按站点所在地天气自动切换自定义策略，开通 30 天试用后可配置各天气对应的策略组合。'
-                    : '该策略由天盈 AI 依据站点负荷、电价与光伏出力特征自动生成，开通 30 天试用后可查看调度参数并下发至站点。'}
+                    ? '轻智能按站点所在地天气自动切换自定义策略，开通后可配置各天气对应的策略组合。'
+                    : '该策略由天盈 AI 依据站点负荷、电价与光伏出力特征自动生成，开通后可查看调度参数并下发至站点。'}
                 </p>
-                <div className="w-full max-w-xl text-left mt-3">
-                  <AiActivationGuide
-                    lifecycle={lifecycle}
-                    onActivate={onActivate}
-                    onConvert={onConvert}
-                  />
-                </div>
               </div>
             )}
 
-            {/* AI 策略【基础】= 轻智能：按天气绑定自定义策略（未开通态已被上方整块锁定） */}
+            {/* AI 策略【基础】= 轻智能：按天气配置自定义策略（未开通态已被上方整块锁定） */}
             {!aiLocked && isBasicAi && (
               <LightIntelligencePanel
                 weatherTypes={weatherTypes}
                 bindings={weatherBindings}
                 customTemplates={customTemplates}
                 onBind={handleBindWeather}
+                onCreateTemplate={handleCreateCustomTemplate}
                 onViewTemplate={(id) => {
                   setSelectedId(id);
                   setIsEditing(false);
                 }}
-                guide={
-                  lifecycle === 'trial' ? (
-                    <AiActivationGuide lifecycle={lifecycle} onActivate={onActivate} onConvert={onConvert} />
-                  ) : null
-                }
               />
             )}
 
-            {/* 试用 / 正式态但尚无内容：说明内容待补充 */}
+            {/* 试运行 / 正式态但尚无内容：说明内容待补充 */}
             {!hasBlocks && !aiLocked && !isBasicAi && (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
                 <div
@@ -888,25 +898,13 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                 </h3>
                 <p className="text-sm text-slate-400 font-medium max-w-md leading-relaxed">
                   {lifecycle === 'trial'
-                    ? '该策略处于试用期，天盈 AI 正按站点实测数据逐日校准调度参数。'
+                    ? '该策略处于试运行期，天盈 AI 正按站点实测数据逐日校准调度参数。'
                     : '该策略已进入正式运行，由天盈 AI 持续托管与迭代，无需人工干预。'}
                 </p>
-                <div className="w-full max-w-xl text-left mt-3">
-                  <AiActivationGuide
-                    lifecycle={lifecycle}
-                    onActivate={onActivate}
-                    onConvert={onConvert}
-                  />
-                </div>
               </div>
             )}
 
-            {/* 试用态：内容上方保留试用期提示与升级入口（正式态不展示） */}
-            {isAiTemplate && hasBlocks && lifecycle === 'trial' && (
-              <AiActivationGuide lifecycle={lifecycle} onActivate={onActivate} onConvert={onConvert} />
-            )}
-
-            {/* 试用 / 正式态渲染调度参数（未开通态不可见） */}
+            {/* 试运行 / 正式态渲染调度参数（未开通态不可见） */}
             {hasBlocks && !aiLocked && currentTemplate.blocks.map((block) => (
               <div key={block.id} className={`bg-slate-50/50 rounded-[2rem] border border-slate-100 p-0 relative transition-all duration-300 ${focusedThresholdBlockId === block.id ? 'z-[100]' : 'z-10'}`}>
                 <div 

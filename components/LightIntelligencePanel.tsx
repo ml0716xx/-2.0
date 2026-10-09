@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Sun, Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, Wind,
-  ChevronDown, ArrowRight, Info, CircleAlert, Sparkles,
+  Plus, ChevronDown, ArrowRight, Info, CircleAlert, Sparkles,
 } from 'lucide-react';
 
 /** 天气图标库：后台新增天气类型时指定图标标识，前端在此映射 */
@@ -57,16 +57,16 @@ interface LightIntelligencePanelProps {
   /** 可绑定的策略：仅自定义策略（AI 策略不可被绑定） */
   customTemplates: { id: string; name: string }[];
   onBind: (weatherKey: string, binding: WeatherBinding) => void;
+  /** 在绑定处直接新建自定义策略，返回新策略 id 以便立即绑定 */
+  onCreateTemplate: (name: string) => string;
   /** 跳转到「策略组合列表」中的对应策略 */
   onViewTemplate: (templateId: string) => void;
-  /** 生命周期提示（由页面统一渲染，保证三态口径一致） */
-  guide?: React.ReactNode;
 }
 
 /**
  * 轻智能面板（AI 策略【基础】详情）：
- *   说明条 → 天气概览条（切换选中）→ 详情卡（该天气绑定哪个自定义策略）
- * 天气类型由后台维护，前端只做展示与绑定；各天气的绑定状态实时回写到概览条状态点，
+ *   说明条 → 天气概览条（切换选中）→ 详情卡（该天气配置哪个自定义策略）
+ * 天气类型由后台维护，前端只做展示与配置；各天气的绑定状态实时回写到概览条状态点，
  * 配置即生效、无需保存。
  */
 const LightIntelligencePanel: React.FC<LightIntelligencePanelProps> = ({
@@ -74,10 +74,12 @@ const LightIntelligencePanel: React.FC<LightIntelligencePanelProps> = ({
   bindings,
   customTemplates,
   onBind,
+  onCreateTemplate,
   onViewTemplate,
-  guide,
 }) => {
   const [selectedKey, setSelectedKey] = useState(weatherTypes[0]?.key ?? '');
+  const [creating, setCreating] = useState(false);
+  const [draftName, setDraftName] = useState('');
 
   const selected = weatherTypes.find((w) => w.key === selectedKey) ?? weatherTypes[0];
   if (!selected) return null;
@@ -91,10 +93,18 @@ const LightIntelligencePanel: React.FC<LightIntelligencePanelProps> = ({
   const bindingMissing = binding.mode === 'template' && !!binding.templateId && !boundTemplate;
   const SelectedIcon = WEATHER_ICONS[selected.iconKey] ?? Cloud;
 
+  /** 新建自定义策略：建完即绑到当前天气 */
+  const submitCreate = () => {
+    const name = draftName.trim();
+    if (!name) return;
+    const id = onCreateTemplate(name);
+    onBind(selected.key, { mode: 'template', templateId: id });
+    setDraftName('');
+    setCreating(false);
+  };
+
   return (
     <div className="space-y-5">
-      {guide}
-
       {/* 说明条：说清轻智能干什么、开关在哪 */}
       <div className="flex items-start gap-2.5 rounded-2xl border border-[#B7E4D3] bg-[#E8F7F1] px-4 py-3">
         <Sparkles className="w-4 h-4 text-[#17705A] mt-0.5 shrink-0" />
@@ -168,12 +178,12 @@ const LightIntelligencePanel: React.FC<LightIntelligencePanelProps> = ({
 
           <div className="grid grid-cols-12 gap-5 pt-4">
             <div className="col-span-12 md:col-span-4 space-y-2">
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">加载类型</label>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">配置类型</label>
               <div className="inline-flex items-center gap-0.5 bg-slate-100 p-1 rounded-xl">
                 {(
                   [
-                    ['none', '不加载'],
-                    ['template', '加载自定义策略'],
+                    ['none', '不配置'],
+                    ['template', '配置自定义策略'],
                   ] as [WeatherLoadMode, string][]
                 ).map(([k, label]) => (
                   <button
@@ -200,24 +210,61 @@ const LightIntelligencePanel: React.FC<LightIntelligencePanelProps> = ({
 
             <div className="col-span-12 md:col-span-8 space-y-2">
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">策略组合</label>
-              <div className="relative">
-                <select
-                  disabled={binding.mode !== 'template'}
-                  value={binding.templateId ?? ''}
-                  onChange={(e) =>
-                    onBind(selected.key, { mode: 'template', templateId: e.target.value || null })
-                  }
-                  className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 ring-emerald-100 cursor-pointer disabled:bg-slate-50 disabled:text-slate-300 disabled:cursor-not-allowed"
-                >
-                  <option value="">{binding.mode === 'template' ? '请选择自定义策略' : '未加载策略'}</option>
-                  {customTemplates.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              </div>
+              {creating ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') submitCreate();
+                      if (e.key === 'Escape') setCreating(false);
+                    }}
+                    placeholder="请输入新策略名称"
+                    className="flex-1 min-w-0 bg-white border border-emerald-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 ring-emerald-100"
+                  />
+                  <button
+                    onClick={submitCreate}
+                    className="shrink-0 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-black transition-colors"
+                  >
+                    新建并绑定
+                  </button>
+                  <button
+                    onClick={() => setCreating(false)}
+                    className="shrink-0 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-500 text-[12px] font-bold hover:bg-slate-50 transition-colors"
+                  >
+                    取消
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1 min-w-0">
+                    <select
+                      disabled={binding.mode !== 'template'}
+                      value={binding.templateId ?? ''}
+                      onChange={(e) =>
+                        onBind(selected.key, { mode: 'template', templateId: e.target.value || null })
+                      }
+                      className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 ring-emerald-100 cursor-pointer disabled:bg-slate-50 disabled:text-slate-300 disabled:cursor-not-allowed"
+                    >
+                      <option value="">{binding.mode === 'template' ? '请选择自定义策略' : '未配置策略'}</option>
+                      {customTemplates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                  <button
+                    onClick={() => setCreating(true)}
+                    className="shrink-0 flex items-center gap-1 px-3.5 py-2.5 rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 text-[12px] font-black hover:bg-emerald-100 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    新建
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -245,7 +292,7 @@ const LightIntelligencePanel: React.FC<LightIntelligencePanelProps> = ({
             )}
             {!bindingMissing && binding.mode === 'template' && !boundTemplate && (
               <div className="text-[11px] text-slate-400">
-                {customTemplates.length ? '请选择要绑定的自定义策略' : '暂无自定义策略，请先在策略组合列表中新增'}
+                {customTemplates.length ? '请选择要配置的自定义策略' : '暂无自定义策略，可点「新建」直接创建'}
               </div>
             )}
           </div>
