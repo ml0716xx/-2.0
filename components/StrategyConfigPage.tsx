@@ -46,7 +46,7 @@ const StrategyConfigPage: React.FC = () => {
   const [focusedThresholdBlockId, setFocusedThresholdBlockId] = useState<string | null>(null);
 
   // 公共配置状态
-  const [activeTab, setActiveTab] = useState<'common' | 'selfConsumption' | 'mode'>('selfConsumption');
+  const [activeTab, setActiveTab] = useState<'common' | 'selfConsumption' | 'mode'>('common');
 
   const [templates, setTemplates] = useState<StrategyTemplate[]>([
     {
@@ -212,22 +212,6 @@ const StrategyConfigPage: React.FC = () => {
       {/* 顶部标签页切换 */}
       <div className="flex items-center gap-8 border-b border-slate-100 pb-3">
         <button
-          onClick={() => {
-            setActiveTab('selfConsumption');
-            setIsEditing(false);
-          }}
-          className={`text-base font-bold pb-2 transition-all relative cursor-pointer ${
-            activeTab === 'selfConsumption'
-              ? 'text-emerald-600 font-black'
-              : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          策略组合模板
-          {activeTab === 'selfConsumption' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
-          )}
-        </button>
-        <button
           onClick={() => setActiveTab('common')}
           className={`text-base font-bold pb-2 transition-all relative cursor-pointer ${
             activeTab === 'common'
@@ -250,6 +234,22 @@ const StrategyConfigPage: React.FC = () => {
         >
           模式管理
           {activeTab === 'mode' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
+          )}
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('selfConsumption');
+            setIsEditing(false);
+          }}
+          className={`text-base font-bold pb-2 transition-all relative cursor-pointer ${
+            activeTab === 'selfConsumption'
+              ? 'text-emerald-600 font-black'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          策略组合模板
+          {activeTab === 'selfConsumption' && (
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
           )}
         </button>
