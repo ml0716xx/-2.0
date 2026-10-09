@@ -419,8 +419,10 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
   const currentTemplate = templates.find(t => t.id === selectedId) || templates[0];
   /** 当前选中的是否为 AI 策略（不可人工编辑） */
   const isAiTemplate = currentTemplate.group === 'ai';
-  /** 是否已填充调度配置块（AI 策略内容待补充，暂为空） */
+  /** 是否已填充调度配置块（AI 策略基础档内容待补充，暂为空） */
   const hasBlocks = currentTemplate.blocks.length > 0;
+  /** 未开通态：AI 策略的调度参数不可见，先引导开通（自定义策略不受生命周期影响） */
+  const aiLocked = isAiTemplate && lifecycle === 'presale';
 
   const socContainerRef = useRef<HTMLDivElement>(null);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
@@ -735,26 +737,39 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
           </div>
 
           <div className="space-y-8">
-            {/* AI 策略已有内容时：未开通 / 试用态在内容上方保留开通引导（正式运行态不展示） */}
-            {isAiTemplate && hasBlocks && lifecycle !== 'formal' && (
-              <AiActivationGuide lifecycle={lifecycle} onActivate={onActivate} onConvert={onConvert} />
+            {/* 未开通态：AI 策略调度参数不可见，先引导开通 */}
+            {aiLocked && (
+              <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                <div className="w-14 h-14 rounded-2xl border flex items-center justify-center bg-slate-50 border-slate-100">
+                  <Lock className="w-6 h-6 text-slate-400" />
+                </div>
+                <h3 className="text-base font-black text-slate-800 tracking-tight">
+                  {currentTemplate.name}
+                  {currentTemplate.aiTier ? `【${currentTemplate.aiTier}】` : ''}
+                </h3>
+                <p className="text-sm text-slate-400 font-medium max-w-md leading-relaxed">
+                  该策略由天盈 AI 依据站点负荷、电价与光伏出力特征自动生成，
+                  开通 30 天试用后可查看调度参数并下发至站点。
+                </p>
+                <div className="w-full max-w-xl text-left mt-3">
+                  <AiActivationGuide
+                    lifecycle={lifecycle}
+                    onActivate={onActivate}
+                    onConvert={onConvert}
+                  />
+                </div>
+              </div>
             )}
 
-            {/* AI 策略内容待补充：按生命周期三态给出不同的状态说明与开通引导 */}
-            {!hasBlocks && (
+            {/* 试用 / 正式态但尚无内容（AI 策略基础档）：说明内容待补充 */}
+            {!hasBlocks && !aiLocked && (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
                 <div
                   className={`w-14 h-14 rounded-2xl border flex items-center justify-center ${
-                    lifecycle === 'presale'
-                      ? 'bg-slate-50 border-slate-100'
-                      : lifecycle === 'trial'
-                        ? 'bg-amber-50 border-amber-100'
-                        : 'bg-[#E8F7F1] border-[#B7E4D3]'
+                    lifecycle === 'trial' ? 'bg-amber-50 border-amber-100' : 'bg-[#E8F7F1] border-[#B7E4D3]'
                   }`}
                 >
-                  {lifecycle === 'presale' ? (
-                    <Lock className="w-6 h-6 text-slate-400" />
-                  ) : lifecycle === 'trial' ? (
+                  {lifecycle === 'trial' ? (
                     <Clock className="w-6 h-6 text-amber-500" />
                   ) : (
                     <ShieldCheck className="w-6 h-6 text-[#17705A]" />
@@ -765,24 +780,27 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                   {currentTemplate.aiTier ? `【${currentTemplate.aiTier}】` : ''}
                 </h3>
                 <p className="text-sm text-slate-400 font-medium max-w-md leading-relaxed">
-                  {lifecycle === 'presale'
-                    ? '该策略由天盈 AI 依据站点负荷、电价与光伏出力特征自动生成，开通试用后下发生效。'
-                    : lifecycle === 'trial'
-                      ? '该策略处于试用期，天盈 AI 正按站点实测数据逐日校准调度参数。'
-                      : '该策略已进入正式运行，由天盈 AI 持续托管与迭代，无需人工干预。'}
+                  {lifecycle === 'trial'
+                    ? '该策略处于试用期，天盈 AI 正按站点实测数据逐日校准调度参数。'
+                    : '该策略已进入正式运行，由天盈 AI 持续托管与迭代，无需人工干预。'}
                 </p>
-                {lifecycle !== 'formal' && (
-                  <div className="w-full max-w-xl text-left mt-3">
-                    <AiActivationGuide
-                      lifecycle={lifecycle}
-                      onActivate={onActivate}
-                      onConvert={onConvert}
-                    />
-                  </div>
-                )}
+                <div className="w-full max-w-xl text-left mt-3">
+                  <AiActivationGuide
+                    lifecycle={lifecycle}
+                    onActivate={onActivate}
+                    onConvert={onConvert}
+                  />
+                </div>
               </div>
             )}
-            {hasBlocks && currentTemplate.blocks.map((block) => (
+
+            {/* 试用态：内容上方保留试用期提示与升级入口（正式态不展示） */}
+            {isAiTemplate && hasBlocks && lifecycle === 'trial' && (
+              <AiActivationGuide lifecycle={lifecycle} onActivate={onActivate} onConvert={onConvert} />
+            )}
+
+            {/* 试用 / 正式态渲染调度参数（未开通态不可见） */}
+            {hasBlocks && !aiLocked && currentTemplate.blocks.map((block) => (
               <div key={block.id} className={`bg-slate-50/50 rounded-[2rem] border border-slate-100 p-0 relative transition-all duration-300 ${focusedThresholdBlockId === block.id ? 'z-[100]' : 'z-10'}`}>
                 <div 
                   className={`flex items-center justify-between p-8 cursor-pointer hover:bg-slate-100/50 transition-colors ${!block.isCollapsed ? 'border-b border-slate-100' : ''} ${block.isCollapsed ? 'rounded-[2rem]' : 'rounded-t-[2rem]'}`}
