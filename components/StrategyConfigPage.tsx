@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Plus, Edit, Trash2, ChevronRight, Clock, 
   Zap, Save, ArrowLeft, ChevronDown, HelpCircle, Info, Calendar, X, Copy, ChevronUp,
-  TrendingUp
+  TrendingUp, Sparkles
 } from 'lucide-react';
 import CommonConfigPanel from './CommonConfigPanel';
 import ModeManagementPanel from './ModeManagementPanel';
@@ -30,13 +30,35 @@ interface ScheduleBlock {
   dischargeOffset?: string;
 }
 
+/** 策略来源分组：自定义（可人工编辑）/ AI（天盈 AI 生成，按档位分级） */
+type TemplateGroup = 'custom' | 'ai';
+
+/** AI 策略档位 */
+type AiTier = '基础' | '标准' | 'PRO';
+
 interface StrategyTemplate {
   id: string;
   name: string;
+  group: TemplateGroup;
+  aiTier?: AiTier;
   isActive: boolean;
   hasWarning: boolean;
   blocks: ScheduleBlock[];
 }
+
+/** 列表分组标题（顺序即展示顺序） */
+const TEMPLATE_GROUPS: { key: TemplateGroup; title: string; desc: string }[] = [
+  { key: 'custom', title: '自定义策略', desc: '站端人工配置，可自由编辑与复制' },
+  { key: 'ai', title: 'AI 策略', desc: '天盈 AI 依据站点特征自动生成' },
+];
+
+/** AI 策略档位徽章配色 */
+const AI_TIER_STYLE: Record<AiTier, string> = {
+  基础: 'bg-sky-50 text-sky-600 border-sky-100',
+  标准: 'bg-violet-50 text-violet-600 border-violet-100',
+  PRO: 'bg-amber-50 text-amber-600 border-amber-200',
+};
+
 
 
 
@@ -52,6 +74,7 @@ const StrategyConfigPage: React.FC = () => {
     {
       id: '01',
       name: '峰谷套利核心策略',
+      group: 'custom',
       isActive: true,
       hasWarning: false,
       blocks: [
@@ -77,6 +100,7 @@ const StrategyConfigPage: React.FC = () => {
     { 
       id: '02', 
       name: '全额消纳默认策略', 
+      group: 'custom',
       isActive: false, 
       hasWarning: false, 
       blocks: [
@@ -96,9 +120,17 @@ const StrategyConfigPage: React.FC = () => {
         }
       ]
     },
+    // ===== AI 策略：调度参数内容待补充，先占位（列表分组与档位已就位） =====
+    { id: 'ai-basic', name: 'AI 策略', group: 'ai', aiTier: '基础', isActive: false, hasWarning: false, blocks: [] },
+    { id: 'ai-standard', name: 'AI 策略', group: 'ai', aiTier: '标准', isActive: false, hasWarning: false, blocks: [] },
+    { id: 'ai-pro', name: 'AI 策略', group: 'ai', aiTier: 'PRO', isActive: false, hasWarning: false, blocks: [] },
   ]);
 
   const currentTemplate = templates.find(t => t.id === selectedId) || templates[0];
+  /** 当前选中的是否为 AI 策略（不可人工编辑） */
+  const isAiTemplate = currentTemplate.group === 'ai';
+  /** 是否已填充调度配置块（AI 策略内容待补充，暂为空） */
+  const hasBlocks = currentTemplate.blocks.length > 0;
 
   const socContainerRef = useRef<HTMLDivElement>(null);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
@@ -188,11 +220,15 @@ const StrategyConfigPage: React.FC = () => {
     if (e) e.stopPropagation();
     const target = templates.find(t => t.id === templateId);
     if (!target) return;
-    
-    const newTemplate = {
+    const isAi = target.group === 'ai';
+
+    const newTemplate: StrategyTemplate = {
       ...JSON.parse(JSON.stringify(target)),
       id: Math.random().toString(36).substr(2, 5),
-      name: `${target.name}-副本`,
+      // AI 策略不可人工编辑，副本落到「自定义策略」分组，名称带上原档位便于追溯
+      name: isAi ? `${target.name}【${target.aiTier}】-副本` : `${target.name}-副本`,
+      group: 'custom',
+      aiTier: undefined,
       isActive: false
     };
     
@@ -248,7 +284,7 @@ const StrategyConfigPage: React.FC = () => {
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >
-          策略组合模板
+          策略组合列表
           {activeTab === 'selfConsumption' && (
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
           )}
@@ -264,29 +300,59 @@ const StrategyConfigPage: React.FC = () => {
       {!isEditing && (
         <div className="w-72 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col shrink-0 animate-in slide-in-from-left duration-300">
           <div className="p-4 border-b border-slate-50 flex items-center justify-between">
-            <h3 className="font-black text-slate-800 tracking-tight text-sm">策略组合模板</h3>
+            <h3 className="font-black text-slate-800 tracking-tight text-sm">策略组合列表</h3>
             <button className="flex items-center gap-1 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all shadow-sm text-[11px] px-2 py-1 font-bold">
               <Plus className="w-3 h-3" /> 新增
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {templates.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setSelectedId(t.id)}
-                className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all group ${
-                  selectedId === t.id ? 'bg-emerald-50 border-emerald-100 shadow-sm' : 'hover:bg-slate-50 border-transparent'
-                } border relative`}
-              >
-                <div className="flex items-center gap-3 min-w-0 pr-8">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${t.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-                  <span className={`text-sm font-bold truncate ${selectedId === t.id ? 'text-emerald-700' : 'text-slate-600'}`}>{t.name}</span>
+          <div className="flex-1 overflow-y-auto p-4 space-y-1">
+            {TEMPLATE_GROUPS.map((g) => {
+              const list = templates.filter((t) => t.group === g.key);
+              if (!list.length) return null;
+              return (
+                <div key={g.key} className="pt-3 first:pt-0">
+                  {/* 分组标题 */}
+                  <div className="flex items-center justify-between px-2 pb-2">
+                    <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      {g.key === 'ai' && <Sparkles className="w-3 h-3 text-amber-500" />}
+                      {g.title}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-300 font-mono">{list.length}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {list.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => {
+                          setSelectedId(t.id);
+                          setIsEditing(false); // 切换策略退出编辑态，避免 AI 策略进入空编辑视图
+                        }}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all group ${
+                          selectedId === t.id ? 'bg-emerald-50 border-emerald-100 shadow-sm' : 'hover:bg-slate-50 border-transparent'
+                        } border relative`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${t.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                          <span className={`text-sm font-bold truncate ${selectedId === t.id ? 'text-emerald-700' : 'text-slate-600'}`}>{t.name}</span>
+                          {t.group === 'custom' ? (
+                            <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                              自定义
+                            </span>
+                          ) : (
+                            t.aiTier && (
+                              <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE[t.aiTier]}`}>
+                                {t.aiTier}
+                              </span>
+                            )
+                          )}
+                        </div>
+                        <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${selectedId === t.id ? 'translate-x-0 opacity-100 text-emerald-400' : 'translate-x-4 opacity-0 text-slate-300 group-hover:opacity-100'}`} />
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <ChevronRight className={`w-4 h-4 transition-transform ${selectedId === t.id ? 'translate-x-0 opacity-100 text-emerald-400' : 'translate-x-4 opacity-0 text-slate-300 group-hover:opacity-100'}`} />
-                </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -302,13 +368,26 @@ const StrategyConfigPage: React.FC = () => {
                 </button>
               )}
               <div>
-                <h2 className="text-lg font-black text-slate-800 tracking-tight">
-                  {isEditing ? `编辑: ${currentTemplate.name}` : '策略配置详情'}
+                <h2 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2">
+                  {isEditing
+                    ? `编辑: ${currentTemplate.name}`
+                    : isAiTemplate
+                      ? `${currentTemplate.name}【${currentTemplate.aiTier}】`
+                      : '策略配置详情'}
+                  {!isEditing && !isAiTemplate && (
+                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                      自定义
+                    </span>
+                  )}
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
                   <div className={`w-1.5 h-1.5 rounded-full ${currentTemplate.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                   <span className={`text-[10px] ${currentTemplate.isActive ? 'text-emerald-500' : 'text-slate-400'} font-bold uppercase tracking-widest`}>
-                    {currentTemplate.isActive ? '当前已激活应用至站点' : '草稿/离线编辑中'}
+                    {currentTemplate.isActive
+                      ? '当前已激活应用至站点'
+                      : isAiTemplate
+                        ? '天盈 AI 依据站点特征自动生成 · 参数内容待补充'
+                        : '草稿/离线编辑中'}
                   </span>
                 </div>
               </div>
@@ -316,17 +395,23 @@ const StrategyConfigPage: React.FC = () => {
             
             <div className="flex items-center flex-wrap gap-3">
               {!isEditing ? (
-                <>
-                  <button onClick={handleEdit} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-2xl font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100 group">
-                    <Edit className="w-4 h-4" /> 修改策略
+                isAiTemplate ? (
+                  <button onClick={() => handleCopyTemplate(currentTemplate.id)} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-2xl font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100 group">
+                    <Copy className="w-4 h-4" /> 复制为自定义策略
                   </button>
-                  <button onClick={() => handleCopyTemplate(currentTemplate.id)} className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-sm hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm group">
-                    <Copy className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" /> 复制副本
-                  </button>
-                  <button className="flex items-center gap-2 px-6 py-2.5 border border-rose-100 text-rose-500 rounded-2xl font-black text-sm hover:bg-rose-50 transition-all">
-                    <Trash2 className="w-4 h-4" /> 删除
-                  </button>
-                </>
+                ) : (
+                  <>
+                    <button onClick={handleEdit} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-2xl font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100 group">
+                      <Edit className="w-4 h-4" /> 修改策略
+                    </button>
+                    <button onClick={() => handleCopyTemplate(currentTemplate.id)} className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-sm hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm group">
+                      <Copy className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" /> 复制副本
+                    </button>
+                    <button className="flex items-center gap-2 px-6 py-2.5 border border-rose-100 text-rose-500 rounded-2xl font-black text-sm hover:bg-rose-50 transition-all">
+                      <Trash2 className="w-4 h-4" /> 删除
+                    </button>
+                  </>
+                )
               ) : (
                 <>
                   <button onClick={handleCancel} className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-sm hover:bg-slate-50 transition-all">
@@ -341,7 +426,23 @@ const StrategyConfigPage: React.FC = () => {
           </div>
 
           <div className="space-y-8">
-            {currentTemplate.blocks.map((block) => (
+            {/* AI 策略内容待补充：先占位，后续再填入各档位的调度参数 */}
+            {!hasBlocks && (
+              <div className="flex flex-col items-center justify-center py-24 text-center gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center">
+                  <Sparkles className="w-6 h-6 text-amber-500" />
+                </div>
+                <h3 className="text-base font-black text-slate-800 tracking-tight">
+                  {currentTemplate.name}
+                  {currentTemplate.aiTier ? `【${currentTemplate.aiTier}】` : ''}
+                </h3>
+                <p className="text-sm text-slate-400 font-medium max-w-md leading-relaxed">
+                  该策略由天盈 AI 依据站点负荷、电价与光伏出力特征自动生成，调度参数内容待补充。
+                  如需调整，可先复制为自定义策略再编辑。
+                </p>
+              </div>
+            )}
+            {hasBlocks && currentTemplate.blocks.map((block) => (
               <div key={block.id} className={`bg-slate-50/50 rounded-[2rem] border border-slate-100 p-0 relative transition-all duration-300 ${focusedThresholdBlockId === block.id ? 'z-[100]' : 'z-10'}`}>
                 <div 
                   className={`flex items-center justify-between p-8 cursor-pointer hover:bg-slate-100/50 transition-colors ${!block.isCollapsed ? 'border-b border-slate-100' : ''} ${block.isCollapsed ? 'rounded-[2rem]' : 'rounded-t-[2rem]'}`}
