@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { tierOfSlot, slotTime } from './tianyingReportData';
 
 /* ==========================================================================
@@ -313,7 +313,7 @@ const BottomTrack: React.FC = () => (
 
 type ViewTab = 'full' | 'single';
 
-const StrategyMonitorPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
+const StrategyMonitorPage: React.FC = () => {
   const [viewTab, setViewTab] = useState<ViewTab>('full');
   const [scope, setScope] = useState('全站');
   const [strategy, setStrategy] = useState('余电上网');
@@ -325,38 +325,30 @@ const StrategyMonitorPage: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
   return (
     <div className="space-y-4">
-      {/* 顶部：返回 + 视角切换 */}
+      {/* 顶部：视角切换 */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-5">
-          <button
-            onClick={onBack}
-            className="text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors flex items-center gap-1"
-          >
-            <ArrowLeft className="w-4 h-4" /> 返回监控中心
-          </button>
-          <div className="flex items-center gap-2">
-            {(
-              [
-                ['full', '全周期策略视角'],
-                ['single', '单策略视角'],
-              ] as [ViewTab, string][]
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setViewTab(key)}
-                className={`relative px-1 pb-1.5 text-sm font-bold transition-colors ${
-                  viewTab === key ? 'text-emerald-600' : 'text-slate-500 hover:text-slate-700'
+        <div className="flex items-center gap-2">
+          {(
+            [
+              ['full', '全周期策略视角'],
+              ['single', '单策略视角'],
+            ] as [ViewTab, string][]
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setViewTab(key)}
+              className={`relative px-1 pb-1.5 text-sm font-bold transition-colors ${
+                viewTab === key ? 'text-emerald-600' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {label}
+              <span
+                className={`absolute left-0 right-0 -bottom-px h-0.5 rounded-full transition-all ${
+                  viewTab === key ? 'bg-emerald-500' : 'bg-transparent'
                 }`}
-              >
-                {label}
-                <span
-                  className={`absolute left-0 right-0 -bottom-px h-0.5 rounded-full transition-all ${
-                    viewTab === key ? 'bg-emerald-500' : 'bg-transparent'
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
+              />
+            </button>
+          ))}
         </div>
 
         {/* 右上：策略/日期 */}

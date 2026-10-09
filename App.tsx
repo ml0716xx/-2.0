@@ -199,7 +199,7 @@ const App: React.FC = () => {
       return <TopologyManagementPage onNavigate={setCurrentPage} />;
     }
     if (currentPage === '策略监控') {
-      return <StrategyMonitorPage onBack={() => setCurrentPage('监控中心')} />;
+      return <StrategyMonitorPage />;
     }
 
     return (
