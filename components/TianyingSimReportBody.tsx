@@ -391,13 +391,14 @@ export default function TianyingSimReportBody({
         <div className="flex items-center justify-between mb-2">
           <span className="text-[12px] font-bold text-[#5A6B7C]">逐项对照：实际运行 → AI 策略仿真</span>
         </div>
-        {/* 电量类 / 收益类 左右并排：单列铺满时「指标」与数值之间会留出一大片空白，
-            并排后栏宽减半、空白收紧，整块高度也从 7 行降到 4 行 */}
+        {/* 电量类 / 收益类 左右并排：单列铺满时「指标」与右侧数值之间会留出一大片空白，
+            并排后栏宽减半、空白收紧。右栏在收益对照之下直接接「增量来源」归因，
+            与左栏电量类等高，不再单开一段两卡区块、也不在右栏底部空出一大块。 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
           {SIM_GROUPS.map(g => {
             const rows = TY_SIM_ROWS.filter(r => r.group === g);
             return (
-              <div key={g} className="overflow-hidden rounded-lg border border-[#EAEDF2]">
+              <div key={g} className="flex flex-col overflow-hidden rounded-lg border border-[#EAEDF2]">
                 <div className="flex items-center gap-1.5 px-3 py-2 bg-[#FBFCFD] border-b border-[#EAEDF2]">
                   <span className="w-1 h-3 rounded-full bg-[#1E9C7E] shrink-0" />
                   <span className="text-[11px] font-bold text-[#5A6B7C]">{g}</span>
@@ -443,35 +444,31 @@ export default function TianyingSimReportBody({
                     })}
                   </tbody>
                 </table>
+
+                {/* 收益类下方直接接增量归因，贴着栏底，与左侧电量类收尾对齐 */}
+                {g === '收益类' && (
+                  <div className="mt-auto border-t border-[#EAEDF2] bg-[#FBFCFD] px-3 py-2">
+                    <div className="text-[10px] font-bold text-[#8A98A6] mb-1">增量来源</div>
+                    <div className="space-y-0.5">
+                      {TY_SIM_WHY.map(w => (
+                        <div key={w.title} className="flex items-baseline gap-1.5 text-[11px] leading-tight">
+                          <span className="font-bold text-[#5A6B7C] shrink-0">{w.title}</span>
+                          <span
+                            className={`font-mono font-bold shrink-0 ${
+                              w.tone === 'up' ? 'text-[#E5484D]' : 'text-[#1E9C7E]'
+                            }`}
+                          >
+                            {w.amount}
+                          </span>
+                          <span className="text-[#8A98A6] truncate">{w.brief}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
-          {TY_SIM_WHY.map(w => (
-            <div key={w.title} className="rounded-xl border border-[#EAEDF2] bg-[#FBFCFD] p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-md bg-[#1A2A3A] text-white text-[11px] font-bold flex items-center justify-center">
-                    {w.no}
-                  </span>
-                  <span className="text-[12px] font-bold text-[#1A2A3A]">{w.title}</span>
-                </div>
-                <span
-                  className={`font-mono text-sm font-black ${
-                    w.tone === 'up' ? 'text-[#E5484D]' : 'text-[#1E9C7E]'
-                  }`}
-                >
-                  {w.amount}
-                </span>
-              </div>
-              <p className="text-[11px] text-[#5A6B7C] leading-relaxed">{w.mechanism}</p>
-              <p className="text-[11px] text-[#8A98A6] leading-relaxed mt-1.5 pt-1.5 border-t border-[#EAEDF2]">
-                {w.evidence}
-              </p>
-            </div>
-          ))}
         </div>
 
         <div className="rounded-xl border border-[#EAEDF2] p-4">
