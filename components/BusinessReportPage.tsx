@@ -67,7 +67,6 @@ import {
   BIZ_UNIT_COST,
   AI_GAIN,
   AI_DAILY,
-  AI_CURTAILMENT,
   TY_TRIAL_META,
   fmt,
 } from './tianyingReportData';
@@ -466,92 +465,46 @@ function AiHeroPresale({
   );
 }
 
-/** 试运行 / 正式运行：顶部成绩条（只用真实指标） */
+/**
+ * 试运行 / 正式运行：顶部状态条
+ * 只承担「状态 + 转化」——核心业务数字（全月综合运行总收益 / AI 提升收益 /
+ * 综合度电成本 / AI 运行时长）统一由下方核心指标块承载，同一数字不出现两次。
+ */
 function AiScoreStrip({ lifecycle, onConvert }: { lifecycle: Lifecycle; onConvert: () => void }) {
-  const g = AI_GAIN;
   const isTrial = lifecycle === 'trial';
 
   return (
     <div
-      className={`rounded-xl px-5 py-4 border ${
+      className={`rounded-xl px-5 py-3.5 border ${
         isTrial
           ? 'bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE] border-[#FFE0A3]'
           : 'bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] border-[#B7E4D3]'
       }`}
     >
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div
-            className={`flex items-center gap-2 text-[11px] font-bold ${
-              isTrial ? 'text-[#B7791F]' : 'text-[#17705A]'
-            }`}
-          >
-            {isTrial ? <Clock size={12} /> : <ShieldCheck size={12} />}
-            {isTrial
-              ? `试运行已运行 ${TY_TRIAL_META.elapsedDays} / ${TY_TRIAL_META.totalDays} 天 · 对比基线：${TY_TRIAL_META.baselineName}`
-              : `AI 智能托管中 · 本月运行成绩（当月 ${g.days} 天）`}
-          </div>
-
-          <div className="mt-2 flex flex-wrap items-end gap-x-7 gap-y-2">
-            <div>
-              <div className={`text-[10px] ${isTrial ? 'text-[#8A6D3B]' : 'text-[#2C7A6E]'}`}>
-                全月综合运行总收益
-              </div>
-              <div
-                className={`text-[22px] font-black font-mono leading-tight ${
-                  isTrial ? 'text-[#B7791F]' : 'text-[#17705A]'
-                }`}
-              >
-                {(g.totalRevenue / 10000).toFixed(2)}
-                <span className="text-[11px] font-normal ml-1">万元</span>
-              </div>
-            </div>
-            <div>
-              <div className={`text-[10px] ${isTrial ? 'text-[#8A6D3B]' : 'text-[#2C7A6E]'}`}>
-                AI 提升收益
-              </div>
-              <div className="text-[16px] font-black font-mono text-[#E5484D] leading-tight">
-                ¥{fmt(g.aiBoost, 0)}
-                <span className="text-[11px] font-normal text-[#8A6D3B] ml-1">
-                  +{fmt(g.aiBoostPct, 1)}%
-                </span>
-              </div>
-            </div>
-            <div>
-              <div className={`text-[10px] ${isTrial ? 'text-[#8A6D3B]' : 'text-[#2C7A6E]'}`}>
-                综合度电成本
-              </div>
-              <div className="text-[16px] font-black font-mono text-[#1A2A3A] leading-tight">
-                ¥{fmt(g.unitCost, 3)}
-                <span className="text-[11px] font-normal text-[#1E9C7E] ml-1">
-                  -¥{fmt(g.unitCostDelta, 3)}
-                </span>
-              </div>
-            </div>
-            <div>
-              <div className={`text-[10px] ${isTrial ? 'text-[#8A6D3B]' : 'text-[#2C7A6E]'}`}>
-                AI 运行时长
-              </div>
-              <div className="text-[16px] font-black font-mono text-[#1A2A3A] leading-tight">
-                {fmt(g.aiRuntimePct, 2)}
-                <span className="text-[11px] font-normal ml-1">%（{fmt(g.aiRuntimeHours, 2)}h）</span>
-              </div>
-            </div>
-          </div>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div
+          className={`flex items-center gap-2 text-[12px] font-bold ${
+            isTrial ? 'text-[#B7791F]' : 'text-[#17705A]'
+          }`}
+        >
+          {isTrial ? <Clock size={13} className="shrink-0" /> : <ShieldCheck size={13} className="shrink-0" />}
+          {isTrial
+            ? `试运行已运行 ${TY_TRIAL_META.elapsedDays} / ${TY_TRIAL_META.totalDays} 天 · 对比基线：${TY_TRIAL_META.baselineName}`
+            : 'AI 智能托管中 · 本月运行成绩见下方核心指标'}
         </div>
 
         {isTrial && (
-          <div className="flex flex-col items-stretch gap-2 shrink-0">
-            <div className="rounded-lg bg-white/70 border border-[#FFE0A3] px-3 py-2 text-center">
-              <div className="text-[10px] text-[#8A6D3B]">试用期剩余</div>
-              <div className="text-[15px] font-black font-mono text-[#B7791F]">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+            <div className="rounded-lg bg-white/70 border border-[#FFE0A3] px-3 py-1.5 text-center">
+              <span className="text-[10px] text-[#8A6D3B] mr-1.5">试用期剩余</span>
+              <span className="text-[14px] font-black font-mono text-[#B7791F]">
                 {TY_TRIAL_META.remainingDays} 天
-              </div>
+              </span>
             </div>
             <button
               type="button"
               onClick={onConvert}
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors"
+              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors"
             >
               <ArrowUpRight size={14} />
               一键升级正式版
@@ -627,14 +580,19 @@ function AiCoreCards() {
   );
 }
 
-/** 光伏 / 储能 双翼精简（各取 3 项最有说服力的指标） */
+/**
+ * 光伏 / 储能 双翼精简（各取 3 项最有说服力的指标）
+ * 指标纪律：此处每一项都必须是「策略运行报告」正文已渲染的指标，不新增口径、不发明指标。
+ * 「限电止损」不在此列 —— 它已由下方「二、限电止损（增值特性）」整段承载，
+ * 这里换成同样属于策略运行报告的光伏上网电量（1.3），避免同一指标两处出现。
+ */
 function AiWings() {
   const g = AI_GAIN;
 
   const pvItems = [
     { label: '光伏消纳率', value: `${fmt(g.pv.consumptionRate, 1)}%`, delta: `+${fmt(g.pv.consumptionDelta, 1)} pct`, base: `基准 ${fmt(g.pv.consumptionBase, 1)}%` },
     { label: '光伏入储电量', value: `${g.pv.toStorage}`, unit: '万kWh', delta: `+${fmt(g.pv.toStorageDelta, 1)}%`, base: `基准 ${g.pv.toStorageBase}万kWh` },
-    { label: '限电止损', value: `¥${fmt(g.pv.curtailmentSaved, 0)}`, delta: `止损 ${fmt(g.pv.curtailmentEnergy, 1)} kWh`, base: `日均减亏 ¥${fmt(AI_CURTAILMENT.avgSavedDaily, 2)}` },
+    { label: '光伏上网电量', value: `${g.pv.gridExport}`, unit: '万kWh', delta: `${fmt(g.pv.gridExportDelta, 1)}%`, base: `基准 ${g.pv.gridExportBase}万kWh` },
   ];
   const essItems = [
     { label: '储能综合利用率', value: `${fmt(g.ess.utilRate, 1)}%`, delta: `+${fmt(g.ess.utilDelta, 1)}%`, base: `基准 ${fmt(g.ess.utilBase, 1)}%` },
@@ -716,7 +674,7 @@ function AiWings() {
         title="光伏收益"
         revenue={g.pv.revenue}
         share={g.pv.sharePct}
-        narrative={`AI 把光伏电量更多留在站内：消纳率 ${fmt(g.pv.consumptionRate, 1)}%，比基准高 ${fmt(g.pv.consumptionDelta, 1)} 个百分点；入储电量 ${g.pv.toStorage} 万kWh，同比基准增长 ${fmt(g.pv.toStorageDelta, 1)}%。`}
+        narrative={`AI 把光伏电量更多留在站内：消纳率 ${fmt(g.pv.consumptionRate, 1)}%，比基准高 ${fmt(g.pv.consumptionDelta, 1)} 个百分点；入储电量 ${g.pv.toStorage} 万kWh，较基准增长 ${fmt(g.pv.toStorageDelta, 1)}%。`}
         items={pvItems}
       />
       <Wing

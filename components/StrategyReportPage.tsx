@@ -855,39 +855,11 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
       )}
 
       {lifecycle === 'trial' && (
-        <div className="rounded-xl border border-[#FFE0A3] bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE] px-5 py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
-          <div>
-            <div className="flex items-center gap-2 text-[11px] font-bold text-[#B7791F]">
-              <Clock className="w-3 h-3" />
-              试用期已运行 {TY_TRIAL_META.elapsedDays} / {TY_TRIAL_META.totalDays} 天 · 对比基线：{TY_TRIAL_META.baselineName}
-            </div>
-            <div className="mt-2 flex flex-wrap items-end gap-x-7 gap-y-2">
-              <div>
-                <div className="text-[10px] text-[#8A6D3B]">AI 提升收益</div>
-                <div className="text-[20px] font-black font-mono text-[#E5484D] leading-tight">
-                  ¥{fmtNum(AI_GAIN.aiBoost, 0)}
-                  <span className="text-[11px] font-normal text-[#8A6D3B] ml-1">
-                    +{fmtNum(AI_GAIN.aiBoostPct, 1)}%
-                  </span>
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] text-[#8A6D3B]">综合度电成本</div>
-                <div className="text-[15px] font-black font-mono text-[#1A2A3A] leading-tight">
-                  ¥{fmtNum(AI_GAIN.unitCost, 3)}
-                  <span className="text-[11px] font-normal text-[#1E9C7E] ml-1">
-                    -¥{fmtNum(AI_GAIN.unitCostDelta, 3)}
-                  </span>
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] text-[#8A6D3B]">AI 运行</div>
-                <div className="text-[15px] font-black font-mono text-[#1A2A3A] leading-tight">
-                  {AI_GAIN.aiDays}
-                  <span className="text-[11px] font-normal ml-1">/ {AI_GAIN.days} 天</span>
-                </div>
-              </div>
-            </div>
+        <div className="rounded-xl border border-[#FFE0A3] bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE] px-5 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+          {/* 顶部条只承担状态与转化，核心数字统一由下方正文核心指标块承载，避免同一数字出现两次 */}
+          <div className="flex items-center gap-2 text-[12px] font-bold text-[#B7791F]">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
+            试运行已运行 {TY_TRIAL_META.elapsedDays} / {TY_TRIAL_META.totalDays} 天 · 对比基线：{TY_TRIAL_META.baselineName}
           </div>
           <div className="flex items-center gap-2.5 shrink-0">
             <div className="rounded-lg bg-white/70 border border-[#FFE0A3] px-3.5 py-2 text-center">
@@ -908,34 +880,12 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
       )}
 
       {lifecycle === 'formal' && (
-        <div className="rounded-xl border border-[#B7E4D3] bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] px-5 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
-          <div className="flex flex-wrap items-center gap-x-7 gap-y-2">
-            <div>
-              <div className="text-[11px] font-bold text-[#17705A]">AI 智能托管中 · 本月运行成绩</div>
-              <div className="text-[18px] font-black font-mono text-[#17705A] leading-tight">
-                {(AI_GAIN.totalRevenue / 10000).toFixed(2)}
-                <span className="text-[11px] font-normal text-[#2C7A6E] ml-1">万元</span>
-              </div>
-            </div>
-            <div className="h-8 w-px bg-[#B7E4D3]" />
-            <div>
-              <div className="text-[11px] font-bold text-[#17705A]">AI 提升收益</div>
-              <div className="text-[14px] font-black font-mono text-[#E5484D] mt-0.5">
-                ¥{fmtNum(AI_GAIN.aiBoost, 0)}
-              </div>
-            </div>
-            <div className="h-8 w-px bg-[#B7E4D3]" />
-            <div>
-              <div className="text-[11px] font-bold text-[#17705A]">AI 运行时长</div>
-              <div className="text-[14px] font-black font-mono text-[#2C7A6E] mt-0.5">
-                {fmtNum(AI_GAIN.aiRuntimePct, 2)}%
-                <span className="text-[10px] font-normal ml-1">（{fmtNum(AI_GAIN.aiRuntimeHours, 2)}h）</span>
-              </div>
-            </div>
-          </div>
-          <div className="text-[11px] text-[#2C7A6E] leading-relaxed max-w-[380px]">
-            综合度电成本 ¥{fmtNum(AI_GAIN.unitCost, 3)}/kWh，较基准降低 ¥{fmtNum(AI_GAIN.unitCostDelta, 3)}。
-          </div>
+        <div className="rounded-xl border border-[#B7E4D3] bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-1 shrink-0">
+          <span className="flex items-center gap-2 text-[12px] font-bold text-[#17705A]">
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+            AI 智能托管中
+          </span>
+          <span className="text-[11px] text-[#2C7A6E]">本月运行成绩见下方核心指标</span>
         </div>
       )}
 
@@ -1105,21 +1055,21 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
                     </span>
                   </div>
 
-                  {/* AI提升收益与综合度电成本指标栏 */}
+                  {/* AI提升收益与综合度电成本指标栏（页头状态条已不重复展示，此处为唯一数据位） */}
                   <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-[#EAEDF2] text-xs">
-                    <div className="bg-[#F8FAFC] rounded-xl p-2.5 border border-[#EAEDF2] hover:border-[#C5CCD6] transition-all">
+                    <div className="bg-[#F8FAFC] rounded-xl p-3 border border-[#EAEDF2] hover:border-[#C5CCD6] transition-all">
                       <span className="text-[11px] text-[#7F8C8D] font-medium block">AI提升收益</span>
-                      <div className="flex items-baseline gap-1.5 mt-0.5">
-                        <strong className="text-[#1A2A3A] font-sans font-bold text-sm">¥{(totalCostSavings / 10000).toFixed(2)}万</strong>
+                      <div className="flex items-baseline gap-1.5 mt-1">
+                        <strong className="text-[#1A2A3A] font-sans font-bold text-base">¥{(totalCostSavings / 10000).toFixed(2)}万</strong>
                         <span className="text-[10px] text-[#1E9C7E] bg-[#E6F4F0] px-1.5 py-0.5 rounded font-bold font-sans">
                           +{unitCostReducedPct}%
                         </span>
                       </div>
                     </div>
-                    <div className="bg-[#F8FAFC] rounded-xl p-2.5 border border-[#EAEDF2] hover:border-[#C5CCD6] transition-all">
+                    <div className="bg-[#F8FAFC] rounded-xl p-3 border border-[#EAEDF2] hover:border-[#C5CCD6] transition-all">
                       <span className="text-[11px] text-[#7F8C8D] font-medium block">综合度电成本</span>
-                      <div className="flex items-baseline gap-1.5 mt-0.5">
-                        <strong className="text-[#1A2A3A] font-sans font-bold text-sm">¥{avgUnitCost}</strong>
+                      <div className="flex items-baseline gap-1.5 mt-1">
+                        <strong className="text-[#1A2A3A] font-sans font-bold text-base">¥{avgUnitCost}</strong>
                         <span className="text-[10px] text-[#1E9C7E] bg-[#E6F4F0] px-1.5 py-0.5 rounded font-bold font-sans">
                           -¥{unitCostReduced}
                         </span>
