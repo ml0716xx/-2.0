@@ -391,60 +391,61 @@ export default function TianyingSimReportBody({
         <div className="flex items-center justify-between mb-2">
           <span className="text-[12px] font-bold text-[#5A6B7C]">逐项对照：实际运行 → AI 策略仿真</span>
         </div>
-        <div className="overflow-hidden rounded-lg border border-[#EAEDF2] mb-4">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-[#FBFCFD]">
-                <th className="text-left px-3 py-2 text-[11px] font-bold text-[#8A98A6] w-[58px]">类别</th>
-                <th className="text-left px-3 py-2 text-[11px] font-bold text-[#8A98A6]">指标</th>
-                <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">实际运行</th>
-                <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">AI 策略仿真</th>
-                <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">绝对差</th>
-              </tr>
-            </thead>
-            <tbody>
-              {SIM_GROUPS.map(g => {
-                const rows = TY_SIM_ROWS.filter(r => r.group === g);
-                return rows.map((r, i) => {
-                  const diff = r.sim - r.real;
-                  const isTotal = r.item === '总收益';
-                  return (
-                    <tr key={r.item} className={`border-t border-[#EAEDF2] ${isTotal ? 'bg-[#F4FBF8]' : ''}`}>
-                      {i === 0 && (
-                        <td
-                          rowSpan={rows.length}
-                          className="px-3 py-2 text-[11px] font-bold text-[#5A6B7C] align-middle border-r border-[#EAEDF2] whitespace-nowrap"
-                        >
-                          {g}
-                        </td>
-                      )}
-                      <td
-                        className={`px-3 py-2 text-[12px] whitespace-nowrap ${
-                          isTotal ? 'font-bold text-[#1A2A3A]' : 'text-[#2C3E50]'
-                        }`}
-                      >
-                        {r.item}
-                        <span className="text-[10px] text-[#9AA7B4] ml-1">{r.unit}</span>
-                      </td>
-                      <td className="px-3 py-2 text-right text-[12px] font-mono text-[#7F8C8D] whitespace-nowrap">
-                        {fmt(r.real, r.dec)}
-                      </td>
-                      <td className="px-3 py-2 text-right text-[12px] font-mono font-bold text-[#1A2A3A] whitespace-nowrap">
-                        {fmt(r.sim, r.dec)}
-                      </td>
-                      <td
-                        className={`px-3 py-2 text-right text-[12px] font-mono font-bold whitespace-nowrap ${
-                          diff > 0 ? 'text-[#E5484D]' : diff < 0 ? 'text-[#1E9C7E]' : 'text-[#9AA7B4]'
-                        }`}
-                      >
-                        {Math.abs(diff) < 10 ** -r.dec / 2 ? '—' : fmtSigned(diff, r.dec)}
-                      </td>
+        {/* 电量类 / 收益类 左右并排：单列铺满时「指标」与数值之间会留出一大片空白，
+            并排后栏宽减半、空白收紧，整块高度也从 7 行降到 4 行 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+          {SIM_GROUPS.map(g => {
+            const rows = TY_SIM_ROWS.filter(r => r.group === g);
+            return (
+              <div key={g} className="overflow-hidden rounded-lg border border-[#EAEDF2]">
+                <div className="flex items-center gap-1.5 px-3 py-2 bg-[#FBFCFD] border-b border-[#EAEDF2]">
+                  <span className="w-1 h-3 rounded-full bg-[#1E9C7E] shrink-0" />
+                  <span className="text-[11px] font-bold text-[#5A6B7C]">{g}</span>
+                </div>
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-[#FBFCFD] border-b border-[#EAEDF2]">
+                      <th className="text-left px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">指标</th>
+                      <th className="text-right px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">实际运行</th>
+                      <th className="text-right px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">AI 策略仿真</th>
+                      <th className="text-right px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">绝对差</th>
                     </tr>
-                  );
-                });
-              })}
-            </tbody>
-          </table>
+                  </thead>
+                  <tbody>
+                    {rows.map(r => {
+                      const diff = r.sim - r.real;
+                      const isTotal = r.item === '总收益';
+                      return (
+                        <tr key={r.item} className={`border-t border-[#EAEDF2] ${isTotal ? 'bg-[#F4FBF8]' : ''}`}>
+                          <td
+                            className={`px-3 py-1.5 text-[11px] whitespace-nowrap ${
+                              isTotal ? 'font-bold text-[#1A2A3A]' : 'text-[#2C3E50]'
+                            }`}
+                          >
+                            {r.item}
+                            <span className="text-[10px] text-[#9AA7B4] ml-1">{r.unit}</span>
+                          </td>
+                          <td className="px-3 py-1.5 text-right text-[11px] font-mono text-[#7F8C8D] whitespace-nowrap">
+                            {fmt(r.real, r.dec)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right text-[11px] font-mono font-bold text-[#1A2A3A] whitespace-nowrap">
+                            {fmt(r.sim, r.dec)}
+                          </td>
+                          <td
+                            className={`px-3 py-1.5 text-right text-[11px] font-mono font-bold whitespace-nowrap ${
+                              diff > 0 ? 'text-[#E5484D]' : diff < 0 ? 'text-[#1E9C7E]' : 'text-[#9AA7B4]'
+                            }`}
+                          >
+                            {Math.abs(diff) < 10 ** -r.dec / 2 ? '—' : fmtSigned(diff, r.dec)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
