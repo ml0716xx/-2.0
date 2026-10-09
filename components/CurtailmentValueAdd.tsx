@@ -44,6 +44,13 @@ import {
 } from './curtailmentData';
 
 /**
+ * 当前已上线的增值特性清单。
+ * 只列特性名，不展开单条特性内部的功能点 —— 展开会变成产品说明书。
+ * 目前只有「限电止损」一项；以后新增增值特性，往这个数组里加一项即可。
+ */
+const VALUE_ADD_FEATURES = ['限电止损'];
+
+/**
  * 日刻度渲染：与主报告图表的 DynamicXAxisTick 视觉一致
  * （fontSize 10 / dy 14 / 居中，AI 运行日标绿加粗）。
  * 主报告那份依赖日收益数据与模拟排程状态，此处按同样的「每 6 天有 1 天非 AI 日」
@@ -118,10 +125,10 @@ export default function CurtailmentValueAdd() {
             <div className="shrink-0 rounded-xl bg-white/8 border border-white/15 px-4 py-3 w-full lg:w-[210px]">
               <div className="flex items-center gap-1.5 text-[11px] text-[#FFE0A3] font-bold">
                 <ShieldCheck size={12} />
-                增值能力说明
+                当前增值特性
               </div>
               <ul className="mt-2 space-y-1.5 text-[11px] text-white/80">
-                {['限电 / 负电价识别', '余电转储自动执行', '逐日止损台账', '96 点穿透分析'].map(t => (
+                {VALUE_ADD_FEATURES.map(t => (
                   <li key={t} className="flex items-center gap-1.5">
                     <CheckCircle2 size={11} className="text-[#9DECD3] shrink-0" />
                     {t}
