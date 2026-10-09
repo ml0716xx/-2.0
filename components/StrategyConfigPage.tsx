@@ -736,43 +736,30 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                   </span>
                 </div>
               </div>
-
+            </div>
+            
+            <div className="flex items-center flex-wrap gap-3">
               {/* AI 策略按日期模拟：默认 T 日，最远 T+1；未开通态置灰不可选 */}
               {isAiTemplate && (
                 <div
-                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 ${
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
                     aiLocked ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'
                   }`}
                   title={aiLocked ? '开通后可选择模拟日期' : 'AI 策略按所选日期进行模拟'}
                 >
                   <Calendar className={`w-4 h-4 ${aiLocked ? 'text-slate-300' : 'text-slate-400'}`} />
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">模拟日期</span>
-                    <input
-                      type="date"
-                      value={simDate}
-                      max={tomorrowISO}
-                      disabled={aiLocked}
-                      onChange={(e) => setSimDate(e.target.value)}
-                      className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer w-[112px] disabled:text-slate-300 disabled:cursor-not-allowed"
-                    />
-                  </div>
-                  {(simDate === todayISO || simDate === tomorrowISO) && (
-                    <span
-                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${
-                        simDate === todayISO
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                          : 'bg-amber-50 text-amber-600 border-amber-200'
-                      }`}
-                    >
-                      {simDate === todayISO ? 'T 日' : 'T+1'}
-                    </span>
-                  )}
+                  <span className="text-[11px] font-bold text-slate-500">模拟日期</span>
+                  <input
+                    type="date"
+                    value={simDate}
+                    max={tomorrowISO}
+                    disabled={aiLocked}
+                    onChange={(e) => setSimDate(e.target.value)}
+                    className="bg-transparent text-sm font-bold text-slate-700 outline-none cursor-pointer w-[120px] disabled:text-slate-300 disabled:cursor-not-allowed"
+                  />
                 </div>
               )}
-            </div>
-            
-            <div className="flex items-center flex-wrap gap-3">
+
               {!isEditing ? (
                 isAiTemplate ? (
                   lifecycle === 'presale' && onActivate ? (
@@ -780,9 +767,9 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                       <Rocket className="w-4 h-4" /> 一键开通 30 天试用
                     </button>
                   ) : (
-                    <button onClick={() => handleCopyTemplate(currentTemplate.id)} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-2xl font-black text-sm hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100 group">
-                      <Copy className="w-4 h-4" /> 复制为自定义策略
-                    </button>
+                    <span className="text-[11px] font-bold text-slate-400">
+                      AI 策略由天盈 AI 托管，不支持编辑与复制
+                    </span>
                   )
                 ) : (
                   <>
@@ -878,7 +865,6 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 -mb-4">
                 <Calendar className="w-3.5 h-3.5" />
                 以下为 {simDate} 的模拟调度参数
-                {simDate === todayISO ? '（T 日）' : simDate === tomorrowISO ? '（T+1 日）' : ''}
               </div>
             )}
 
