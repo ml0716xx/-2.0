@@ -282,10 +282,138 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
         }
       ]
     },
-    // ===== AI 策略：调度参数内容待补充，先占位（列表分组与档位已就位） =====
+    // ===== AI 策略：标准档 / PRO 档内容取自「策略运行 · 策略排期」对应策略 =====
+    // 基础档内容待补充，先占位
     { id: 'ai-basic', name: 'AI 策略', group: 'ai', aiTier: '基础', isActive: false, hasWarning: false, blocks: [] },
-    { id: 'ai-standard', name: 'AI 策略', group: 'ai', aiTier: '标准', isActive: false, hasWarning: false, blocks: [] },
-    { id: 'ai-pro', name: 'AI 策略', group: 'ai', aiTier: 'PRO', isActive: false, hasWarning: false, blocks: [] },
+    {
+      // 源自 策略运行 · 策略排期「AI 运行策略」（现名 AI 策略【标准】）
+      id: 'ai-standard',
+      name: 'AI 策略',
+      group: 'ai',
+      aiTier: '标准',
+      isActive: true,
+      hasWarning: false,
+      blocks: [
+        {
+          id: 'ai-std-1',
+          startTime: '00:00',
+          endTime: '04:00',
+          threshold: '0',
+          reserveCharge: '20',
+          reserveDischarge: '5',
+          strategyType: '峰谷套利',
+          dischargeThreshold: '0',
+          isCollapsed: true,
+          subPeriods: []
+        },
+        {
+          id: 'ai-std-2',
+          startTime: '04:00',
+          endTime: '06:00',
+          threshold: '0',
+          reserveCharge: '10',
+          reserveDischarge: '10',
+          strategyType: '峰谷套利',
+          dischargeThreshold: '0',
+          isCollapsed: true,
+          subPeriods: []
+        },
+        {
+          id: 'ai-std-3',
+          startTime: '06:00',
+          endTime: '11:00',
+          // 可逆流阈值 -10 kW
+          threshold: '-10',
+          reserveCharge: '0',
+          reserveDischarge: '50',
+          strategyType: '峰谷套利',
+          dischargeThreshold: '0',
+          isCollapsed: false,
+          // AI 排程下发的 15min 明细
+          subPeriods: [
+            { start: '06:00', end: '06:15', type: '放电', power: 93.17 },
+            { start: '06:15', end: '06:30', type: '放电', power: 76.86 },
+            { start: '06:30', end: '06:45', type: '放电', power: 175.34 },
+            { start: '06:45', end: '07:00', type: '放电', power: 181.25 }
+          ]
+        },
+        {
+          id: 'ai-std-4',
+          startTime: '11:00',
+          endTime: '18:00',
+          threshold: '0',
+          reserveCharge: '0',
+          reserveDischarge: '20',
+          strategyType: '全额消纳（自发自用）',
+          dischargeThreshold: '0',
+          isCollapsed: true,
+          subPeriods: []
+        },
+        {
+          id: 'ai-std-5',
+          startTime: '18:00',
+          endTime: '24:00',
+          threshold: '0',
+          reserveCharge: '30',
+          reserveDischarge: '0',
+          strategyType: '峰谷套利',
+          dischargeThreshold: '0',
+          isCollapsed: true,
+          subPeriods: []
+        }
+      ]
+    },
+    {
+      // 源自 策略运行 · 策略排期「AI 调度」（现名 AI 策略【PRO】）
+      id: 'ai-pro',
+      name: 'AI 策略',
+      group: 'ai',
+      aiTier: 'PRO',
+      isActive: true,
+      hasWarning: false,
+      blocks: [
+        {
+          id: 'ai-pro-1',
+          startTime: '12:00',
+          endTime: '14:00',
+          threshold: '0',
+          reserveCharge: '0',
+          reserveDischarge: '0',
+          strategyType: '动态增容',
+          dischargeThreshold: '0',
+          chargeOffset: '49',
+          isCollapsed: true,
+          subPeriods: []
+        },
+        {
+          id: 'ai-pro-2',
+          startTime: '14:00',
+          endTime: '16:00',
+          threshold: '0',
+          reserveCharge: '0',
+          reserveDischarge: '0',
+          strategyType: '峰谷套利',
+          dischargeThreshold: '0',
+          dischargeOffset: '30',
+          isCollapsed: true,
+          subPeriods: []
+        },
+        {
+          id: 'ai-pro-3',
+          startTime: '16:00',
+          endTime: '18:00',
+          threshold: '0',
+          reserveCharge: '0',
+          reserveDischarge: '0',
+          strategyType: '动态增容',
+          dischargeThreshold: '0',
+          // 安全预留偏移 15 kW
+          dischargeOffset: '15',
+          isCollapsed: true,
+          subPeriods: []
+        }
+      ]
+    },
   ]);
 
   const currentTemplate = templates.find(t => t.id === selectedId) || templates[0];
@@ -607,6 +735,11 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
           </div>
 
           <div className="space-y-8">
+            {/* AI 策略已有内容时：未开通 / 试用态在内容上方保留开通引导（正式运行态不展示） */}
+            {isAiTemplate && hasBlocks && lifecycle !== 'formal' && (
+              <AiActivationGuide lifecycle={lifecycle} onActivate={onActivate} onConvert={onConvert} />
+            )}
+
             {/* AI 策略内容待补充：按生命周期三态给出不同的状态说明与开通引导 */}
             {!hasBlocks && (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
@@ -655,7 +788,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                   className={`flex items-center justify-between p-8 cursor-pointer hover:bg-slate-100/50 transition-colors ${!block.isCollapsed ? 'border-b border-slate-100' : ''} ${block.isCollapsed ? 'rounded-[2rem]' : 'rounded-t-[2rem]'}`}
                   onClick={() => toggleBlockCollapse(block.id)}
                 >
-                  <div className="flex items-center gap-8 flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-8 gap-y-2 flex-1 min-w-0">
                     <div className="flex items-center gap-3 min-w-[200px]">
                       <div className="w-1.5 h-4 bg-blue-500 rounded-full"></div>
                       <span className="text-sm font-black text-slate-800 uppercase tracking-tight">
@@ -664,18 +797,18 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                     </div>
 
                     {block.isCollapsed && (
-                      <div className="flex items-center gap-8 animate-in fade-in slide-in-from-left-4 duration-500 overflow-hidden">
-                        <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-100 rounded-xl">
+                      <div className="flex flex-wrap items-center gap-3 2xl:gap-8 animate-in fade-in slide-in-from-left-4 duration-500 overflow-hidden">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-100 rounded-xl shrink-0 whitespace-nowrap">
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">策略:</span>
                           <span className="text-xs font-black text-slate-700">{block.strategyType}</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-100 rounded-xl">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-100 rounded-xl shrink-0 whitespace-nowrap">
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SOC预留:</span>
                           <span className="text-xs font-black text-emerald-600">放 {block.reserveDischarge}%</span>
                           <span className="text-[10px] text-slate-300">/</span>
                           <span className="text-xs font-black text-amber-600">充 {block.reserveCharge}%</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-100 rounded-xl">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-100 rounded-xl shrink-0 whitespace-nowrap">
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">放电阈值:</span>
                           <span className="text-xs font-black text-slate-700 font-mono">{block.dischargeThreshold} kW</span>
                         </div>

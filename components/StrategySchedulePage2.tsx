@@ -26,7 +26,7 @@ const EventPill = ({
   let borderClass = "border-transparent";
 
   switch (type) {
-    case "blue": // AI运行策略
+    case "blue": // AI 策略【标准】
       bgClass = "bg-indigo-50/95 border-indigo-200 text-indigo-700 font-black";
       textClass = "text-indigo-700";
       borderClass = "border-indigo-200";
@@ -78,8 +78,9 @@ const EventPill = ({
       break;
   }
 
-  const isAiSchedule = title.includes("AI调度") || title.includes("AI 调度");
-  const isAiPlan = title.includes("AI运行") || title.includes("AI排程") || title.includes("AI策略") || title.includes("AI周日");
+  /** 策略名称已统一为 AI 策略【标准】/【PRO】，判定同时兼容旧命名 */
+  const isAiSchedule = title.includes("AI 策略【PRO】") || title.includes("AI调度") || title.includes("AI 调度");
+  const isAiPlan = title.includes("AI 策略【标准】") || title.includes("AI运行") || title.includes("AI排程") || title.includes("AI策略") || title.includes("AI周日");
 
   let borderLeftStyle = "";
   let iconNode = null;
@@ -169,8 +170,8 @@ const StrategySchedulePage2: React.FC = () => {
   ];
 
   const strategyData = {
-    e_airun: { name: "AI运行策略", dateStr: "2026-07-10", isActive: true },
-    e_aischedule: { name: "AI调度策略", dateStr: "2026-07-10", isActive: true },
+    e_airun: { name: "AI 策略【标准】", dateStr: "2026-07-10", isActive: true },
+    e_aischedule: { name: "AI 策略【PRO】", dateStr: "2026-07-10", isActive: true },
     e_test1: { name: "AI策略测试1", dateStr: "2026-06-29", isActive: false },
     e_test2: { name: "AI策略测试2", dateStr: "2026-06-29", isActive: false },
     e_template6: { name: "六月策略模板", dateStr: "2026-06-29", isActive: false },
@@ -351,7 +352,7 @@ const StrategySchedulePage2: React.FC = () => {
                 <EventPill
                   type="blue"
                   span={4}
-                  title="AI运行策略 连续策略(07/07-07/10)"
+                  title="AI 策略【标准】 连续策略(07/07-07/10)"
                   isActive={true}
                   isSelected={selectedEventId === "e_airun"}
                   onClick={() => {
@@ -375,7 +376,7 @@ const StrategySchedulePage2: React.FC = () => {
                 <EventPill
                   type="dashed-purple"
                   span={2}
-                  title="AI调度 连续策略(07/07-07/08)"
+                  title="AI 策略【PRO】 连续策略(07/07-07/08)"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -394,7 +395,7 @@ const StrategySchedulePage2: React.FC = () => {
                 <EventPill
                   type="dashed-purple"
                   span={1}
-                  title="AI调度 (07/10)"
+                  title="AI 策略【PRO】 (07/10)"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -411,7 +412,7 @@ const StrategySchedulePage2: React.FC = () => {
                 <EventPill
                   type="dashed-purple"
                   span={1}
-                  title="AI调度"
+                  title="AI 策略【PRO】"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -422,7 +423,7 @@ const StrategySchedulePage2: React.FC = () => {
                 <EventPill
                   type="dashed-purple"
                   span={1}
-                  title="AI调度"
+                  title="AI 策略【PRO】"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -463,7 +464,7 @@ const StrategySchedulePage2: React.FC = () => {
                 <EventPill
                   type="blue"
                   span={5}
-                  title="AI运行策略 连续策略(07/13-07/17)"
+                  title="AI 策略【标准】 连续策略(07/13-07/17)"
                   isActive={true}
                   isSelected={selectedEventId === "e_airun"}
                   onClick={() => {
@@ -486,7 +487,7 @@ const StrategySchedulePage2: React.FC = () => {
                 <EventPill
                   type="dashed-purple"
                   span={5}
-                  title="AI调度 连续策略(07/13-07/17)"
+                  title="AI 策略【PRO】 连续策略(07/13-07/17)"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -527,7 +528,7 @@ const StrategySchedulePage2: React.FC = () => {
                 <EventPill
                   type="blue"
                   span={5}
-                  title="AI运行策略 连续策略(07/20-07/24)"
+                  title="AI 策略【标准】 连续策略(07/20-07/24)"
                   isActive={true}
                   isSelected={selectedEventId === "e_airun"}
                   onClick={() => {
@@ -550,7 +551,7 @@ const StrategySchedulePage2: React.FC = () => {
                 <EventPill
                   type="dashed-purple"
                   span={5}
-                  title="AI调度 连续策略(07/20-07/24)"
+                  title="AI 策略【PRO】 连续策略(07/20-07/24)"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -591,7 +592,7 @@ const StrategySchedulePage2: React.FC = () => {
                 <EventPill
                   type="blue"
                   span={5}
-                  title="AI运行策略 连续策略(07/27-07/31)"
+                  title="AI 策略【标准】 连续策略(07/27-07/31)"
                   isActive={true}
                   isSelected={selectedEventId === "e_airun"}
                   onClick={() => {
@@ -614,7 +615,7 @@ const StrategySchedulePage2: React.FC = () => {
                 <EventPill
                   type="dashed-purple"
                   span={5}
-                  title="AI调度 连续策略(07/27-07/31)"
+                  title="AI 策略【PRO】 连续策略(07/27-07/31)"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -641,11 +642,11 @@ const StrategySchedulePage2: React.FC = () => {
             <span className="text-slate-400">策略来源标注：</span>
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100/50 rounded-lg text-indigo-700">
               <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
-              <span>AI 排程 (运行策略)</span>
+              <span>AI 策略【标准】</span>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-100/50 rounded-lg text-emerald-700">
               <Bot className="w-3.5 h-3.5 text-emerald-500" />
-              <span>AI 调度 (实时算法)</span>
+              <span>AI 策略【PRO】</span>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200/50 rounded-lg text-slate-600">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
@@ -682,7 +683,7 @@ const StrategySchedulePage2: React.FC = () => {
                 }`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                AI运行策略
+                AI 策略【标准】
               </button>
               <button
                 onClick={() => setConfigTab("ai-schedule")}
@@ -692,7 +693,7 @@ const StrategySchedulePage2: React.FC = () => {
                     : "border-transparent text-slate-400 hover:text-slate-600"
                 }`}
               >
-                AI调度
+                AI 策略【PRO】
               </button>
               <div className="ml-auto pb-3 flex items-center">
                 <button className="w-6 h-6 border border-slate-200 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors">
