@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import CommonConfigPanel from './CommonConfigPanel';
 import ModeManagementPanel from './ModeManagementPanel';
+import AiTierPromo from './AiTierPromo';
 import LightIntelligencePanel, {
   EMPTY_BINDING,
   PRESET_WEATHER_TYPES,
@@ -44,7 +45,7 @@ interface ScheduleBlock {
 type TemplateGroup = 'custom' | 'ai';
 
 /** AI 策略档位 */
-type AiTier = '基础' | '标准' | 'PRO';
+export type AiTier = '基础' | '标准' | 'PRO';
 
 interface StrategyTemplate {
   id: string;
@@ -845,23 +846,9 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
           </div>
 
           <div className="space-y-8">
-            {/* 未开通态：AI 策略参数不可见，整块锁定（开通入口在左侧列表区） */}
-            {aiLocked && (
-              <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-                <div className="w-14 h-14 rounded-2xl border flex items-center justify-center bg-slate-50 border-slate-100">
-                  <Lock className="w-6 h-6 text-slate-400" />
-                </div>
-                <h3 className="text-base font-black text-slate-800 tracking-tight">
-                  {currentTemplate.name}
-                  {currentTemplate.aiTier ? `【${currentTemplate.aiTier}】` : ''}
-                </h3>
-                <p className="text-sm text-slate-400 font-medium max-w-md leading-relaxed">
-                  {isBasicAi
-                    ? '轻智能按站点所在地天气自动切换自定义策略，开通后可配置各天气对应的策略组合。'
-                    : '该策略由天盈 AI 依据站点负荷、电价与光伏出力特征自动生成，开通后可查看调度参数并下发至站点。'}
-                </p>
-              </div>
-            )}
+            {/* 未开通态：AI 策略参数不可见，改为展示该档位的宣传页（三档内容各异）。
+                开通入口统一在左侧列表区的引导卡，这里不再挂按钮。 */}
+            {aiLocked && currentTemplate.aiTier && <AiTierPromo tier={currentTemplate.aiTier} />}
 
             {/* AI 策略【基础】= 轻智能：按天气配置自定义策略（未开通态已被上方整块锁定） */}
             {!aiLocked && isBasicAi && (
