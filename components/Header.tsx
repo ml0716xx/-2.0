@@ -1,15 +1,83 @@
 
-import React, { useState, useEffect } from 'react';
-import { CloudSun, Thermometer, Bell, Settings, Zap, ChevronDown, MapPin } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Bell,
+  Settings,
+  Zap,
+  ChevronDown,
+  MapPin,
+  Sparkles,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Check,
+} from 'lucide-react';
+import type { Lifecycle } from './BusinessReportPage';
+import {
+  NOTIFY_KIND_META,
+  visibleNotifications,
+  notifyTimeLabel,
+  type NotifyItem,
+  type NotifyKind,
+} from './notificationData';
 
-const Header: React.FC = () => {
+/** 类型 → 图标。配色走 NOTIFY_KIND_META，不在这里写死 */
+const KIND_ICON: Record<NotifyKind, React.ComponentType<{ className?: string }>> = {
+  'ai-report': Sparkles,
+  lifecycle: CheckCircle2,
+  expiry: Clock,
+  report: FileText,
+};
+
+interface HeaderProps {
+  /** 客户生命周期：决定消息中心里哪些消息存在 */
+  lifecycle: Lifecycle;
+  /** 点击消息跳转页面 */
+  onNavigate?: (page: string) => void;
+  /** 点击「仿真报告推送」直接打开弹窗 */
+  onOpenSimReport?: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ lifecycle, onNavigate, onOpenSimReport }) => {
   const [time, setTime] = useState(new Date());
   const [currentSite, setCurrentSite] = useState('站点 #0241 (上海总部)');
+  const [isNotifyOpen, setIsNotifyOpen] = useState(false);
+  /** 已读集合。会话内有效，刷新即回到默认未读态 */
+  const [readIds, setReadIds] = useState<string[]>([]);
+  const notifyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  /* 点面板外或按 Esc 收起 */
+  useEffect(() => {
+    if (!isNotifyOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (notifyRef.current && !notifyRef.current.contains(e.target as Node)) setIsNotifyOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsNotifyOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isNotifyOpen]);
+
+  const items = visibleNotifications(lifecycle);
+  const isUnread = (n: NotifyItem) => !readIds.includes(n.id) && n.defaultUnread;
+  const unreadCount = items.filter(isUnread).length;
+
+  const handleItemClick = (n: NotifyItem) => {
+    setReadIds(prev => (prev.includes(n.id) ? prev : [...prev, n.id]));
+    setIsNotifyOpen(false);
+    if (n.target === 'sim-report') onOpenSimReport?.();
+    else if (n.target) onNavigate?.(n.target);
+  };
 
   return (
     <header className="flex flex-col md:flex-row items-center justify-between bg-white rounded-2xl shadow-sm px-6 py-4 gap-4">
@@ -45,10 +113,115 @@ const Header: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1">
-          <button className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500 relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-          </button>
+          {/* 消息通知：铃铛 + 下拉消息中心 */}
+          <div className="relative" ref={notifyRef}>
+            <button
+              onClick={() => setIsNotifyOpen(v => !v)}
+              aria-label="消息通知"
+              className={`p-2 rounded-xl transition-colors text-slate-500 relative cursor-pointer ${
+                isNotifyOpen ? 'bg-slate-100' : 'hover:bg-slate-100'
+              }`}
+            >
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {isNotifyOpen && (
+              <div className="absolute top-full right-0 mt-2 w-[380px] bg-white border border-slate-100 shadow-2xl rounded-2xl overflow-hidden z-[60]">
+                {/* 面板头 */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/60">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-slate-700">消息通知</span>
+                    {unreadCount > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-md bg-rose-50 text-rose-500 text-[10px] font-bold">
+                        {unreadCount} 条未读
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setReadIds(items.map(n => n.id))}
+                    disabled={unreadCount === 0}
+                    className="text-[11px] font-medium text-slate-400 hover:text-emerald-600 disabled:opacity-40 disabled:hover:text-slate-400 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <Check className="w-3 h-3" />
+                    全部已读
+                  </button>
+                </div>
+
+                {/* 消息列表 */}
+                <div className="max-h-[420px] overflow-y-auto">
+                  {items.map(n => {
+                    const meta = NOTIFY_KIND_META[n.kind];
+                    const Icon = KIND_ICON[n.kind];
+                    const unread = isUnread(n);
+                    return (
+                      <button
+                        key={n.id}
+                        onClick={() => handleItemClick(n)}
+                        className="w-full text-left px-4 py-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/80 transition-colors flex items-start gap-3 cursor-pointer"
+                      >
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                          style={{ background: meta.bg, color: meta.color }}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span
+                              className={`text-xs truncate ${
+                                unread ? 'font-bold text-slate-800' : 'font-medium text-slate-500'
+                              }`}
+                            >
+                              {n.title}
+                            </span>
+                            <span className="text-[10px] text-slate-400 shrink-0">
+                              {notifyTimeLabel(n.at)}
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] text-slate-500 leading-relaxed mt-0.5">{n.body}</p>
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <span
+                              className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                              style={{ background: meta.bg, color: meta.color }}
+                            >
+                              {meta.label}
+                            </span>
+                            {unread && <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {items.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-8 opacity-40">
+                      <Bell className="w-7 h-7 text-slate-400 mb-2" />
+                      <span className="text-xs text-slate-500">暂无新消息</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 面板脚：把「消息」和「报警」两条线分开，避免被当成同一个东西 */}
+                <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400">消息保留 90 天</span>
+                  <button
+                    onClick={() => {
+                      setIsNotifyOpen(false);
+                      onNavigate?.('报警管理');
+                    }}
+                    className="text-[10px] font-medium text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
+                  >
+                    查看设备报警 &rarr;
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500">
             <Settings className="w-5 h-5" />
           </button>

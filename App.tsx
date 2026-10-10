@@ -363,8 +363,12 @@ const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col p-4 sm:p-5 gap-4 sm:gap-5 overflow-y-auto max-w-[1920px] mx-auto w-full">
-        {/* Top Header */}
-        <Header />
+        {/* Top Header（消息中心随生命周期变化，故需透传 lifecycle 与跳转能力） */}
+        <Header
+          lifecycle={lifecycle}
+          onNavigate={setCurrentPage}
+          onOpenSimReport={() => setIsSimReportOpen(true)}
+        />
 
         {renderContent()}
 
