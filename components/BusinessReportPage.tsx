@@ -782,16 +782,7 @@ export default function BusinessReportPage({
         </div>
 
         <div className="flex items-center gap-2">
-          {lifecycle === 'presale' && (
-            <button
-              type="button"
-              onClick={onActivate}
-              className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-bold rounded-md bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors shadow-xs"
-            >
-              <Rocket className="w-4 h-4" />
-              免费开通试用
-            </button>
-          )}
+          {/* 页头不再放开通按钮：正文末尾的引导条已有「一键免费开通」，两处重复 */}
           <button
             type="button"
             className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-bold rounded-md border border-[#EAEDF2] text-[#2C3E50] hover:bg-[#F7F9FB] transition-colors"
