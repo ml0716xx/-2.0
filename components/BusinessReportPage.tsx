@@ -428,7 +428,7 @@ function AiHeroPresale({
             onClick={onOpenSimReport}
             className="mt-2 w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-bold text-white/80 border border-white/20 hover:bg-white/10 transition-colors"
           >
-            查看仿真报告
+            查看体检报告
             <ArrowRight size={12} />
           </button>
         </div>
@@ -691,7 +691,7 @@ function AiStrategyTab({
   onConvert,
   onOpenSimReport,
 }: BusinessReportPageProps) {
-  /* 未开通（售前）：把《天盈 AI 仿真报告》正文铺开展示，末尾引导开通试用。
+  /* 未开通（售前）：把《天盈 AI 站点策略&收益体检报告》正文铺开展示，末尾引导开通试用。
      注意这里不做遮罩 —— 遮罩会让客户看不到价值，反而降低开通意愿。 */
   if (lifecycle === 'presale') {
     return (
@@ -700,8 +700,8 @@ function AiStrategyTab({
 
         <div className="flex items-center gap-2">
           <span className="w-1 h-3.5 rounded-full bg-[#1E9C7E]" />
-          <span className="text-[13px] font-bold text-[#1A2A3A]">AI 智能调度效益预评估</span>
-          <span className="text-[11px] text-[#93A1B0]">《天盈 AI 仿真报告》· 售前测算口径</span>
+          <span className="text-[13px] font-bold text-[#1A2A3A]">站点策略与收益体检</span>
+          <span className="text-[11px] text-[#93A1B0]">《天盈 AI 站点策略&收益体检报告》· 售前测算口径</span>
         </div>
 
         <TianyingSimReportBody
@@ -811,7 +811,7 @@ export default function BusinessReportPage({
               {t.key === 'ai' &&
                 (lifecycle === 'presale' ? (
                   <span className="px-1.5 py-0.5 rounded bg-[#F1F4F7] text-[#5A6B7C] text-[10px] font-bold">
-                    仿真
+                    体检
                   </span>
                 ) : (
                   <>

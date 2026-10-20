@@ -96,8 +96,8 @@ export const NOTIFY_ITEMS: NotifyItem[] = [
   {
     id: 'sim-report',
     kind: 'ai-report',
-    title: '天盈 AI 仿真报告已送达',
-    body: `2026-09 站点仿真测算已完成，AI 策略较实际运行可多创收 ${fmt(TY_SIM_DELTA.net, 0)} 元/月。点击查看逐项对照与典型日曲线。`,
+    title: '天盈 AI 站点策略&收益体检报告已送达',
+    body: `2026-09 站点策略体检已完成：储能多赚 8,150 元、光伏少 320 元，一个月净多 ${fmt(TY_SIM_DELTA.net, 0)} 元。点击查看典型日曲线与九项指标。`,
     at: '2026-10-08T10:30',
     defaultUnread: true,
     lifecycles: ['presale'],

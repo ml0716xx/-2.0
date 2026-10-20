@@ -1,12 +1,15 @@
 /* ==========================================================================
-   《天盈 AI 仿真报告》· 正文（可复用）
+   《天盈 AI 站点策略&收益体检报告》· 正文（可复用）
    --------------------------------------------------------------------------
-   两章节，全部围绕「仿真比实际多赚多少」：
-     1 仿真收益对比（实际运行与仿真收益合在一张逐项表里看，不再单列实测指标）
-     2 典型日分析（案例日均为 AI 优于实际的正向案例）
+   按体检报告的读法组织：
+     1 典型日：天盈 AI 发现了什么？ —— 先看一天，看得懂再往下翻
+     2 这个月能多赚多少 —— 钱是诊断出来的结果，不放在开场
+     3 九项指标逐条对一遍 —— 明细账，支撑上面两段的数字
+
+   刻意不写总结句、不写判读、不附口径说明、不留状态点 —— 这几块都删过，留白比补话更清楚。
 
    三处共用同一份正文，避免同一份内容写三遍：
-     · 售前《天盈 AI 仿真报告》弹窗（TianyingSimReportModal）
+     · 售前《天盈 AI 站点策略&收益体检报告》弹窗（TianyingSimReportModal）
      · 策略运行报告 · 未开通状态（报告主体替换为本正文）
      · 经营分析报告 · AI 策略数据 tab · 未开通状态（正文铺开展示）
 
@@ -16,22 +19,20 @@
 import React, { useState } from 'react';
 import {
   Sparkles,
-  Zap,
   ArrowRight,
   CheckCircle2,
   Rocket,
-  Info,
 } from 'lucide-react';
 import {
   BarChart,
   Bar,
-  LineChart,
+  ComposedChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   ReferenceLine,
   LabelList,
@@ -42,13 +43,10 @@ import {
   TY_SIM_DELTA,
   TY_SIM_ROWS,
   TY_SIM_WHY,
-  TY_PRICE,
-  TY_PRICE_COMPARE,
   TY_CASE_DAYS,
   TY_CASE_CURVES,
   TY_CURVE_TEXT,
-  TY_TOU_SEGMENTS,
-  slotTime,
+  TY_PRICE,
   type CaseDayPoint,
   fmt,
   fmtSigned,
@@ -90,6 +88,27 @@ function CaseDayCurveChart({
   const pw = (v: number) => (v === 0 ? '0.0' : (v > 0 ? '+' : '') + v.toFixed(1));
   const pwTag = (v: number) => (v > 0 ? T.pwState.charge : v < 0 ? T.pwState.discharge : T.pwState.idle);
 
+  /** 分时电价：按档位取价，作为面积图垫在功率曲线下面 */
+  const TOU_PRICE: Record<string, number> = Object.fromEntries(
+    TY_PRICE.tou.map(t => [t.key, t.price]),
+  );
+  const SALE_PRICE = TY_PRICE.salePrice;
+  const PRICE_MIN = Math.min(...Object.values(TOU_PRICE));
+  const PRICE_MAX = Math.max(...Object.values(TOU_PRICE));
+  const PRICE_TOP = PRICE_MAX * 1.12;
+
+  /**
+   * 电价两条面积：
+   *   buy  下网购电价格 —— 随峰/平/谷阶梯走，体现「什么时候买电贵」
+   *   sell 上网电价     —— 一条水平线，余电卖出去就值这个价
+   * 两者之间的高度差就是储能的价差空间，曲线与面积对齐即可看出电量搬去了哪。
+   */
+  const chartData = points.map(p => ({
+    ...p,
+    buy: TOU_PRICE[p.tier] ?? TOU_PRICE.flat,
+    sell: SALE_PRICE,
+  }));
+
   /** 底部读数：由曲线积分回算，与日粒度表格同口径 */
   const kwh = (key: 'sim' | 'real', dir: 'charge' | 'discharge') =>
     points.reduce((s, p) => {
@@ -105,7 +124,6 @@ function CaseDayCurveChart({
           <h4 className="text-[13px] font-bold text-[#1A2A3A]">
             {T.chartTitle} · {date}
           </h4>
-          <p className="text-[11px] text-[#93A1B0] mt-0.5">{T.rule}</p>
         </div>
         <div className="flex items-center gap-4 shrink-0">
           {metrics.map((m, i) => (
@@ -128,7 +146,9 @@ function CaseDayCurveChart({
       <div className="px-4 pt-4">
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={points} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+            {/* 用 ComposedChart 而不是 LineChart：recharts v3 的 LineChart 只渲染 Line，
+                电价面积需要 Area，混排必须走 ComposedChart */}
+            <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EFF2F5" />
               <XAxis
                 dataKey="time"
@@ -166,6 +186,44 @@ function CaseDayCurveChart({
                   style: { fontSize: 10, fill: '#B6C1CC' },
                 }}
               />
+
+              {/* 电价轴：不出刻度，只给两条面积定标 */}
+              <YAxis yAxisId="price" hide domain={[0, PRICE_TOP]} />
+
+              {/* 电价面积：垫在功率曲线下面。两条之间的高度差就是储能的价差空间，
+                  曲线与面积对齐，即可看出电量被搬去了哪个价位 */}
+              <defs>
+                <linearGradient id="tyBuyFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#94A3B8" stopOpacity={0.18} />
+                  <stop offset="100%" stopColor="#94A3B8" stopOpacity={0.03} />
+                </linearGradient>
+                <linearGradient id="tySellFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#1E9C7E" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="#1E9C7E" stopOpacity={0.04} />
+                </linearGradient>
+              </defs>
+              <Area
+                yAxisId="price"
+                type="stepAfter"
+                dataKey="buy"
+                name="下网购电价格"
+                stroke="#94A3B8"
+                strokeWidth={1}
+                fill="url(#tyBuyFill)"
+                legendType="none"
+              />
+              <Area
+                yAxisId="price"
+                type="monotone"
+                dataKey="sell"
+                name="上网电价"
+                stroke="#1E9C7E"
+                strokeWidth={1}
+                strokeDasharray="4 3"
+                fill="url(#tySellFill)"
+                legendType="none"
+              />
+
               <Tooltip
                 content={({ active, payload, label }: any) => {
                   if (!active || !payload || !payload.length) return null;
@@ -200,13 +258,19 @@ function CaseDayCurveChart({
                           {p.socReal.toFixed(1)} % <span className="text-[#D5DBE2]">/</span> {p.socSim.toFixed(1)} %
                         </span>
                       </div>
+                      {/* 电价轴不出刻度，具体价位放在这里看 */}
+                      <div className="flex items-center justify-between gap-5 pt-1 border-t border-[#F1F4F7]">
+                        <span className="text-[#7F8C8D]">下网购电 / 上网电价</span>
+                        <span className="font-mono font-bold text-[#1A2A3A]">
+                          {(p as CaseDayPoint & { buy: number }).buy.toFixed(4)}
+                          <span className="text-[#D5DBE2] mx-0.5">/</span>
+                          {(p as CaseDayPoint & { sell: number }).sell.toFixed(4)}
+                          <span className="ml-1 text-[10px] font-normal text-[#9AA7B4]">元/kWh</span>
+                        </span>
+                      </div>
                     </div>
                   );
                 }}
-              />
-              <Legend
-                wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
-                formatter={(v: string) => <span className="text-[#5A6B7C]">{v}</span>}
               />
               <Line
                 yAxisId="left"
@@ -246,50 +310,43 @@ function CaseDayCurveChart({
                 strokeDasharray="4 3"
                 dot={false}
               />
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* 24h 电价档位色带：曲线与色带对齐即可看出电量搬去了哪个价位 */}
-      <div className="px-5 pb-3 pt-2 space-y-1.5">
-        <div className="flex h-3 rounded-md overflow-hidden border border-[#EAEDF2]">
-          {TY_TOU_SEGMENTS.map(seg => {
-            const meta = TIER_META[seg.tier];
-            return (
-              <div
-                key={seg.slot}
-                style={{ width: `${100 / 96}%`, background: meta.color }}
-                title={`${slotTime(seg.slot)} ${meta.label}段`}
-              />
-            );
-          })}
-        </div>
-        <div className="flex items-center justify-between text-[10px] text-[#9AA7B4]">
-          <span>00:00</span>
-          <span>06:00</span>
-          <span>12:00</span>
-          <span>18:00</span>
-          <span>24:00</span>
-        </div>
-        <div className="flex items-center gap-4 flex-wrap pt-0.5">
-          {Object.entries(TIER_META).map(([k, m]) => (
-            <span key={k} className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
-              <span className="w-3 h-3 rounded-sm" style={{ background: m.color }} />
-              {T.axisTier} · {m.label}段
-            </span>
-          ))}
-          <span className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
-            <span className="w-4 h-0.5 bg-[#94A3B8]" />
-            {T.legend.realPower}
-            {T.powerNote}
+      {/* 图例：电价面积 + 两条功率线。电价轴不出刻度，价位直接写在这里 */}
+      <div className="px-5 pb-3 pt-2 flex items-center gap-x-5 gap-y-2 flex-wrap">
+        <span className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
+          <span className="w-3 h-3 rounded-sm bg-[#94A3B8]/25 border border-[#94A3B8]/60" />
+          下网购电价格
+          <span className="font-mono text-[#8A98A6]">
+            {fmt(PRICE_MIN, 4)}–{fmt(PRICE_MAX, 4)} 元/kWh
           </span>
-          <span className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
-            <span className="w-4 h-0.5" style={{ background: C.blue }} />
-            {T.legend.simPower}
-            {T.powerNote}
-          </span>
-        </div>
+        </span>
+        <span className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
+          <span className="w-3 h-3 rounded-sm bg-[#1E9C7E]/20 border border-[#1E9C7E]/60" />
+          上网电价
+          <span className="font-mono text-[#8A98A6]">{fmt(SALE_PRICE, 4)} 元/kWh</span>
+        </span>
+        <span className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
+          <span className="w-4 h-0.5 bg-[#94A3B8]" />
+          {T.legend.realPower}
+          {T.powerNote}
+        </span>
+        <span className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
+          <span className="w-4 h-0.5" style={{ background: C.blue }} />
+          {T.legend.simPower}
+          {T.powerNote}
+        </span>
+        <span className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
+          <span className="w-4 border-t border-dashed border-[#CBD5E1]" />
+          {T.legend.realSoc}
+        </span>
+        <span className="flex items-center gap-1.5 text-[11px] text-[#5A6B7C]">
+          <span className="w-4 border-t border-dashed" style={{ borderColor: C.amber }} />
+          {T.legend.simSoc}
+        </span>
       </div>
 
       {/* 底部读数：由曲线积分回算，与日粒度表格同口径 */}
@@ -343,7 +400,7 @@ export interface TianyingSimReportBodyProps {
   showActivateHint?: boolean;
   /** 开通试用 */
   onActivate?: () => void;
-  /** 打开完整仿真报告弹窗 */
+  /** 打开完整体检报告弹窗 */
   onOpenSimReport?: () => void;
 }
 
@@ -359,18 +416,89 @@ export default function TianyingSimReportBody({
   /** 收益构成对比柱图数据 */
   const barData = [
     { name: '实际运行', 储能: TY_SIM_KPI.storage.real, 光伏: TY_SIM_KPI.pv.real },
-    { name: 'AI 策略仿真', 储能: TY_SIM_KPI.storage.sim, 光伏: TY_SIM_KPI.pv.sim },
+    { name: 'AI 策略', 储能: TY_SIM_KPI.storage.sim, 光伏: TY_SIM_KPI.pv.sim },
   ];
 
   return (
     <div className="space-y-4">
-      {/* ------------------------- 1. 仿真收益对比 ------------------------- */}
-      <Section no="1" title="仿真收益对比" hint="实际运行基准 vs AI 策略仿真逐项对照">
-        {/* 收益构成柱图：压成一行的高度，储能/光伏的分项解释在下方「收益增量来源」里，这里不重复 */}
+      {/* ------------------------- 1. 典型日 ------------------------- */}
+      <Section no="1" title="典型日：天盈 AI 发现了什么？">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {TY_CASE_DAYS.map((d, i) => (
+            <button
+              key={d.date}
+              type="button"
+              onClick={() => setCaseIdx(i)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
+                i === caseIdx
+                  ? 'bg-[#1E9C7E] text-white border-[#1E9C7E]'
+                  : 'bg-white text-[#5A6B7C] border-[#EAEDF2] hover:border-[#1E9C7E]/40'
+              }`}
+            >
+              {d.date.slice(5)}
+            </button>
+          ))}
+        </div>
+
+        {/* 逐 15min 充放电曲线：展示口径与 ml0716xx/--1 的典型日分析一致 */}
+        <div className="mb-3">
+          <CaseDayCurveChart
+            points={TY_CASE_CURVES[caseDay.date] ?? []}
+            date={caseDay.date}
+            metrics={[
+              { label: '这一天可多赚', diff: caseDay.totalDiff },
+              { label: '储能多赚', diff: caseDay.storageDiff },
+            ]}
+          />
+        </div>
+
+        <div className="overflow-hidden rounded-lg border border-[#EAEDF2] mb-3">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-[#FBFCFD]">
+                <th className="text-left px-3 py-2 text-[11px] font-bold text-[#8A98A6]">指标</th>
+                <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">实际运行</th>
+                <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">AI 策略</th>
+                <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">绝对差</th>
+              </tr>
+            </thead>
+            <tbody>
+              {caseDay.rows.map(r => {
+                const diff = r.sim - r.real;
+                return (
+                  <tr key={r.name} className="border-t border-[#EAEDF2]">
+                    <td className="px-3 py-2 text-[12px] text-[#2C3E50] whitespace-nowrap">{r.name}</td>
+                    <td className="px-3 py-2 text-right text-[12px] font-mono text-[#7F8C8D] whitespace-nowrap">
+                      {fmt(r.real, 0)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-[12px] font-mono font-bold text-[#1A2A3A] whitespace-nowrap">
+                      {fmt(r.sim, 0)}
+                    </td>
+                    <td
+                      className={`px-3 py-2 text-right text-[12px] font-mono font-bold whitespace-nowrap ${
+                        diff > 0 ? 'text-[#E5484D]' : diff < 0 ? 'text-[#1E9C7E]' : 'text-[#9AA7B4]'
+                      }`}
+                    >
+                      {fmtSigned(diff, 0)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      {/* ------------------------- 2. 这个月能多赚多少 ------------------------- */}
+      <Section no="2" title="这个月能多赚多少" hint={`${TY_META.periodLabel}全月口径 · 两侧同一套分时电价`}>
+        {/* 一句话先把钱说清楚，柱图负责给证据；储能/光伏的分项解释在下方「增量来源」，这里不重复 */}
         <div className="rounded-xl border border-[#EAEDF2] px-4 pt-3 pb-2 mb-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] font-bold text-[#5A6B7C]">收益构成：实际运行 → AI 策略仿真</span>
-            <span className="text-[11px] text-[#8A98A6]">单位：元（全月）</span>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-[12px] font-bold text-[#5A6B7C]">
+              钱从哪来：同样的设备、同样的电价，只换排法，一个月多赚{' '}
+              <span className="font-mono text-[#E5484D]">{fmt(TY_SIM_DELTA.net, 0)}</span> 元
+            </span>
+            <span className="text-[11px] text-[#8A98A6] shrink-0">单位：元（全月）</span>
           </div>
           <div className="h-[124px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -414,13 +542,44 @@ export default function TianyingSimReportBody({
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[12px] font-bold text-[#5A6B7C]">逐项对照：实际运行 → AI 策略仿真</span>
+        {/* 增量来源：从收益类表格底部提到这里 —— 第 2 段只回答「钱从哪来」，
+            明细账留给第 3 段，避免同一组数字在一个屏幕里出现两遍 */}
+        <div className="rounded-xl border border-[#EAEDF2] overflow-hidden">
+          <div className="px-4 py-2.5 bg-[#FBFCFD] border-b border-[#EAEDF2] flex items-baseline gap-2 flex-wrap">
+            <span className="text-[11px] font-bold text-[#5A6B7C]">增量来源</span>
+            <span className="text-[10px] text-[#9AA7B4]">储能多赚的、光伏少赚的，抵完才是净增</span>
+          </div>
+          <div className="divide-y divide-[#EAEDF2]">
+            {TY_SIM_WHY.map(w => (
+              <div key={w.title} className="px-4 py-2.5 flex items-start gap-3">
+                <span className="text-[11px] font-bold text-[#5A6B7C] w-9 shrink-0">{w.title}</span>
+                <span
+                  className={`text-[12px] font-mono font-bold w-16 shrink-0 ${
+                    w.tone === 'up' ? 'text-[#E5484D]' : 'text-[#1E9C7E]'
+                  }`}
+                >
+                  {w.amount}
+                </span>
+                <span className="text-[11px] text-[#5A6B7C] leading-relaxed">{w.brief}</span>
+              </div>
+            ))}
+            <div className="px-4 py-2.5 flex items-center gap-3 bg-[#FBFCFD]">
+              <span className="text-[11px] font-bold text-[#1A2A3A] w-9 shrink-0">合计</span>
+              <span className="text-[12px] font-mono font-bold text-[#E5484D] w-16 shrink-0">
+                {fmtSigned(TY_SIM_DELTA.net, 0)}
+              </span>
+              <span className="text-[11px] text-[#8A98A6]">元 / 月，全月口径</span>
+            </div>
+          </div>
         </div>
+      </Section>
+
+      {/* ------------------------- 3. 九项指标 ------------------------- */}
+      <Section no="3" title="九项指标逐条对一遍" hint="左边看电量，右边看收益，全月口径">
         {/* 电量类 / 收益类 左右并排：单列铺满时「指标」与右侧数值之间会留出一大片空白，
-            并排后栏宽减半、空白收紧。右栏在收益对照之下直接接「增量来源」归因，
-            与左栏电量类等高，不再单开一段两卡区块、也不在右栏底部空出一大块。 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+            并排后栏宽减半、空白收紧。两栏各自收尾、不再强行等高 —— 右栏三行本就比
+            左栏六行短，用 items-start 让卡片按内容收高，比塞内容填满更干净。 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4 items-start">
           {SIM_GROUPS.map(g => {
             const rows = TY_SIM_ROWS.filter(r => r.group === g);
             return (
@@ -434,7 +593,7 @@ export default function TianyingSimReportBody({
                     <tr className="bg-[#FBFCFD] border-b border-[#EAEDF2]">
                       <th className="text-left px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">指标</th>
                       <th className="text-right px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">实际运行</th>
-                      <th className="text-right px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">AI 策略仿真</th>
+                      <th className="text-right px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">AI 策略</th>
                       <th className="text-right px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">绝对差</th>
                     </tr>
                   </thead>
@@ -471,174 +630,12 @@ export default function TianyingSimReportBody({
                   </tbody>
                 </table>
 
-                {/* 收益类下方直接接增量归因，贴着栏底，与左侧电量类收尾对齐 */}
-                {g === '收益类' && (
-                  <div className="mt-auto border-t border-[#EAEDF2] bg-[#FBFCFD] px-3 py-2">
-                    <div className="text-[10px] font-bold text-[#8A98A6] mb-1">增量来源</div>
-                    <div className="space-y-0.5">
-                      {TY_SIM_WHY.map(w => (
-                        <div key={w.title} className="flex items-baseline gap-1.5 text-[11px] leading-tight">
-                          <span className="font-bold text-[#5A6B7C] shrink-0">{w.title}</span>
-                          <span
-                            className={`font-mono font-bold shrink-0 ${
-                              w.tone === 'up' ? 'text-[#E5484D]' : 'text-[#1E9C7E]'
-                            }`}
-                          >
-                            {w.amount}
-                          </span>
-                          <span className="text-[#8A98A6] truncate">{w.brief}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* 增量归因已上移到第 2 段，跟着「钱」走；这里保留纯明细账 */}
               </div>
             );
           })}
         </div>
-
-        <div className="rounded-xl border border-[#EAEDF2] p-4">
-          <div className="flex items-center gap-2 mb-2.5">
-            <Zap size={13} className="text-[#F59E0B]" />
-            <span className="text-[12px] font-bold text-[#5A6B7C]">电价口径</span>
-            <span className="text-[11px] text-[#9AA7B4]">两侧同价，差异来自时段结构</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {TY_PRICE.tou.map(t => (
-              <div key={t.key} className="rounded-lg border border-[#EAEDF2] px-3 py-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-[#5A6B7C]">购电 · {t.label}段</span>
-                  <span className="text-[12px] font-mono font-bold text-[#1A2A3A]">
-                    {fmt(t.price, 4)}
-                    <span className="text-[10px] font-normal text-[#9AA7B4] ml-0.5">元/kWh</span>
-                  </span>
-                </div>
-                <div className="text-[10px] text-[#9AA7B4] mt-0.5">{t.window}</div>
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
-            {/* 售电电价：两侧同价，无对比，单值展示 */}
-            <div className="rounded-lg bg-[#FBFCFD] border border-[#EAEDF2] px-3 py-2">
-              <div className="text-[10px] text-[#8A98A6]">售电电价（余电上网）</div>
-              <div className="text-[12px] font-mono font-bold text-[#1A2A3A] mt-0.5">
-                {fmt(TY_PRICE.salePrice, 4)}
-                <span className="text-[9px] font-normal text-[#B6C1CC] ml-0.5">元/kWh</span>
-              </div>
-              <div className="text-[10px] text-[#B6C1CC] mt-0.5">两侧同价</div>
-            </div>
-
-            {/* 加权电价三项：实际运行 → AI 策略仿真，并标出降低 / 提升幅度 */}
-            {TY_PRICE_COMPARE.map(it => {
-              const diff = it.sim - it.real;
-              const pct = (diff / it.real) * 100;
-              const up = diff > 0;
-              return (
-                <div key={it.label} className="rounded-lg bg-[#FBFCFD] border border-[#EAEDF2] px-3 py-2">
-                  <div className="text-[10px] text-[#8A98A6]">{it.label}</div>
-                  <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className="text-[11px] font-mono text-[#9AA7B4]">{fmt(it.real, it.dec)}</span>
-                    <ArrowRight size={9} className="text-[#D5DBE2] shrink-0 self-center" />
-                    <span className="text-[12px] font-mono font-bold text-[#1A2A3A]">{fmt(it.sim, it.dec)}</span>
-                    <span className="text-[9px] font-normal text-[#B6C1CC]">元/kWh</span>
-                  </div>
-                  <div
-                    className={`text-[10px] font-mono font-bold mt-0.5 ${
-                      up ? 'text-[#E5484D]' : 'text-[#1E9C7E]'
-                    }`}
-                  >
-                    {up ? '提升' : '降低'} {fmt(Math.abs(diff), it.dec)}（{up ? '+' : '-'}
-                    {fmt(Math.abs(pct), 1)}%）
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="text-[10px] text-[#9AA7B4] mt-2.5 leading-relaxed">{TY_PRICE.note}</div>
-        </div>
       </Section>
-
-      {/* ------------------------- 2. 典型日分析 ------------------------- */}
-      <Section no="2" title="典型日分析" hint="案例日逐项对照与判读">
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          {TY_CASE_DAYS.map((d, i) => (
-            <button
-              key={d.date}
-              type="button"
-              onClick={() => setCaseIdx(i)}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${
-                i === caseIdx
-                  ? 'bg-[#1E9C7E] text-white border-[#1E9C7E]'
-                  : 'bg-white text-[#5A6B7C] border-[#EAEDF2] hover:border-[#1E9C7E]/40'
-              }`}
-            >
-              {d.date.slice(5)} · {d.tag}
-            </button>
-          ))}
-        </div>
-
-        {/* 逐 15min 充放电曲线：展示口径与 ml0716xx/--1 的典型日分析一致 */}
-        <div className="mb-3">
-          <CaseDayCurveChart
-            points={TY_CASE_CURVES[caseDay.date] ?? []}
-            date={caseDay.date}
-            metrics={[
-              { label: '当日储能收益差', diff: caseDay.storageDiff },
-              { label: '当日总收益差', diff: caseDay.totalDiff },
-            ]}
-          />
-        </div>
-
-        <div className="overflow-hidden rounded-lg border border-[#EAEDF2] mb-3">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-[#FBFCFD]">
-                <th className="text-left px-3 py-2 text-[11px] font-bold text-[#8A98A6]">指标</th>
-                <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">实际运行</th>
-                <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">AI 策略仿真</th>
-                <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">绝对差</th>
-              </tr>
-            </thead>
-            <tbody>
-              {caseDay.rows.map(r => {
-                const diff = r.sim - r.real;
-                return (
-                  <tr key={r.name} className="border-t border-[#EAEDF2]">
-                    <td className="px-3 py-2 text-[12px] text-[#2C3E50] whitespace-nowrap">{r.name}</td>
-                    <td className="px-3 py-2 text-right text-[12px] font-mono text-[#7F8C8D] whitespace-nowrap">
-                      {fmt(r.real, 0)}
-                    </td>
-                    <td className="px-3 py-2 text-right text-[12px] font-mono font-bold text-[#1A2A3A] whitespace-nowrap">
-                      {fmt(r.sim, 0)}
-                    </td>
-                    <td
-                      className={`px-3 py-2 text-right text-[12px] font-mono font-bold whitespace-nowrap ${
-                        diff > 0 ? 'text-[#E5484D]' : diff < 0 ? 'text-[#1E9C7E]' : 'text-[#9AA7B4]'
-                      }`}
-                    >
-                      {fmtSigned(diff, 0)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="rounded-xl bg-[#FBFCFD] border border-[#EAEDF2] px-4 py-3">
-          <div className="text-[11px] font-bold text-[#8A98A6] mb-1">判读要点</div>
-          <p className="text-[12px] text-[#5A6B7C] leading-relaxed">{caseDay.reading}</p>
-        </div>
-      </Section>
-
-      {/* ------------------------- 口径说明 ------------------------- */}
-      <div className="flex items-start gap-2 rounded-xl bg-white border border-[#EAEDF2] px-4 py-3">
-        <Info size={13} className="text-[#93A1B0] mt-0.5 shrink-0" />
-        <p className="text-[11px] text-[#7F8C8D] leading-relaxed">
-          <span className="font-bold text-[#5A6B7C]">报告口径：</span>
-          {TY_META.caliberNote}
-        </p>
-      </div>
 
       {/* ------------------------- 开通试用引导 ------------------------- */}
       {showActivateHint && (
@@ -648,11 +645,11 @@ export default function TianyingSimReportBody({
               <Rocket size={16} className="text-[#1E9C7E] mt-0.5 shrink-0" />
               <div className="min-w-0">
                 <div className="text-[13px] font-bold text-[#1A2A3A]">
-                  以上为售前仿真测算结果，可多创收 {fmt(TY_SIM_DELTA.net, 0)} 元 / 月
+                  以上为售前测算结果：同样的设备，一个月能多创收 {fmt(TY_SIM_DELTA.net, 0)} 元
                 </div>
                 <p className="text-[11px] text-[#5A6B7C] mt-1 leading-relaxed">
-                  开通 30 天试用后，本页将切换为「实测 AI 轨迹 vs 后台基线仿真」的真实对比口径，
-                  数据全部来自站点实际运行；试用期内可随时退出。
+                  开通 30 天试用后，本报告将切换为「实测 AI 轨迹 vs 后台基线」的对比口径，
+                  数字全部来自站点实际运行；试用期内可随时退出。
                 </p>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[10px] text-[#2C7A6E]">
                   {['免审批自动开通', '无需改造设备', '试用期随时退出'].map(t => (
@@ -673,7 +670,7 @@ export default function TianyingSimReportBody({
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-[12px] font-bold text-[#17705A] border border-[#B7E4D3] bg-white/70 hover:bg-white transition-colors"
                 >
                   <Sparkles size={14} />
-                  查看仿真报告
+                  查看体检报告
                 </button>
               )}
               {onActivate && (

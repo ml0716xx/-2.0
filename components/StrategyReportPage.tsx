@@ -811,7 +811,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
             <div>
               <div className="text-[13px] font-bold text-[#1A2A3A]">尚未开通 AI 智能调度</div>
               <p className="text-[11px] text-[#7F8C8D] mt-0.5 leading-relaxed">
-                下方为《天盈 AI 仿真报告》的预评估结果。开通 30 天试用后，本报告将自动切换为
+                下方为《天盈 AI 站点策略&收益体检报告》的体检结果。开通 30 天试用后，本报告将自动切换为
                 「实测 AI 轨迹 vs 后台基线仿真」的双轨迹口径。
               </p>
             </div>
@@ -821,7 +821,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
               onClick={onOpenSimReport}
               className="px-3.5 py-2 rounded-md text-[12px] font-bold text-[#2C3E50] border border-[#EAEDF2] hover:bg-[#F7F9FB] transition-colors"
             >
-              查看仿真报告
+              查看体检报告
             </button>
             <button
               onClick={onActivate}

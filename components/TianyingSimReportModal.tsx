@@ -1,13 +1,13 @@
 /* ==========================================================================
-   《天盈 AI 仿真报告》· 网页端弹窗
+   《天盈 AI 站点策略&收益体检报告》· 网页端弹窗
    --------------------------------------------------------------------------
    用户旅程位置：售前推广阶段（潜在客户 / 未开通）
    触达方式：Web 端自动弹出，支持「本月不再提示」
-   目标动作：阅读仿真收益 → 点击【一键免费开通 30 天 AI 智能调度】
+   目标动作：读完体检结论 → 点击【一键免费开通 30 天 AI 智能调度】
 
-   正文两章节（仿真收益对比 / 典型日分析）与运营端「推送仿真报告」同源，
-   区别在于：本弹窗是客户侧看到的报告正文，不再有章节勾选与推送预览，
-   底部换成试用转化 CTA。数字全部取自 tianyingReportData.ts。
+   正文四段（典型日 → 这个月能多赚多少 → 九项指标 → 体检结论）与运营端
+   「推送体检报告」同源，区别在于：本弹窗是客户侧看到的报告正文，不再有章节勾选
+   与推送预览，底部换成试用转化 CTA。数字全部取自 tianyingReportData.ts。
    ========================================================================== */
 
 import React, { useState } from 'react';
@@ -23,7 +23,6 @@ import {
 } from 'lucide-react';
 import {
   TY_META,
-  TY_SIM_KPI,
   TY_SIM_DELTA,
   fmt,
   fmtSigned,
@@ -62,10 +61,7 @@ export default function TianyingSimReportModal({
   if (!isOpen) return null;
 
   const growth = TY_SIM_DELTA.liftPct;
-  const totalReal = TY_SIM_KPI.total.real;
-  const totalSim = TY_SIM_KPI.total.sim;
   const storageDiff = TY_SIM_DELTA.storageDiff;
-  const pvDiff = TY_SIM_DELTA.pvDiff;
 
   const handleClose = () => {
     if (dontRemind) onDismissThisMonth();
@@ -102,9 +98,9 @@ export default function TianyingSimReportModal({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold tracking-tight">天盈 AI 仿真报告</h2>
+                <h2 className="text-lg font-bold tracking-tight">天盈 AI 站点策略&收益体检报告</h2>
                 <span className="px-2 py-0.5 rounded-md bg-[#7BE0C0]/15 border border-[#7BE0C0]/35 text-[#9DECD3] text-[10px] font-bold">
-                  AI 策略预评估
+                  站点策略体检
                 </span>
               </div>
               <p className="text-[12px] text-white/70 mt-1">
@@ -126,11 +122,8 @@ export default function TianyingSimReportModal({
                   提升 {fmt(growth, 1)}%
                 </span>
               </div>
-              <div className="text-[11px] text-white/60 mt-1">
-                总收益 {fmt(totalReal, 0)} 元 → {fmt(totalSim, 0)} 元（全月口径）
-              </div>
             </div>
-            <div className="rounded-xl bg-white/8 border border-white/15 px-4 py-3">
+            <div className="rounded-xl bg-white/8 border border-white/15 px-4 py-3 flex flex-col justify-center">
               <div className="text-[11px] text-white/60">增量主来源</div>
               <div className="mt-1.5 flex items-center gap-2">
                 <Battery size={14} className="text-[#9DECD3]" />
@@ -138,9 +131,6 @@ export default function TianyingSimReportModal({
                 <span className="font-mono font-black text-[#9DECD3]">
                   {fmtSigned(storageDiff, 0)}
                 </span>
-              </div>
-              <div className="text-[11px] text-white/55 mt-1">
-                光伏收益 {fmtSigned(pvDiff, 0)}（消纳率已高位）
               </div>
             </div>
           </div>

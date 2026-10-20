@@ -206,6 +206,16 @@ export const TY_SIM_WHY = [
   },
 ];
 
+/* --------------------------------------------------------------------------
+   收益拆解（判断依据，当前不渲染）
+   --------------------------------------------------------------------------
+   体检报告里曾有一排状态点（储能利用率 / 单位放电净收益 / 光伏消纳率），
+   已按客户意见整块去掉。判断依据留档在此，供后续复用：
+
+     收益拆解（可验算）：放电量 +9.2% × 单位净收益 +15.8% ≈ 储能收益 +26.4%
+     ——「一半靠多充多放、一半靠卖得更贵」，不是单纯挪时段。
+   ========================================================================== */
+
 /** 电价口径 */
 export const TY_PRICE = {
   tou: [
@@ -436,13 +446,12 @@ export const TY_TOU_SEGMENTS = Array.from({ length: 96 }, (_, i) => ({ slot: i, 
 /** 曲线图例与口径说明 */
 export const TY_CURVE_TEXT = {
   chartTitle: '典型日逐 15min 充放电曲线',
-  rule: '案例日选取：按储能收益差排序取当月前 3 个典型日，均为 AI 策略优于实际运行的案例。',
   switchLabel: '案例日',
   legend: {
     realPower: '实际运行 · 储能功率',
-    simPower: 'AI 仿真 · 储能功率',
+    simPower: 'AI 策略 · 储能功率',
     realSoc: '实际运行 · SOC',
-    simSoc: 'AI 仿真 · SOC',
+    simSoc: 'AI 策略 · SOC',
   },
   axisPower: '储能功率 (kW)',
   axisSoc: 'SOC (%)',
@@ -450,7 +459,7 @@ export const TY_CURVE_TEXT = {
   powerNote: '（正充负放）',
   pwState: { charge: '充电', discharge: '放电', idle: '待机' },
   socNote: '两侧 SOC 全程落在 5%–95% 配置区间内。',
-  footLabels: { charge: '当日充电量', discharge: '当日放电量', real: '实际', sim: '仿真' },
+  footLabels: { charge: '当日充电量', discharge: '当日放电量', real: '实际', sim: 'AI 策略' },
   tierLine: '电价档位',
 } as const;
 

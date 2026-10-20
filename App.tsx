@@ -48,14 +48,14 @@ const App: React.FC = () => {
 
   /** 客户生命周期：未开通（售前） → 试运行 → 正式运行 */
   const [lifecycle, setLifecycle] = useState<Lifecycle>('presale');
-  /** 《天盈 AI 仿真报告》弹窗 */
+  /** 《天盈 AI 站点策略&收益体检报告》弹窗 */
   const [isSimReportOpen, setIsSimReportOpen] = useState(false);
   /** 状态流转提示 */
   const [lifecycleToast, setLifecycleToast] = useState<string | null>(null);
 
   const currentMonthKey = new Date().toISOString().slice(0, 7);
 
-  /* 售前阶段：进入系统后自动弹出仿真报告；勾选「本月不再提示」后当月不再弹 */
+  /* 售前阶段：进入系统后自动弹出体检报告；勾选「本月不再提示」后当月不再弹 */
   useEffect(() => {
     if (simAutoShown) return;
     if (lifecycle !== 'presale') return;
@@ -294,7 +294,7 @@ const App: React.FC = () => {
                     className="relative bg-white hover:bg-slate-50 px-4 py-1.5 rounded-xl text-xs font-bold text-slate-700 transition-all border border-slate-200 flex items-center gap-1.5 cursor-pointer"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-[#1E9C7E]" />
-                    天盈 AI 仿真报告
+                    天盈AI策略运行体检报告
                     {lifecycle === 'presale' && (
                       <span className="ml-0.5 px-1.5 py-0.5 rounded-md bg-[#E8F7F1] text-[#17705A] text-[10px] font-bold">
                         NEW
@@ -384,7 +384,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* 《天盈 AI 仿真报告》弹窗（售前触达） */}
+      {/* 《天盈 AI 站点策略&收益体检报告》弹窗（售前触达） */}
       <TianyingSimReportModal
         isOpen={isSimReportOpen}
         onClose={() => setIsSimReportOpen(false)}
