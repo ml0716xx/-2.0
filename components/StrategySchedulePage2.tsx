@@ -1,8 +1,15 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { 
   Calendar, ChevronDown, Clock, Plus, X, 
   History, Sparkles, Cpu, Bot, ChevronRight, Check 
 } from "lucide-react";
+import BatchOperationPanel, {
+  type BatchAction,
+  type BatchResult,
+  datesBetween,
+  ymd,
+} from "./BatchOperationPanel";
+import StrategyConfigPage, { type ConfigLifecycle } from "./StrategyConfigPage";
 
 const EventPill = ({
   span,
@@ -131,13 +138,126 @@ const EventPill = ({
   );
 };
 
-const StrategySchedulePage2: React.FC = () => {
+/* --------------------------------------------------------------------------
+   日历日格
+   --------------------------------------------------------------------------
+   日历原来是 35 个手写的 div，没法点、也没法标。改成按日期生成：
+   批量态下每一格可点，命中循环规则的日子填实心，区间内未命中的留浅底。
+   ========================================================================== */
+
+const CAL_WEEKS: string[][] = (() => {
+  const weeks: string[][] = [];
+  for (let w = 0; w < 5; w++) {
+    const row: string[] = [];
+    for (let i = 0; i < 7; i++) row.push(ymd(new Date(2026, 5, 29 + w * 7 + i)));
+    weeks.push(row);
+  }
+  return weeks;
+})();
+
+const TODAY = "2026-07-10";
+
+const DayCell = ({
+  date,
+  batchMode,
+  selected,
+  hit,
+  done,
+  onClick,
+}: {
+  /** 项目未装 @types/react，JSX.IntrinsicAttributes 不参与校验，key 要自己声明 */
+  key?: string;
+  date: string;
+  batchMode: boolean;
+  selected: boolean;
+  hit: boolean;
+  done: BatchAction | null;
+  onClick: (d: string) => void;
+}) => {
+  const outside = !date.startsWith("2026-07");
+  const isToday = date === TODAY;
+
+  const label = (
+    <span
+      className={
+        isToday
+          ? "inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white font-black text-xs"
+          : `text-sm ${outside ? "font-bold text-slate-300" : "font-black text-slate-800"}`
+      }
+    >
+      {date.slice(8)}
+    </span>
+  );
+
+  return (
+    <div
+      role={batchMode ? "button" : undefined}
+      onClick={batchMode ? () => onClick(date) : undefined}
+      className={`h-10 flex items-center px-2 z-10 rounded-md select-none transition-colors ${
+        batchMode ? "cursor-pointer" : ""
+      } ${
+        hit
+          ? "bg-emerald-500"
+          : selected
+            ? "bg-emerald-100"
+            : batchMode
+              ? "hover:bg-slate-100"
+              : ""
+      }`}
+      title={batchMode ? `${date}　点击选择区间` : date}
+    >
+      <div className="w-full flex items-center justify-between gap-1">
+        <span className={hit ? "text-white" : undefined}>{label}</span>
+        {isToday ? (
+          <span
+            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shrink-0 ${
+              hit
+                ? "bg-white/20 text-white border border-white/30"
+                : "text-emerald-600 bg-emerald-50 border border-emerald-100"
+            }`}
+          >
+            <Bot className="w-2.5 h-2.5" /> 今日调度
+          </span>
+        ) : (
+          done && <span className={`w-1.5 h-1.5 rounded-full ${hit ? "bg-white/70" : "bg-emerald-500"}`} />
+        )}
+      </div>
+    </div>
+  );
+};
+
+interface StrategySchedulePage2Props {
+  lifecycle?: ConfigLifecycle;
+  onActivate?: () => void;
+  onConvert?: () => void;
+  onSwitchLifecycle?: (l: ConfigLifecycle) => void;
+}
+
+const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
+  lifecycle = 'presale',
+  onActivate,
+  onConvert,
+  onSwitchLifecycle,
+}) => {
+  /* 策略运行下两个 tab：排期 / 策略组合列表（后者从策略配置搬过来的） */
+  const [view, setView] = useState<"schedule" | "comboList">("schedule");
   const [selectedMonth, setSelectedMonth] = useState("2026-07");
   const [selectedEventId, setSelectedEventId] = useState("e_airun");
   const [configTab, setConfigTab] = useState<"ai-run" | "ai-schedule">("ai-run");
   const [isEffective, setIsEffective] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedTimeStr, setSelectedTimeStr] = useState("2026-07-10 09:45");
+
+  /* ---- 批量操作：区间在日历上选，动作和规则在右栏 ---- */
+  const [isBatchOpen, setIsBatchOpen] = useState(false);
+  const [selStart, setSelStart] = useState("");
+  const [selEnd, setSelEnd] = useState("");
+  const [hitDates, setHitDates] = useState<string[]>([]);
+  const [batchAction, setBatchAction] = useState<BatchAction | null>(null);
+  /** 已提交的日子 → 动作，日历上留一个小绿点 */
+  const [submitted, setSubmitted] = useState<Record<string, BatchAction>>({});
+  const [batchToast, setBatchToast] = useState("");
+  const [lastBatch, setLastBatch] = useState<{ dates: string[] } | null>(null);
 
   // Controlled collapse states for the time slots
   const [expandedSlots, setExpandedSlots] = useState<Record<string, boolean>>({
@@ -154,6 +274,67 @@ const StrategySchedulePage2: React.FC = () => {
       [slot]: !prev[slot],
     }));
   };
+
+  const clearSelection = () => {
+    setSelStart("");
+    setSelEnd("");
+    setHitDates([]);
+    setBatchAction(null);
+  };
+
+  /* 第一次点定起点，第二次点定终点；再点则重开一段 */
+  const pickDay = (d: string) => {
+    if (!selStart || (selStart && selEnd)) {
+      setSelStart(d);
+      setSelEnd("");
+      return;
+    }
+    if (d < selStart) {
+      setSelStart(d);
+      setSelEnd("");
+      return;
+    }
+    setSelEnd(d);
+  };
+
+  const exitBatch = () => {
+    setIsBatchOpen(false);
+    clearSelection();
+    /* 已提交的留痕不随退出清掉，退出去还能在日历上看到铺过哪些天 */
+  };
+
+  /** 面板回传命中日期，日历据此高亮 */
+  const handlePreview = useCallback((dates: string[]) => setHitDates(dates), []);
+
+  const handleBatchSubmit = (r: BatchResult) => {
+    setLastBatch({ dates: r.dates });
+    setSubmitted((prev) => {
+      const next = { ...prev };
+      r.dates.forEach((d) => (next[d] = r.action));
+      return next;
+    });
+    setBatchToast(
+      `${r.action}已提交：${r.start.slice(5)} ~ ${(r.end || r.start).slice(5)} · ${r.detail}`,
+    );
+    clearSelection();
+    window.setTimeout(() => setBatchToast(""), 6000);
+  };
+
+  const undoBatch = () => {
+    if (!lastBatch) return;
+    setSubmitted((prev) => {
+      const next = { ...prev };
+      lastBatch.dates.forEach((d) => delete next[d]);
+      return next;
+    });
+    setLastBatch(null);
+    setBatchToast("已撤销上一次批量操作");
+    window.setTimeout(() => setBatchToast(""), 2000);
+  };
+
+  const rangeDates = datesBetween(selStart, selEnd || selStart);
+  const hitSet = new Set(hitDates);
+  const rangeSet = new Set(rangeDates);
 
   const historyRecords = [
     "2026-07-10 09:45",
@@ -187,35 +368,75 @@ const StrategySchedulePage2: React.FC = () => {
 
   return (
     <div className="p-3 sm:p-4 h-full overflow-hidden bg-[#f8fafc] flex flex-col">
-      {/* Header */}
+      {/* Header：两个 tab；月份与批量操作只在排期态出现 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 shrink-0 gap-3">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight">
-              策略排期
-            </h1>
-            <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-full text-xs font-black flex items-center gap-1 shadow-sm shadow-emerald-50 shrink-0">
-              <Bot className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-              AI 调度
-            </span>
+          <div className="flex items-center gap-6">
+            {([
+              ['schedule', '策略排期'],
+              ['comboList', '策略组合列表'],
+            ] as [typeof view, string][]).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                className={`relative pb-1 text-2xl font-black tracking-tight transition-colors ${
+                  view === key ? 'text-slate-800' : 'text-slate-300 hover:text-slate-500'
+                }`}
+              >
+                {label}
+                <span
+                  className={`absolute left-0 right-0 -bottom-1 h-[3px] rounded-full transition-all ${
+                    view === key ? 'bg-emerald-500' : 'bg-transparent'
+                  }`}
+                />
+              </button>
+            ))}
           </div>
-          <div className="flex items-center gap-2 border border-slate-200 bg-white rounded-lg px-3 py-1.5 shadow-sm">
-            <Calendar className="w-4 h-4 text-slate-400" />
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-transparent text-sm font-bold outline-none text-slate-700 w-28 cursor-pointer"
-            />
+          {view === "schedule" && (
+            <>
+              <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-full text-xs font-black flex items-center gap-1 shadow-sm shadow-emerald-50 shrink-0">
+                <Bot className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+                AI 调度
+              </span>
+              <div className="flex items-center gap-2 border border-slate-200 bg-white rounded-lg px-3 py-1.5 shadow-sm">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="bg-transparent text-sm font-bold outline-none text-slate-700 w-28 cursor-pointer"
+                />
+              </div>
+            </>
+          )}
+        </div>
+        {view === "schedule" && (
+          <div>
+            <button
+              onClick={() => setIsBatchOpen((v) => !v)}
+              className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${
+                isBatchOpen
+                  ? "bg-white text-emerald-600 border border-emerald-500 shadow-sm"
+                  : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-100"
+              }`}
+            >
+              {isBatchOpen ? "退出批量" : "批量操作"}
+            </button>
           </div>
-        </div>
-        <div>
-          <button className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold rounded-xl shadow-md shadow-emerald-100 transition-all">
-            批量操作
-          </button>
-        </div>
+        )}
       </div>
 
+      {view === "comboList" ? (
+        <div className="flex-1 min-h-0 flex overflow-hidden">
+          <StrategyConfigPage
+            view="comboList"
+            lifecycle={lifecycle}
+            onActivate={onActivate}
+            onConvert={onConvert}
+            onSwitchLifecycle={onSwitchLifecycle}
+          />
+        </div>
+      ) : (
       <div className="flex-1 grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-4 min-h-0">
         {/* Left: Calendar View */}
         <div
@@ -242,13 +463,17 @@ const StrategySchedulePage2: React.FC = () => {
             {/* Week 1 (June 29 - July 05) */}
             <div className="grid grid-cols-7 gap-x-4 relative">
               {/* Day numbers */}
-              <div className="h-10 flex items-center px-2 text-sm font-bold text-slate-300">29</div>
-              <div className="h-10 flex items-center px-2 text-sm font-bold text-slate-300">30</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800">01</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800">02</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800">03</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800">04</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800">05</div>
+              {CAL_WEEKS[0].map((d) => (
+                <DayCell
+                  key={d}
+                  date={d}
+                  batchMode={isBatchOpen}
+                  selected={rangeSet.has(d)}
+                  hit={hitSet.has(d)}
+                  done={submitted[d] ?? null}
+                  onClick={pickDay}
+                />
+              ))}
 
               {/* Row 1 events */}
               <div className="col-span-7 grid grid-cols-7 gap-x-4 mt-1 z-10">
@@ -326,18 +551,17 @@ const StrategySchedulePage2: React.FC = () => {
             {/* Week 2 (July 06 - July 12) */}
             <div className="grid grid-cols-7 gap-x-4 relative group mt-2">
               {/* Day numbers */}
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">06</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">07</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">08</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">09</div>
-              <div className="h-10 flex items-center justify-between px-2 z-10 w-full">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white font-black text-xs">10</span>
-                <span className="text-[10px] font-bold text-emerald-600 px-1.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-100 flex items-center gap-0.5 shadow-sm shadow-emerald-50 shrink-0">
-                  <Bot className="w-2.5 h-2.5" /> 今日调度
-                </span>
-              </div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">11</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">12</div>
+              {CAL_WEEKS[1].map((d) => (
+                <DayCell
+                  key={d}
+                  date={d}
+                  batchMode={isBatchOpen}
+                  selected={rangeSet.has(d)}
+                  hit={hitSet.has(d)}
+                  done={submitted[d] ?? null}
+                  onClick={pickDay}
+                />
+              ))}
 
               {/* Row 1 events */}
               <div className="col-span-7 grid grid-cols-7 gap-x-4 mt-1 z-10">
@@ -451,13 +675,17 @@ const StrategySchedulePage2: React.FC = () => {
 
             {/* Week 3 (July 13 - July 19) */}
             <div className="grid grid-cols-7 gap-x-4 relative mt-10">
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">13</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">14</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">15</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">16</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">17</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">18</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">19</div>
+              {CAL_WEEKS[2].map((d) => (
+                <DayCell
+                  key={d}
+                  date={d}
+                  batchMode={isBatchOpen}
+                  selected={rangeSet.has(d)}
+                  hit={hitSet.has(d)}
+                  done={submitted[d] ?? null}
+                  onClick={pickDay}
+                />
+              ))}
 
               {/* Row 1 events */}
               <div className="col-span-7 grid grid-cols-7 gap-x-4 mt-1 z-10">
@@ -515,13 +743,17 @@ const StrategySchedulePage2: React.FC = () => {
 
             {/* Week 4 (July 20 - July 26) */}
             <div className="grid grid-cols-7 gap-x-4 relative mt-10">
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">20</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">21</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">22</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">23</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">24</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">25</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">26</div>
+              {CAL_WEEKS[3].map((d) => (
+                <DayCell
+                  key={d}
+                  date={d}
+                  batchMode={isBatchOpen}
+                  selected={rangeSet.has(d)}
+                  hit={hitSet.has(d)}
+                  done={submitted[d] ?? null}
+                  onClick={pickDay}
+                />
+              ))}
 
               {/* Row 1 events */}
               <div className="col-span-7 grid grid-cols-7 gap-x-4 mt-1 z-10">
@@ -579,13 +811,17 @@ const StrategySchedulePage2: React.FC = () => {
 
             {/* Week 5 (July 27 - Aug 02) */}
             <div className="grid grid-cols-7 gap-x-4 relative mt-10">
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">27</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">28</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">29</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">30</div>
-              <div className="h-10 flex items-center px-2 text-sm font-black text-slate-800 z-10">31</div>
-              <div className="h-10 flex items-center px-2 text-sm font-bold text-slate-300 z-10">01</div>
-              <div className="h-10 flex items-center px-2 text-sm font-bold text-slate-300 z-10">02</div>
+              {CAL_WEEKS[4].map((d) => (
+                <DayCell
+                  key={d}
+                  date={d}
+                  batchMode={isBatchOpen}
+                  selected={rangeSet.has(d)}
+                  hit={hitSet.has(d)}
+                  done={submitted[d] ?? null}
+                  onClick={pickDay}
+                />
+              ))}
 
               {/* Row 1 events */}
               <div className="col-span-7 grid grid-cols-7 gap-x-4 mt-1 z-10">
@@ -653,9 +889,72 @@ const StrategySchedulePage2: React.FC = () => {
               <span>自定义/固定策略</span>
             </div>
           </div>
+
+          {/* 批量模式底条：跟着滚动停在日历卡片底部 */}
+          {isBatchOpen && (
+            <div className="sticky bottom-0 z-20 -mx-4 -mb-4 mt-3 px-4 py-2.5 bg-white/95 backdrop-blur border-t border-slate-100 flex items-center justify-between gap-3">
+              {selStart ? (
+                <>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500 text-white text-[11px] font-bold shrink-0">
+                      已选 {rangeDates.length} 天
+                    </span>
+                    <span className="text-[12px] font-mono font-bold text-slate-700 truncate">
+                      {selStart.slice(5)} → {(selEnd || selStart).slice(5)}
+                    </span>
+                    {hitDates.length > 0 && hitDates.length !== rangeDates.length && (
+                      <span className="text-[11px] text-slate-400 shrink-0">命中 {hitDates.length} 天</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={clearSelection}
+                      className="px-2.5 py-1 rounded-md text-[12px] font-bold text-slate-500 border border-slate-200 hover:bg-slate-50"
+                    >
+                      重选
+                    </button>
+                    <button
+                      onClick={exitBatch}
+                      className="px-2.5 py-1 rounded-md text-[12px] font-bold text-slate-500 hover:bg-slate-50"
+                    >
+                      退出
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="text-[12px] text-slate-500">
+                    批量模式：在日历上点起始日，再点结束日
+                  </span>
+                  <button
+                    onClick={exitBatch}
+                    className="px-2.5 py-1 rounded-md text-[12px] font-bold text-slate-500 border border-slate-200 hover:bg-slate-50 shrink-0"
+                  >
+                    退出
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Right: Side Panel Configuration with internal overlay history panel */}
+        {/* Right: 右侧详情栏；批量操作打开时原地切换成批量面板 */}
+        {isBatchOpen ? (
+          <BatchOperationPanel
+            start={selStart}
+            end={selEnd}
+            action={batchAction}
+            onActionChange={setBatchAction}
+            onRangeChange={(s, e) => {
+              setSelStart(s);
+              setSelEnd(e);
+            }}
+            onPreviewChange={handlePreview}
+            onClearSelection={clearSelection}
+            onSubmit={handleBatchSubmit}
+            onClose={exitBatch}
+          />
+        ) : (
         <div className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100 flex flex-col h-full overflow-hidden relative">
           
           {/* Main Config Sidebar Header */}
@@ -1081,7 +1380,24 @@ const StrategySchedulePage2: React.FC = () => {
           </div>
 
         </div>
+        )}
       </div>
+      )}
+
+      {batchToast && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-8 z-[90] pl-4 pr-2 py-2.5 rounded-xl bg-slate-900 text-white text-[13px] font-medium shadow-2xl flex items-center gap-3 max-w-[calc(100vw-3rem)]">
+          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="truncate">{batchToast}</span>
+          {lastBatch && (
+            <button
+              onClick={undoBatch}
+              className="shrink-0 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-[12px] font-bold transition-colors"
+            >
+              撤销
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

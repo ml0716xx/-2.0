@@ -6,7 +6,9 @@ import {
   TrendingUp, Sparkles, Lock, Rocket, ArrowUpRight, ShieldCheck
 } from 'lucide-react';
 import CommonConfigPanel from './CommonConfigPanel';
+import AiDemandAdjustCard from './AiDemandAdjustCard';
 import ModeManagementPanel from './ModeManagementPanel';
+import ValueAddPanel from './ValueAddPanel';
 import AiTierPromo from './AiTierPromo';
 import LightIntelligencePanel, {
   EMPTY_BINDING,
@@ -86,6 +88,12 @@ interface StrategyConfigPageProps {
   onConvert?: () => void;
   /** 演示用：直接切换三态，便于核对各状态的引导形态 */
   onSwitchLifecycle?: (l: ConfigLifecycle) => void;
+  /**
+   * 只渲染策略组合列表，不渲染顶部 tab。
+   * 策略组合列表已挪到「策略运行」里做成一个 tab，这里供那边复用同一份实现，
+   * 避免两处各写一套列表和详情。
+   */
+  view?: 'config' | 'comboList';
 }
 
 /** 三态的状态角标（与策略运行报告同配色） */
@@ -217,13 +225,14 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
   onActivate,
   onConvert,
   onSwitchLifecycle,
+  view = 'config',
 }) => {
   const [selectedId, setSelectedId] = useState('01');
   const [isEditing, setIsEditing] = useState(false);
   const [focusedThresholdBlockId, setFocusedThresholdBlockId] = useState<string | null>(null);
 
   // 公共配置状态
-  const [activeTab, setActiveTab] = useState<'common' | 'selfConsumption' | 'mode'>('common');
+  const [activeTab, setActiveTab] = useState<'common' | 'mode' | 'valueAdd'>('common');
 
   /**
    * AI 策略按日期模拟：默认 T 日，最远可选到 T+1（含）。
@@ -606,9 +615,10 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
 
   return (
     <div className="flex-1 flex flex-col gap-4">
-      {/* 顶部标签页切换 */}
-      <div className="flex items-center justify-between gap-8 border-b border-slate-100 pb-3">
-        <div className="flex items-center gap-8">
+      {/* 顶部标签页切换：策略组合列表已移到「策略运行」下，这里不再出现 */}
+      {view === 'config' && (
+        <div className="flex items-center justify-between gap-8 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-8">
         <button
           onClick={() => setActiveTab('common')}
           className={`text-base font-bold pb-2 transition-all relative cursor-pointer ${
@@ -636,32 +646,32 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
           )}
         </button>
         <button
-          onClick={() => {
-            setActiveTab('selfConsumption');
-            setIsEditing(false);
-          }}
+          onClick={() => setActiveTab('valueAdd')}
           className={`text-base font-bold pb-2 transition-all relative cursor-pointer ${
-            activeTab === 'selfConsumption'
+            activeTab === 'valueAdd'
               ? 'text-emerald-600 font-black'
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >
-          策略组合列表
-          {activeTab === 'selfConsumption' && (
+          增值服务
+          {activeTab === 'valueAdd' && (
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full animate-fade-in"></div>
           )}
         </button>
+          </div>
+
+          <LifecycleSwitcher lifecycle={lifecycle} onSwitch={onSwitchLifecycle} />
         </div>
+      )}
 
-        <LifecycleSwitcher lifecycle={lifecycle} onSwitch={onSwitchLifecycle} />
-      </div>
-
-      {activeTab === 'common' ? (
+      {view === 'config' && activeTab === 'common' ? (
         <CommonConfigPanel />
-      ) : activeTab === 'mode' ? (
+      ) : view === 'config' && activeTab === 'mode' ? (
         <ModeManagementPanel />
+      ) : view === 'config' && activeTab === 'valueAdd' ? (
+        <ValueAddPanel />
       ) : (
-        <div className="flex-1 flex gap-4">
+        <div className="flex-1 flex gap-4 min-h-0">
       {!isEditing && (
         <div className="w-72 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col shrink-0 animate-in slide-in-from-left duration-300">
           <div className="p-4 border-b border-slate-50 flex items-center justify-between">
@@ -863,6 +873,11 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                   setIsEditing(false);
                 }}
               />
+            )}
+
+            {/* AI 策略【PRO】· AI 需量调整：开关与两个基准值都取自公共配置那份数据 */}
+            {!aiLocked && isAiTemplate && currentTemplate.aiTier === 'PRO' && (
+              <AiDemandAdjustCard />
             )}
 
             {/* 试运行 / 正式态但尚无内容：说明内容待补充 */}

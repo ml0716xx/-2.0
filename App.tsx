@@ -11,6 +11,7 @@ import Header from './components/Header';
 import WeatherPanel from './components/WeatherPanel';
 import EnergyRevenueSection from './components/EnergyRevenueSection';
 import StrategyMonitorPage from './components/StrategyMonitorPage';
+import PhaseImbalanceMonitorPage from './components/PhaseImbalanceMonitorPage';
 import SocialContributionSection from './components/SocialContributionSection';
 import StrategyConfigPage from './components/StrategyConfigPage';
 import StrategySchedulePage from './components/StrategySchedulePage';
@@ -155,7 +156,14 @@ const App: React.FC = () => {
       );
     }
     if (currentPage === '策略运行') {
-      return <StrategySchedulePage2 />;
+      return (
+        <StrategySchedulePage2
+          lifecycle={lifecycle}
+          onActivate={handleActivateTrial}
+          onConvert={handleConvertToFormal}
+          onSwitchLifecycle={setLifecycle}
+        />
+      );
     }
     if (currentPage === '组态监控') {
       return <MainWiringDiagramPage />;
@@ -207,6 +215,9 @@ const App: React.FC = () => {
     }
     if (currentPage === '策略监控') {
       return <StrategyMonitorPage />;
+    }
+    if (currentPage === '三相不平衡监控') {
+      return <PhaseImbalanceMonitorPage />;
     }
 
     return (

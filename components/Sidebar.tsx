@@ -11,6 +11,17 @@ interface SidebarProps {
   activePage: string;
 }
 
+/**
+ * 二级菜单项：可以是直接跳转的页面，也可以是一个能再展开的节点。
+ * 「系统监控」属于后者 —— 它和监控概览、策略监控、算法监控平级，
+ * 底下按设备类型分光伏 / 储能 / 充电桩 / 三相不平衡。
+ */
+type MenuLeaf = string;
+type MenuBranch = { name: string; items: MenuLeaf[] };
+type SubItem = MenuLeaf | MenuBranch;
+
+const isBranch = (s: SubItem): s is MenuBranch => typeof s !== 'string';
+
 const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
     '监控中心': true,
@@ -20,6 +31,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
     '智能报告': true
   });
 
+  /** 三级菜单展开状态，键用「父级/子级」拼，避免和一级重名 */
+  const [openBranches, setOpenBranches] = useState<Record<string, boolean>>({
+    '监控中心/系统监控': true,
+  });
+
   const toggleMenu = (menuName: string) => {
     setOpenMenus(prev => ({
       ...prev,
@@ -27,12 +43,31 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
     }));
   };
 
-  const menuItems = [
+  const toggleBranch = (key: string) => {
+    setOpenBranches(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const menuItems: {
+    name: string;
+    icon: React.ReactNode;
+    hasSub?: boolean;
+    subItems?: SubItem[];
+  }[] = [
     { 
       name: '监控中心', 
       icon: <Activity className="w-5 h-5" />,
       hasSub: true,
-      subItems: ['监控概览', '策略监控', '算法监控', '组态监控', '储能监控', '算法推理']
+      subItems: [
+        '监控概览',
+        '策略监控',
+        '算法监控',
+        '组态监控',
+        '算法推理',
+        {
+          name: '系统监控',
+          items: ['储能监控', '三相不平衡监控'],
+        },
+      ]
     },
     { 
       name: '策略管理', 
@@ -106,19 +141,66 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
 
               {item.hasSub && openMenus[item.name] && (
                 <div className="mt-1 space-y-1">
-                  {item.subItems?.map((sub) => (
-                    <button
-                      key={sub}
-                      onClick={() => onNavigate(sub)}
-                      className={`w-full text-left pl-12 py-2 text-sm rounded-xl transition-all ${
-                        activePage === sub 
-                          ? 'bg-emerald-50 text-emerald-600 font-medium' 
-                          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                      }`}
-                    >
-                      {sub}
-                    </button>
-                  ))}
+                  {item.subItems?.map((sub) => {
+                    /* 可再展开的二级项：系统监控 —— 与监控概览、策略监控同层 */
+                    if (isBranch(sub)) {
+                      const branchKey = `${item.name}/${sub.name}`;
+                      const opened = openBranches[branchKey];
+                      const childActive = sub.items.includes(activePage);
+
+                      return (
+                        <div key={sub.name}>
+                          <button
+                            onClick={() => toggleBranch(branchKey)}
+                            className={`w-full flex items-center justify-between pl-12 pr-3 py-2 text-sm rounded-xl transition-all ${
+                              childActive && !opened
+                                ? 'bg-emerald-50 text-emerald-600 font-medium'
+                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              {sub.name}
+                            </span>
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform ${opened ? 'rotate-180' : ''}`}
+                            />
+                          </button>
+
+                          {opened && (
+                            <div className="mt-1 space-y-1">
+                              {sub.items.map((leaf) => (
+                                <button
+                                  key={leaf}
+                                  onClick={() => onNavigate(leaf)}
+                                  className={`w-full text-left pl-16 pr-3 py-2 text-sm rounded-xl transition-all ${
+                                    activePage === leaf
+                                      ? 'bg-emerald-50 text-emerald-600 font-medium'
+                                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  {leaf}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={sub}
+                        onClick={() => onNavigate(sub)}
+                        className={`w-full text-left pl-12 py-2 text-sm rounded-xl transition-all ${
+                          activePage === sub 
+                            ? 'bg-emerald-50 text-emerald-600 font-medium' 
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                        }`}
+                      >
+                        {sub}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

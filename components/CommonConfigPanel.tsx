@@ -1,7 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, Info, Save } from 'lucide-react';
+import { ChevronDown, Info, Save, AlertCircle } from 'lucide-react';
+import { DEMAND_SYNC_EVENT, readDemandConfig, subscribeDemandConfig } from './demandSettings';
+import { readReverseMode, writeReverseMode, type ReverseMode } from './reverseFlowSettings';
 
 interface CommonConfigPanelProps {}
+
+/**
+ * 防逆流模式的解释气泡。
+ * 两种模式的差别不在「阈值填多少」，而在「拿什么跟阈值比」——
+ * 这一点不解释清楚，用户会以为切了模式阈值也跟着变。
+ */
+const ModeTip: React.FC = () => {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        type="button"
+        aria-label="防逆流模式说明"
+        onClick={() => setOpen((v) => !v)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        className="w-4 h-4 rounded-full flex items-center justify-center text-amber-500 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+      >
+        <AlertCircle className="w-3.5 h-3.5" />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-6 z-40 w-[352px] max-w-[76vw] rounded-xl bg-slate-800/95 text-white shadow-xl p-3.5 space-y-2 text-[11px] leading-relaxed">
+          <div>
+            <span className="font-black text-emerald-300">总功率防逆流</span>
+            <span className="text-white/80">
+              {' '}只看关口瞬时总有功功率。三相不平衡重时，总功率够高、但某一相仍可能低于 0，形成单相倒送。
+            </span>
+          </div>
+          <div>
+            <span className="font-black text-emerald-300">单相防逆流</span>
+            <span className="text-white/80">
+              {' '}A/B/C 逐相比较，调度以最轻载相为准，保证每相功率都高于阈值。
+            </span>
+          </div>
+          <div className="pt-2 border-t border-white/10 text-white/60">
+            分相数据采不到时自动退回总功率模式，并在报警管理中提示，恢复后自动切回。
+          </div>
+        </div>
+      )}
+    </span>
+  );
+};
 
 const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
   // Tariff Selects
@@ -27,13 +72,30 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
   const [transformerOvercap, setTransformerOvercap] = useState(() => localStorage.getItem('sys_transformerOvercap') || '1750');
 
   // Reverse Flow Parameters
-  const [reverseLimit, setReverseLimit] = useState(() => localStorage.getItem('sys_reverseLimit') || '20');
+  const [reverseLimit, setReverseLimit] = useState(() => localStorage.getItem('sys_reverseLimit') || '10');
+  /** 防逆流模式：默认总功率，与 PRD BR-02 一致（存量站点升级后仍按总功率跑） */
+  const [reverseMode, setReverseMode] = useState<ReverseMode>(readReverseMode);
+  /** EMS 侧实际在跑的模式（= 上一次保存的值），用来区分「表单里选了的」和「已经下发的」 */
+  const [runningMode, setRunningMode] = useState<ReverseMode>(readReverseMode);
+  const modePending = reverseMode !== runningMode;
 
   // Energy Storage Common Parameters
   const [socChargeLimit, setSocChargeLimit] = useState(() => localStorage.getItem('sys_socChargeLimit') || '98');
   const [socDischargeLimit, setSocDischargeLimit] = useState(() => localStorage.getItem('sys_socDischargeLimit') || '5.1');
 
   const [showSaveToast, setShowSaveToast] = useState(false);
+
+  /* 策略详情页（AI 策略【PRO】）改了需量设置，这里同步刷新 */
+  useEffect(
+    () =>
+      subscribeDemandConfig(() => {
+        const next = readDemandConfig();
+        setDemandMode(next.mode);
+        setInitialDemandLimit(next.base);
+        setBaselineOvercapacity(next.overcap);
+      }),
+    [],
+  );
 
   // Interaction: When other options are chosen, retain AI values but they aren't active.
   // When switching to AI from other modes, ensure we display blank or placeholders initially if not filled.
@@ -46,7 +108,9 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
     setOvercapacityLimit(localStorage.getItem('sys_overcapacityLimit') || '90');
     setInitialDemandLimit(localStorage.getItem('sys_initialDemandLimit') || '500');
     setBaselineOvercapacity(localStorage.getItem('sys_baselineOvercapacity') || '470');
-    setReverseLimit(localStorage.getItem('sys_reverseLimit') || '20');
+    setReverseLimit(localStorage.getItem('sys_reverseLimit') || '10');
+    setReverseMode(readReverseMode());
+    setRunningMode(readReverseMode());
     setSocChargeLimit(localStorage.getItem('sys_socChargeLimit') || '98');
     setSocDischargeLimit(localStorage.getItem('sys_socDischargeLimit') || '5.1');
     setTransformerCapacity(localStorage.getItem('sys_transformerCapacity') || '1850');
@@ -62,6 +126,8 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
     localStorage.setItem('sys_initialDemandLimit', initialDemandLimit);
     localStorage.setItem('sys_baselineOvercapacity', baselineOvercapacity);
     localStorage.setItem('sys_reverseLimit', reverseLimit);
+    writeReverseMode(reverseMode);
+    setRunningMode(reverseMode);
     localStorage.setItem('sys_socChargeLimit', socChargeLimit);
     localStorage.setItem('sys_socDischargeLimit', socDischargeLimit);
     localStorage.setItem('sys_transformerCapacity', transformerCapacity);
@@ -69,6 +135,8 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
 
     // Trigger local storage event to notify other open components
     window.dispatchEvent(new Event('storage'));
+    // 策略详情页的「AI 需量调整」读的是同一份数据，保存后让它跟着刷新
+    window.dispatchEvent(new Event(DEMAND_SYNC_EVENT));
 
     setShowSaveToast(true);
     setTimeout(() => setShowSaveToast(false), 3500);
@@ -324,20 +392,107 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
       {/* 逆流参数 */}
       <fieldset className="border border-slate-200/80 rounded-xl p-6 relative pt-8 mt-4">
         <legend className="px-3 text-xs font-bold text-slate-600 tracking-tight bg-white">逆流参数</legend>
-        <div className="space-y-2">
-          <span className="text-xs font-bold text-slate-500">逆流阈值</span>
-          <div className="relative">
-            <input
-              type="number"
-              value={reverseLimit}
-              onChange={(e) => setReverseLimit(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 ring-emerald-100 outline-none pr-12 font-mono"
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold font-mono">kW</span>
+
+        <div className="space-y-5">
+          {/* 防逆流模式（PRD 4.1.2：单选组放在阈值输入框之前） */}
+          <div className="space-y-2.5">
+            <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+              防逆流模式
+              <ModeTip />
+            </span>
+            <div className="flex items-center gap-6 flex-wrap">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 select-none">
+                <input
+                  type="radio"
+                  name="reverseMode"
+                  checked={reverseMode === 'total'}
+                  onChange={() => setReverseMode('total')}
+                  className="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500 accent-emerald-500"
+                />
+                <span className={reverseMode === 'total' ? 'text-emerald-600 font-extrabold' : 'text-slate-500'}>
+                  总功率防逆流
+                </span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 select-none">
+                <input
+                  type="radio"
+                  name="reverseMode"
+                  checked={reverseMode === 'phase'}
+                  onChange={() => setReverseMode('phase')}
+                  className="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500 accent-emerald-500"
+                />
+                <span className={reverseMode === 'phase' ? 'text-emerald-600 font-extrabold' : 'text-slate-500'}>
+                  单相防逆流
+                </span>
+              </label>
+              {reverseMode === 'phase' && (
+                <span className="text-[11px] font-medium text-amber-600 flex items-center gap-1.5 animate-in fade-in duration-200">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  代价是下网电量增加：最轻载相被拉回阈值以上，关口总下网功率随之抬升
+                </span>
+              )}
+            </div>
           </div>
-          <div className="text-[11px] text-slate-400 font-medium flex items-start gap-1.5 pl-1">
-            <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-300" />
-            <span>未获取电网批准，站点限制向电网倒送功率，您可以根据项目实际情况，灵活调整逆流阈值，对站点进行防逆流保护！</span>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* 逆流阈值：字段只有一个，含义随模式联动（BR-03/BR-04） */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-500">
+                {reverseMode === 'phase' ? '单相逆流阈值' : '逆流阈值'}
+              </span>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={reverseLimit}
+                  onChange={(e) => setReverseLimit(e.target.value)}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 ring-emerald-100 outline-none pr-12 font-mono"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold font-mono">kW</span>
+              </div>
+              <div className="text-[11px] text-slate-400 font-medium flex items-start gap-1.5 pl-1">
+                <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-300" />
+                {reverseMode === 'phase' ? (
+                  <span>切换模式时数值沿用，含义已从总功率阈值变为单相阈值。</span>
+                ) : (
+                  <span>未获取电网批准，站点限制向电网倒送功率，您可以根据项目实际情况，灵活调整逆流阈值，对站点进行防逆流保护！</span>
+                )}
+              </div>
+            </div>
+
+            {/* 当前执行 = 上一次保存下去的模式，未保存的改动还没下发，这里能看出来 */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-500 flex items-center gap-2">
+                当前执行
+                {modePending && (
+                  <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 text-[10px] font-bold border border-amber-100">
+                    保存后生效
+                  </span>
+                )}
+              </span>
+              <div
+                className={`h-[46px] rounded-xl border px-4 flex items-center gap-2 ${
+                  runningMode === 'phase'
+                    ? 'bg-emerald-50/60 border-emerald-100'
+                    : 'bg-slate-50 border-slate-100'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    runningMode === 'phase' ? 'bg-emerald-500' : 'bg-slate-400'
+                  }`}
+                />
+                <span
+                  className={`text-sm font-black ${
+                    runningMode === 'phase' ? 'text-emerald-700' : 'text-slate-600'
+                  }`}
+                >
+                  {runningMode === 'phase' ? '单相防逆流' : '总功率防逆流'}
+                </span>
+                <span className="text-[11px] font-bold text-slate-400">
+                  {runningMode === 'phase' ? '逐相保障，每相 > 阈值' : '按关口总功率调控'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </fieldset>

@@ -5,16 +5,19 @@
      1）月度经营数据 —— 与客户侧 PDF 正文同源（去封面、去目录）
         第一章 月度经营总览：收益构成、四象限指标卡、光伏/储能/充电桩三段图表
         第二章 指标分析：光伏消纳率、度电成本
-     2）AI 策略数据 —— 【策略运行报告】的精简视图，按客户生命周期分三态：
-        · 未开通（售前）  指标遮罩 + 收益测算钩子 + 开通权益，突出营销转化
-        · 试运行          指标解锁 + 试运行成绩单 + 剩余天数 + 一键升级正式版
-        · 正式运行        指标解锁 + 本月运行成绩 + 无转化入口
-        内容含「AI 智能调度效益分析」与「限电止损（增值特性）」两段，同属 AI 策略，
-        一段读完，不再分子 tab。
+     2）增值服务 —— 客户额外付费才有的能力，一个模块一段，按「一 / 二 / 三」往下排：
+        · 一、AI 智能调度效益分析   AI 策略带来的增益（策略运行报告精简视图）
+        · 二、限电止损             已上线的增值特性
+        · 三、三相不平衡治理        PRD 3.2 的边界收益（当月释放电量 / 节约电费）
+        以后再有增值服务，加「四、」即可，页面骨架不动。
+        按客户生命周期分三态：
+          · 未开通（售前）  不遮罩，直接铺《天翼 AI 站点策略&收益体检报告》正文，末尾引导开通
+          · 试运行          解锁 + 试运行成绩单 + 剩余天数 + 一键升级正式版
+          · 正式运行        解锁 + 本月运行成绩 + 无转化入口
 
-   指标纪律：本 tab 只使用 AI_GAIN 里那张指标表，集合严格等于策略运行报告
-   已渲染的指标，不新增口径、不发明指标。三种状态共用同一套指标与报告主体，
-   仅顶部模块、角标、转化入口不同。
+   指标纪律：AI 段只使用 AI_GAIN 里那张指标表，集合严格等于策略运行报告已渲染的指标，
+   不新增口径、不发明指标。三相不平衡段只输出 PRD 3.2 定的两个字段（释放电量、节约电费），
+   外加治理前后阈值与释放裕量作为参照。
    ========================================================================== */
 
 import React, { useState } from 'react';
@@ -70,6 +73,9 @@ import {
 } from './tianyingReportData';
 import TianyingSimReportBody from './TianyingSimReportBody';
 import CurtailmentValueAdd from './CurtailmentValueAdd';
+import PhaseImbalanceValueAdd from './PhaseImbalanceValueAdd';
+import { curtailmentTotalSaved } from './curtailmentData';
+import { phaseMonth, phaseReleaseMax, readPhaseConfig, subscribePhaseConfig } from './phaseImbalanceData';
 
 /** 生命周期：未开通 / 试运行 / 正式运行 */
 export type Lifecycle = 'presale' | 'trial' | 'formal';
@@ -684,8 +690,8 @@ function CaliberNote() {
   );
 }
 
-/** tab2 主体 */
-function AiStrategyTab({
+/** tab2 主体：三块增值服务，按「一 / 二 / 三」往下排 */
+function ValueAddTab({
   lifecycle,
   onActivate,
   onConvert,
@@ -715,7 +721,7 @@ function AiStrategyTab({
 
   return (
     <div className="space-y-4">
-      {/* 试运行 / 正式运行：效益分析 + 增值特性同属 AI 策略，一段读完，不再分子 tab */}
+      {/* 试运行 / 正式运行：三块增值服务整段读完，不再分子 tab */}
       {lifecycle === 'trial' && <TrialStrip onConvert={onConvert} />}
 
       <div className="flex items-center gap-2">
@@ -732,12 +738,20 @@ function AiStrategyTab({
 
       <div className="flex items-center gap-2 pt-2">
         <span className="w-1 h-3.5 rounded-full bg-[#D97706]" />
-        <span className="text-[13px] font-bold text-[#1A2A3A]">二、限电止损（增值特性）</span>
-        <span className="text-[11px] text-[#93A1B0]">策略运行报告 · 增值特性</span>
+        <span className="text-[13px] font-bold text-[#1A2A3A]">二、限电止损</span>
+        <span className="text-[11px] text-[#93A1B0]">增值特性</span>
       </div>
 
       {/* 与「策略运行报告 · 增值特性」同一个组件，展示效果完全一致 */}
       <CurtailmentValueAdd />
+
+      <div className="flex items-center gap-2 pt-2">
+        <span className="w-1 h-3.5 rounded-full bg-[#D946EF]" />
+        <span className="text-[13px] font-bold text-[#1A2A3A]">三、三相不平衡治理</span>
+        <span className="text-[11px] text-[#93A1B0]">增值服务 · 防逆流边界收益</span>
+      </div>
+
+      <PhaseImbalanceValueAdd />
     </div>
   );
 }
@@ -751,12 +765,21 @@ export default function BusinessReportPage({
   onConvert,
   onActivate,
 }: BusinessReportPageProps) {
-  const [tab, setTab] = useState<'biz' | 'ai'>('biz');
+  const [tab, setTab] = useState<'biz' | 'valueAdd'>('biz');
   const [period, setPeriod] = useState('2026-09');
 
-  const TABS: { key: 'biz' | 'ai'; label: string }[] = [
+  /* 三相不平衡的开关或治理前阈值改了，页签上的合计要跟着变 */
+  const [phaseCfg, setPhaseCfg] = useState(readPhaseConfig);
+  React.useEffect(() => subscribePhaseConfig(() => setPhaseCfg(readPhaseConfig())), []);
+
+  const valueAddTotal =
+    AI_GAIN.aiBoost +
+    curtailmentTotalSaved +
+    (phaseCfg.on ? phaseMonth(phaseReleaseMax(phaseCfg)).totalSaving : 0);
+
+  const TABS: { key: 'biz' | 'valueAdd'; label: string }[] = [
     { key: 'biz', label: '月度经营数据' },
-    { key: 'ai', label: 'AI 策略数据' },
+    { key: 'valueAdd', label: '增值服务' },
   ];
 
   return (
@@ -808,7 +831,7 @@ export default function BusinessReportPage({
               }`}
             >
               {t.label}
-              {t.key === 'ai' &&
+              {t.key === 'valueAdd' &&
                 (lifecycle === 'presale' ? (
                   <span className="px-1.5 py-0.5 rounded bg-[#F1F4F7] text-[#5A6B7C] text-[10px] font-bold">
                     体检
@@ -816,11 +839,11 @@ export default function BusinessReportPage({
                 ) : (
                   <>
                     <span className="px-1.5 py-0.5 rounded bg-[#E8F7F1] text-[#17705A] text-[10px] font-bold">
-                      AI
+                      3 项
                     </span>
-                    {/* 与「增值特性」同款金额徽标：本月 AI 提升收益 */}
+                    {/* 三项增值服务的价值合计：AI 提升收益 + 限电止损减亏 + 边界收益 */}
                     <span className="px-2 py-0.5 rounded-full bg-[#E8F7F1] text-[#17705A] text-[11px] font-bold font-mono border border-[#B7E4D3]">
-                      本月 +¥{AI_GAIN.aiBoost.toLocaleString()}
+                      合计 +¥{Math.round(valueAddTotal).toLocaleString()}
                     </span>
                   </>
                 ))}
@@ -844,7 +867,7 @@ export default function BusinessReportPage({
               <IndicatorAnalysis />
             </div>
           ) : (
-            <AiStrategyTab
+            <ValueAddTab
               lifecycle={lifecycle}
               onOpenSimReport={onOpenSimReport}
               onConvert={onConvert}
