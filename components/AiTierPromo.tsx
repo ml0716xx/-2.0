@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   ChevronRight,
 } from 'lucide-react';
-import { AI_TIER_PROMOS, type PromoIcon } from './aiTierPromoData';
+import { AI_TIER_PROMOS, AI_TIER_LABEL, type PromoIcon } from './aiTierPromoData';
 import type { AiTier } from './StrategyConfigPage';
 
 const PROMO_ICON: Record<PromoIcon, React.ComponentType<{ className?: string }>> = {
@@ -55,7 +55,7 @@ export default function AiTierPromo({ tier }: { tier: AiTier; onActivate?: () =>
             className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-white"
             style={{ color: P.accent.color, borderColor: P.accent.border }}
           >
-            AI 策略 · {P.tier}
+            天盈 {AI_TIER_LABEL[P.tier]}
           </span>
           <span className="text-[10px] font-bold text-[#93A1B0]">
             未开通 · 开通后可查看本档调度参数并下发至站点
@@ -81,7 +81,7 @@ export default function AiTierPromo({ tier }: { tier: AiTier; onActivate?: () =>
                   className={`text-[11px] ${on ? 'font-black' : 'font-medium text-[#93A1B0]'}`}
                   style={on ? { color: P.accent.color } : undefined}
                 >
-                  {l.tier}
+                  {AI_TIER_LABEL[l.tier]}
                 </span>
                 <span className={`text-[10px] ${on ? 'font-bold text-[#5A6B7C]' : 'text-[#B6C1CC]'}`}>
                   {l.note}

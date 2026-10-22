@@ -14,6 +14,13 @@
 
 import type { AiTier } from './StrategyConfigPage';
 
+/** 档位对外叫法。内部枚举仍是 基础/标准/PRO，只换展示文案 */
+export const AI_TIER_LABEL: Record<AiTier, string> = {
+  基础: 'AI Lite',
+  标准: 'AI',
+  PRO: 'AI Pro',
+};
+
 /** 宣传页里可用的图标键（组件侧映射到 lucide 图标） */
 export type PromoIcon =
   | 'weather'

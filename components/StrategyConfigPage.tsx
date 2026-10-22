@@ -10,6 +10,7 @@ import AiDemandAdjustCard from './AiDemandAdjustCard';
 import ModeManagementPanel from './ModeManagementPanel';
 import ValueAddPanel from './ValueAddPanel';
 import AiTierPromo from './AiTierPromo';
+import { AI_TIER_LABEL } from './aiTierPromoData';
 import LightIntelligencePanel, {
   EMPTY_BINDING,
   PRESET_WEATHER_TYPES,
@@ -57,13 +58,16 @@ interface StrategyTemplate {
   isActive: boolean;
   hasWarning: boolean;
   blocks: ScheduleBlock[];
+  /**
+   * 自动排程开关。开着的自定义策略由 AI 策略【标准】逐日排程，
+   * 所以「AI 策略·标准」不是一个独立条目，而是打在这些策略边上的标签。
+   */
+  autoSchedule?: boolean;
 }
 
-/** 列表分组标题（顺序即展示顺序） */
-const TEMPLATE_GROUPS: { key: TemplateGroup; title: string; desc: string }[] = [
-  { key: 'ai', title: 'AI 策略', desc: '天盈 AI 依据站点特征自动生成' },
-  { key: 'custom', title: '自定义策略', desc: '站端人工配置，可自由编辑与复制' },
-];
+/** 列表排序：AI 策略【基础】→【PRO】→ 自定义策略（标准档的标签散落在自定义策略里） */
+const templateRank = (t: StrategyTemplate) =>
+  t.group === 'custom' ? 2 : t.aiTier === 'PRO' ? 1 : 0;
 
 /** AI 策略档位徽章配色 */
 const AI_TIER_STYLE: Record<AiTier, string> = {
@@ -311,6 +315,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
       group: 'custom',
       isActive: true,
       hasWarning: false,
+      autoSchedule: true,
       blocks: [
         {
           id: 'b1',
@@ -354,87 +359,11 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
         }
       ]
     },
-    // ===== AI 策略：标准档 / PRO 档内容取自「策略运行 · 策略排期」对应策略 =====
+    // ===== AI 策略：只有【基础】和【PRO】是独立条目 =====
+    // 【标准】不是一条独立策略，它是对「自动排程」开着的自定义策略做逐日排程，
+    // 所以列表里不出现这一条，标签打在那些自定义策略上（见 autoSchedule）。
     // 基础档内容待补充，先占位
     { id: 'ai-basic', name: 'AI 策略', group: 'ai', aiTier: '基础', isActive: false, hasWarning: false, blocks: [] },
-    {
-      // 源自 策略运行 · 策略排期「AI 运行策略」（现名 AI 策略【标准】）
-      id: 'ai-standard',
-      name: 'AI 策略',
-      group: 'ai',
-      aiTier: '标准',
-      isActive: true,
-      hasWarning: false,
-      blocks: [
-        {
-          id: 'ai-std-1',
-          startTime: '00:00',
-          endTime: '04:00',
-          threshold: '0',
-          reserveCharge: '20',
-          reserveDischarge: '5',
-          strategyType: '峰谷套利',
-          dischargeThreshold: '0',
-          isCollapsed: true,
-          subPeriods: []
-        },
-        {
-          id: 'ai-std-2',
-          startTime: '04:00',
-          endTime: '06:00',
-          threshold: '0',
-          reserveCharge: '10',
-          reserveDischarge: '10',
-          strategyType: '峰谷套利',
-          dischargeThreshold: '0',
-          isCollapsed: true,
-          subPeriods: []
-        },
-        {
-          id: 'ai-std-3',
-          startTime: '06:00',
-          endTime: '11:00',
-          // 可逆流阈值 -10 kW
-          threshold: '-10',
-          reserveCharge: '0',
-          reserveDischarge: '50',
-          strategyType: '峰谷套利',
-          dischargeThreshold: '0',
-          isCollapsed: false,
-          // AI 排程下发的 15min 明细
-          subPeriods: [
-            { start: '06:00', end: '06:15', type: '放电', power: 93.17 },
-            { start: '06:15', end: '06:30', type: '放电', power: 76.86 },
-            { start: '06:30', end: '06:45', type: '放电', power: 175.34 },
-            { start: '06:45', end: '07:00', type: '放电', power: 181.25 }
-          ]
-        },
-        {
-          id: 'ai-std-4',
-          startTime: '11:00',
-          endTime: '18:00',
-          threshold: '0',
-          reserveCharge: '0',
-          reserveDischarge: '20',
-          strategyType: '全额消纳（自发自用）',
-          dischargeThreshold: '0',
-          isCollapsed: true,
-          subPeriods: []
-        },
-        {
-          id: 'ai-std-5',
-          startTime: '18:00',
-          endTime: '24:00',
-          threshold: '0',
-          reserveCharge: '30',
-          reserveDischarge: '0',
-          strategyType: '峰谷套利',
-          dischargeThreshold: '0',
-          isCollapsed: true,
-          subPeriods: []
-        }
-      ]
-    },
     {
       // 源自 策略运行 · 策略排期「AI 调度」（现名 AI 策略【PRO】）
       id: 'ai-pro',
@@ -596,10 +525,12 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
       ...JSON.parse(JSON.stringify(target)),
       id: Math.random().toString(36).substr(2, 5),
       // AI 策略不可人工编辑，副本落到「自定义策略」分组，名称带上原档位便于追溯
-      name: isAi ? `${target.name}【${target.aiTier}】-副本` : `${target.name}-副本`,
+      name: isAi ? `${target.name}【${AI_TIER_LABEL[target.aiTier!]}】-副本` : `${target.name}-副本`,
       group: 'custom',
       aiTier: undefined,
-      isActive: false
+      isActive: false,
+      // 副本是一张白纸，自动排程不跟着复制过去
+      autoSchedule: false
     };
     
     setTemplates([...templates, newTemplate]);
@@ -673,74 +604,62 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
       ) : (
         <div className="flex-1 flex gap-4 min-h-0">
       {!isEditing && (
-        <div className="w-72 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col shrink-0 animate-in slide-in-from-left duration-300">
+        <div className="w-80 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col shrink-0 animate-in slide-in-from-left duration-300">
           <div className="p-4 border-b border-slate-50 flex items-center justify-between">
             <h3 className="font-black text-slate-800 tracking-tight text-sm">策略组合列表</h3>
             <button className="flex items-center gap-1 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all shadow-sm text-[11px] px-2.5 py-1 font-bold whitespace-nowrap">
               <Plus className="w-3 h-3 shrink-0" /> 新增自定义策略
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-1">
-            {TEMPLATE_GROUPS.map((g) => {
-              const list = templates.filter((t) => t.group === g.key);
-              if (!list.length) return null;
-              return (
-                <div key={g.key} className="pt-3 first:pt-0">
-                  {/* 分组标题：AI 分组额外标注当前生命周期状态 */}
-                  <div className="flex items-center justify-between px-2 pb-2 gap-2">
-                    <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">
-                      {g.key === 'ai' && <Sparkles className="w-3 h-3 text-amber-500" />}
-                      {g.title}
-                    </span>
-                    {g.key === 'ai' ? (
-                      <LifecycleBadge lifecycle={lifecycle} />
-                    ) : (
-                      <span className="text-[10px] font-bold text-slate-300 font-mono">{list.length}</span>
-                    )}
-                  </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            {/* 生命周期角标 + 开通引导：AI 能力相关，跟着排在前面的 AI 策略走 */}
+            <div className="flex items-center justify-end">
+              <LifecycleBadge lifecycle={lifecycle} />
+            </div>
+            {lifecycle !== 'formal' && (
+              <AiActivationGuide lifecycle={lifecycle} onActivate={onActivate} onConvert={onConvert} />
+            )}
 
-                  {/* 开通引导：AI 策略分组专属（正式运行态不展示），全页唯一的开通/升级入口 */}
-                  {g.key === 'ai' && lifecycle !== 'formal' && (
-                    <div className="mb-2">
-                      <AiActivationGuide
-                        lifecycle={lifecycle}
-                        onActivate={onActivate}
-                        onConvert={onConvert}
-                      />
-                    </div>
+            {/* 一个平铺列表：AI 策略【基础】→【PRO】→ 自定义策略，不再分组 */}
+            {[...templates].sort((a, b) => templateRank(a) - templateRank(b)).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => {
+                  setSelectedId(t.id);
+                  setIsEditing(false); // 切换策略退出编辑态，避免 AI 策略进入空编辑视图
+                }}
+                className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all group ${
+                  selectedId === t.id ? 'bg-emerald-50 border-emerald-100 shadow-sm' : 'hover:bg-slate-50 border-transparent'
+                } border relative`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${t.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                  {/* 名称前这个星标就是「天盈 AI 策略」的标识，三档都带，靠后面徽章区分档位 */}
+                  {(t.group === 'ai' || t.autoSchedule) && (
+                    <Sparkles className="w-3.5 h-3.5 shrink-0 text-violet-500" aria-label="天盈 AI 策略" />
                   )}
-
-                  <div className="space-y-2">
-                    {list.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => {
-                          setSelectedId(t.id);
-                          setIsEditing(false); // 切换策略退出编辑态，避免 AI 策略进入空编辑视图
-                        }}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all group ${
-                          selectedId === t.id ? 'bg-emerald-50 border-emerald-100 shadow-sm' : 'hover:bg-slate-50 border-transparent'
-                        } border relative`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className={`w-2 h-2 rounded-full shrink-0 ${t.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-                          <span className={`text-sm font-bold truncate ${selectedId === t.id ? 'text-emerald-700' : 'text-slate-600'}`}>{t.name}</span>
-                          {t.group === 'ai' && lifecycle === 'presale' && (
-                            <Lock className="w-3.5 h-3.5 text-slate-300 shrink-0" />
-                          )}
-                          {t.group === 'ai' && t.aiTier && (
-                            <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE[t.aiTier]}`}>
-                              {t.aiTier}
-                            </span>
-                          )}
-                        </div>
-                        <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${selectedId === t.id ? 'translate-x-0 opacity-100 text-emerald-400' : 'translate-x-4 opacity-0 text-slate-300 group-hover:opacity-100'}`} />
-                      </button>
-                    ))}
-                  </div>
+                  <span className={`text-sm font-bold truncate ${selectedId === t.id ? 'text-emerald-700' : 'text-slate-600'}`}>{t.name}</span>
+                  {t.group === 'ai' && lifecycle === 'presale' && (
+                    <Lock className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                  )}
+                  {t.group === 'ai' && t.aiTier && (
+                    <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE[t.aiTier]}`}>
+                      {AI_TIER_LABEL[t.aiTier]}
+                    </span>
+                  )}
+                  {/* 自动排程开着的自定义策略 = AI 策略【标准】。三档用同一种徽章，只是挂在不同行上 */}
+                  {t.group === 'custom' && t.autoSchedule && (
+                    <span
+                      title="天盈 AI · 已开启自动排程"
+                      className={`shrink-0 whitespace-nowrap px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE['标准']}`}
+                    >
+                      {AI_TIER_LABEL['标准']}
+                    </span>
+                  )}
                 </div>
-              );
-            })}
+                <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${selectedId === t.id ? 'translate-x-0 opacity-100 text-emerald-400' : 'translate-x-4 opacity-0 text-slate-300 group-hover:opacity-100'}`} />
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -756,12 +675,25 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                 </button>
               )}
               <div>
-                <h2 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2">
+                <h2 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2 whitespace-nowrap">
+                  {!isEditing && (isAiTemplate || currentTemplate.autoSchedule) && (
+                    <Sparkles className="w-4 h-4 shrink-0 text-violet-500" aria-label="天盈 AI 策略" />
+                  )}
                   {isEditing
                     ? `编辑: ${currentTemplate.name}`
                     : isAiTemplate
-                      ? `${currentTemplate.name}【${currentTemplate.aiTier}】${isBasicAi ? ' · 轻智能' : ''}`
-                      : '策略配置详情'}
+                      // 三档现在分别叫 AI Lite / AI / AI Pro，档位名里已经带 AI，不再拼「AI 策略」
+                      ? `天盈 ${AI_TIER_LABEL[currentTemplate.aiTier!]}`
+                      : currentTemplate.name}
+                  {/* 自动排程开着的自定义策略，进来也要能看到自己正被 AI 标准接管 */}
+                  {!isEditing && !isAiTemplate && currentTemplate.autoSchedule && (
+                    <span
+                      title="天盈 AI · 已开启自动排程"
+                      className={`shrink-0 whitespace-nowrap px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE['标准']}`}
+                    >
+                      {AI_TIER_LABEL['标准']}
+                    </span>
+                  )}
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
                   <div
@@ -895,8 +827,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                   )}
                 </div>
                 <h3 className="text-base font-black text-slate-800 tracking-tight">
-                  {currentTemplate.name}
-                  {currentTemplate.aiTier ? `【${currentTemplate.aiTier}】` : ''}
+                  天盈 {AI_TIER_LABEL[currentTemplate.aiTier!]}
                 </h3>
                 <p className="text-sm text-slate-400 font-medium max-w-md leading-relaxed">
                   {lifecycle === 'trial'
