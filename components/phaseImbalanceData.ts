@@ -374,6 +374,8 @@ export function summarizePhaseDay(points: PhasePoint[], releaseMax = 20) {
     ubAvg: +ubAvg.toFixed(1),
     ubBeforeAvg: +ubBeforeAvg.toFixed(1),
     ubAllDay: +ubAllDay.toFixed(1),
+    /** 全天峰值：储能停机的时段也算进来，用来看「最坏能到多少」 */
+    ubMaxAllDay: +Math.max(...points.map((p) => p.ub)).toFixed(1),
     /** 治理时长：储能三相有出力的累计小时数 */
     governHours: +(governed.length / 60).toFixed(1),
     /** 当日释放电量：与月度数据同源口径，跟着释放裕量走 */

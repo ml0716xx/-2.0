@@ -99,10 +99,6 @@ const PhaseTooltip = ({ active, payload, label }: any) => {
           </span>
           <span className="font-mono font-bold text-fuchsia-600">{p.ub.toFixed(1)}%</span>
         </div>
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="font-bold text-slate-400 pl-3.5">不治理</span>
-          <span className="font-mono font-bold text-slate-400">{p.ubBefore.toFixed(1)}%</span>
-        </div>
       </div>
     </div>
   );
@@ -208,7 +204,7 @@ const PhaseImbalanceMonitorPage: React.FC = () => {
               label="治理时段峰值不平衡度"
               value={s.ubMax.toFixed(1)}
               unit="%"
-              hint={`不治理时峰值 ${s.ubBeforeMax.toFixed(1)}%`}
+              hint={`全天峰值 ${s.ubMaxAllDay.toFixed(1)}%`}
               icon={<Activity size={13} />}
               tone="#D946EF"
             />
@@ -216,7 +212,7 @@ const PhaseImbalanceMonitorPage: React.FC = () => {
               label="治理时段平均不平衡度"
               value={s.ubAvg.toFixed(1)}
               unit="%"
-              hint={`不治理时 ${s.ubBeforeAvg.toFixed(1)}%，下降 ${(s.ubBeforeAvg - s.ubAvg).toFixed(1)} pct`}
+              hint={`全天平均 ${s.ubAllDay.toFixed(1)}%`}
               icon={<TrendingDown size={13} />}
               tone="#10B981"
             />
@@ -268,12 +264,7 @@ const PhaseImbalanceMonitorPage: React.FC = () => {
                   { color: PHASE_COLOR.essC, label: '储能 C 相', dash: true },
                 ]}
               />
-              <LegendGroup
-                items={[
-                  { color: PHASE_COLOR.ub, label: '不平衡度' },
-                  { color: PHASE_COLOR.ubBefore, label: '不治理时不平衡度', dash: true },
-                ]}
-              />
+              <LegendGroup items={[{ color: PHASE_COLOR.ub, label: '不平衡度' }]} />
             </div>
 
             <div className="h-[400px] w-full">
@@ -334,7 +325,6 @@ const PhaseImbalanceMonitorPage: React.FC = () => {
                   <Line yAxisId="p" type="monotone" dataKey="essB" name="储能 B 相" stroke={PHASE_COLOR.essB} strokeWidth={1.4} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
                   <Line yAxisId="p" type="monotone" dataKey="essC" name="储能 C 相" stroke={PHASE_COLOR.essC} strokeWidth={1.4} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
 
-                  <Line yAxisId="ub" type="monotone" dataKey="ubBefore" name="不治理时不平衡度" stroke={PHASE_COLOR.ubBefore} strokeWidth={1.4} strokeDasharray="3 4" dot={false} isAnimationActive={false} />
                   <Line yAxisId="ub" type="monotone" dataKey="ub" name="不平衡度" stroke={PHASE_COLOR.ub} strokeWidth={2.6} dot={false} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
@@ -347,7 +337,6 @@ const PhaseImbalanceMonitorPage: React.FC = () => {
                 <span className="font-bold text-slate-600">口径说明：</span>
                 关口功率为正表示从电网取电；储能功率为正表示放电、为负表示充电。
                 不平衡度按国标最大偏差口径：取三相中偏离平均值最大的那一相，偏差 ÷ 三相平均 × 100%。
-                灰虚线为「若仍按总功率三分均分」的推算值，用于对照治理效果。
               </p>
             </div>
           </div>
@@ -366,7 +355,7 @@ const PhaseImbalanceMonitorPage: React.FC = () => {
                 { label: '累计释放电量', value: month.totalEnergy.toFixed(0), unit: 'kWh' },
                 { label: '累计节约电费', value: `¥${month.totalSaving.toLocaleString()}`, unit: '' },
                 { label: '有效治理天数', value: `${month.activeDays}`, unit: '天' },
-                { label: '平均不平衡度', value: `${month.avgUbBefore}% → ${month.avgUbAfter}%`, unit: '' },
+                { label: '本月平均不平衡度', value: `${month.avgUbAfter}%`, unit: '' },
               ].map((it) => (
                 <div key={it.label} className="rounded-xl bg-slate-50/70 border border-slate-100 px-3 py-2.5">
                   <div className="text-[10px] font-bold text-slate-400">{it.label}</div>
