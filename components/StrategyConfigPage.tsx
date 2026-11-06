@@ -17,6 +17,8 @@ import LightIntelligencePanel, {
   type WeatherBindings,
   type WeatherType,
 } from './LightIntelligencePanel';
+import ControlTierPanel from './ControlTierPanel';
+import { CONTROL_TIER_SEED, publishControlTierNames } from './controlTierData';
 import { TY_TRIAL_META } from './tianyingReportData';
 
 /** 客户生命周期：未开通（售前） / 试运行 / 正式运行 —— 与策略运行报告、经营分析报告同源 */
@@ -59,15 +61,20 @@ interface StrategyTemplate {
   hasWarning: boolean;
   blocks: ScheduleBlock[];
   /**
-   * 自动排程开关。开着的自定义策略由 AI 策略【标准】逐日排程，
-   * 所以「AI 策略·标准」不是一个独立条目，而是打在这些策略边上的标签。
+   * 智控版入口本身。它自己不放调度块，点进去是一张「智控版策略」清单，
+   * 所有由天盈 AI 逐时段接管的策略都在这里面建、在里面改。
    */
-  autoSchedule?: boolean;
+  isControlHub?: boolean;
+  /**
+   * 归属的智控版入口。带 parentId 的策略不单独出现在左侧列表里，
+   * 只在所属入口的清单里出现，但仍按普通策略走编辑/保存。
+   */
+  parentId?: string;
 }
 
-/** 列表排序：AI 策略【基础】→【PRO】→ 自定义策略（标准档的标签散落在自定义策略里） */
+/** 列表排序：轻量版 → 智控版 → 专业版 → 自定义策略（智控版的子策略不进列表） */
 const templateRank = (t: StrategyTemplate) =>
-  t.group === 'custom' ? 2 : t.aiTier === 'PRO' ? 1 : 0;
+  t.group === 'custom' ? 3 : t.aiTier === '基础' ? 0 : t.aiTier === '标准' ? 1 : 2;
 
 /** AI 策略档位徽章配色 */
 const AI_TIER_STYLE: Record<AiTier, string> = {
@@ -75,7 +82,6 @@ const AI_TIER_STYLE: Record<AiTier, string> = {
   标准: 'bg-violet-50 text-violet-600 border-violet-100',
   PRO: 'bg-amber-50 text-amber-600 border-amber-200',
 };
-
 
 
 
@@ -154,12 +160,12 @@ const AiActivationGuide: React.FC<{
         <div className="min-w-0">
           <div className="text-[12px] font-bold text-[#1A2A3A]">
             {lifecycle === 'presale'
-              ? 'AI 策略需开通后使用'
-              : `AI 策略试运行中 · 剩余 ${TY_TRIAL_META.remainingDays} 天`}
+              ? '天盈AI策略需开通后使用'
+              : `天盈AI策略试运行中 · 剩余 ${TY_TRIAL_META.remainingDays} 天`}
           </div>
           <p className="text-[11px] text-[#7F8C8D] mt-0.5 leading-relaxed">
             {lifecycle === 'presale'
-              ? '开通 30 天试用即可调用下方 3 档 AI 策略。'
+              ? '开通 30 天试用即可调用下方 3 档天盈AI策略。'
               : `AI 正按实测数据校准参数，已试运行 ${TY_TRIAL_META.elapsedDays} / ${TY_TRIAL_META.totalDays} 天。`}
           </p>
         </div>
@@ -247,7 +253,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
   const [simDate, setSimDate] = useState(todayISO);
 
   /**
-   * AI 策略【基础】= 轻智能：按天气绑定自定义策略。
+   * 基础档 = 轻量版：按天气绑定自定义策略。
    * 天气类型由后台维护（此处为预置 4 类），前端只消费列表；每种天气绑定 1 个自定义策略。
    */
   const weatherTypes: WeatherType[] = PRESET_WEATHER_TYPES;
@@ -263,7 +269,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
   };
 
   /**
-   * 轻智能里直接新建自定义策略：建成后落到「自定义策略」分组，供绑定与后续编辑。
+   * 轻量版里直接新建自定义策略：建成后落到「自定义策略」分组，供绑定与后续编辑。
    * 初始配置与「策略运行报告 · 手动自定义策略」下方的默认计划时段保持一致：
    *   00:00~07:00 充电 300kW（充电预留 95%）、18:00~22:00 放电 300kW（放电预留 95%）
    */
@@ -315,7 +321,6 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
       group: 'custom',
       isActive: true,
       hasWarning: false,
-      autoSchedule: true,
       blocks: [
         {
           id: 'b1',
@@ -359,15 +364,33 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
         }
       ]
     },
-    // ===== AI 策略：只有【基础】和【PRO】是独立条目 =====
-    // 【标准】不是一条独立策略，它是对「自动排程」开着的自定义策略做逐日排程，
-    // 所以列表里不出现这一条，标签打在那些自定义策略上（见 autoSchedule）。
-    // 基础档内容待补充，先占位
-    { id: 'ai-basic', name: 'AI 策略', group: 'ai', aiTier: '基础', isActive: false, hasWarning: false, blocks: [] },
+    // ===== AI 策略三档：轻量版 / 智控版 / 专业版，各占一条独立入口 =====
+    // 轻量版：按天气切换站点已有的自定义策略，没有逐时段排程，参数在下方面板里配
+    { id: 'ai-basic', name: '天盈AI', group: 'ai', aiTier: '基础', isActive: false, hasWarning: false, blocks: [] },
+    // 智控版：入口本身不放调度块。点进去是一张「智控版策略」清单，
+    // 想接管的策略都在里面建、在里面配，一个入口可以放多条。
     {
-      // 源自 策略运行 · 策略排期「AI 调度」（现名 AI 策略【PRO】）
+      id: 'ai-ctl',
+      name: '天盈AI',
+      group: 'ai',
+      aiTier: '标准',
+      isActive: true,
+      hasWarning: false,
+      isControlHub: true,
+      blocks: [],
+    },
+    // ↓ 智控版下的策略：只出现在智控版清单里，不单独进左侧列表
+    // 数据放在 controlTierData 里，批量操作的智控版下拉读的是同一份
+    ...CONTROL_TIER_SEED.map((seed) => ({
+      ...seed,
+      parentId: 'ai-ctl',
+      group: 'custom' as const,
+      hasWarning: false,
+    })),
+    {
+      // 专业版：动态增容 + 峰谷套利混合排程，参数由 AI 给，人工不改
       id: 'ai-pro',
-      name: 'AI 策略',
+      name: '天盈AI',
       group: 'ai',
       aiTier: 'PRO',
       isActive: true,
@@ -424,12 +447,25 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
   const hasBlocks = currentTemplate.blocks.length > 0;
   /** 未开通态：AI 策略的调度参数不可见，先引导开通（自定义策略不受生命周期影响） */
   const aiLocked = isAiTemplate && lifecycle === 'presale';
-  /** 基础档即「轻智能」：按天气绑定自定义策略，无逐日模拟的调度参数 */
+  /** 基础档即「轻量版」：按天气绑定自定义策略，无逐日模拟的调度参数 */
   const isBasicAi = isAiTemplate && currentTemplate.aiTier === '基础';
-  /** 轻智能可绑定的策略：仅自定义策略 */
+  /** 轻量版可绑定的策略：仅自定义策略（智控版下的子策略不算） */
   const customTemplates = templates
-    .filter((t) => t.group === 'custom')
+    .filter((t) => t.group === 'custom' && !t.parentId)
     .map((t) => ({ id: t.id, name: t.name }));
+  /** 智控版入口下已配置的策略 */
+  const controlledTemplates = templates.filter((t) => t.parentId === currentTemplate.id);
+  /** 当前策略是不是智控版下的某一条（是的话详情页给个回到清单的入口） */
+  const parentHub = currentTemplate.parentId
+    ? templates.find((t) => t.id === currentTemplate.parentId)
+    : undefined;
+
+  /** 智控版清单改了（新增 / 改名 / 删除），把最新名字广播给「批量操作」的下拉 */
+  useEffect(() => {
+    publishControlTierNames(
+      templates.filter((t) => t.parentId === 'ai-ctl').map((t) => t.name),
+    );
+  }, [templates]);
 
   const socContainerRef = useRef<HTMLDivElement>(null);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
@@ -524,18 +560,58 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
     const newTemplate: StrategyTemplate = {
       ...JSON.parse(JSON.stringify(target)),
       id: Math.random().toString(36).substr(2, 5),
-      // AI 策略不可人工编辑，副本落到「自定义策略」分组，名称带上原档位便于追溯
+      // AI 策略不可人工编辑，副本落到「自定义策略」分组，名称带上原档位便于追溯；
+      // 智控版下的策略复制后仍留在同一个智控版入口里
       name: isAi ? `${target.name}【${AI_TIER_LABEL[target.aiTier!]}】-副本` : `${target.name}-副本`,
       group: 'custom',
       aiTier: undefined,
       isActive: false,
-      // 副本是一张白纸，自动排程不跟着复制过去
-      autoSchedule: false
+      isControlHub: undefined,
+      parentId: target.parentId,
     };
     
     setTemplates([...templates, newTemplate]);
     setSelectedId(newTemplate.id);
     setIsEditing(false); // 复制后先显示概览
+  };
+
+  /** 智控版入口：新建一条策略，建成后直接进编辑态，省一步点击 */
+  const handleCreateControlled = (hubId: string) => {
+    const id = `ctl-${Date.now().toString(36)}`;
+    const index = templates.filter((t) => t.parentId === hubId).length + 1;
+    setTemplates((prev) => [
+      ...prev,
+      {
+        id,
+        parentId: hubId,
+        name: `智控策略 ${index}`,
+        group: 'custom',
+        isActive: false,
+        hasWarning: false,
+        blocks: [
+          {
+            id: `${id}-b1`,
+            startTime: '00:00',
+            endTime: '07:00',
+            threshold: '30',
+            reserveCharge: '95',
+            reserveDischarge: '0',
+            strategyType: '峰谷套利',
+            dischargeThreshold: '0',
+            isCollapsed: false,
+            subPeriods: [{ start: '00:00', end: '07:00', type: '充电', power: 300 }],
+          },
+        ],
+      },
+    ]);
+    setSelectedId(id);
+    setIsEditing(true);
+  };
+
+  /** 智控版入口：删掉一条策略 */
+  const handleDeleteControlled = (id: string) => {
+    setTemplates((prev) => prev.filter((t) => t.id !== id));
+    if (selectedId === id) setSelectedId('ai-ctl');
   };
 
   const handleEdit = () => setIsEditing(true);
@@ -620,8 +696,12 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
               <AiActivationGuide lifecycle={lifecycle} onActivate={onActivate} onConvert={onConvert} />
             )}
 
-            {/* 一个平铺列表：AI 策略【基础】→【PRO】→ 自定义策略，不再分组 */}
-            {[...templates].sort((a, b) => templateRank(a) - templateRank(b)).map((t) => (
+            {/* 一个平铺列表：轻量版 → 智控版 → 专业版 → 自定义策略。
+                智控版下面的子策略不单独出现，只算在入口行的数量里。 */}
+            {[...templates]
+              .filter((t) => !t.parentId)
+              .sort((a, b) => templateRank(a) - templateRank(b))
+              .map((t) => (
               <button
                 key={t.id}
                 onClick={() => {
@@ -635,7 +715,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className={`w-2 h-2 rounded-full shrink-0 ${t.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                   {/* 名称前这个星标就是「天盈 AI 策略」的标识，三档都带，靠后面徽章区分档位 */}
-                  {(t.group === 'ai' || t.autoSchedule) && (
+                  {t.group === 'ai' && (
                     <Sparkles className="w-3.5 h-3.5 shrink-0 text-violet-500" aria-label="天盈 AI 策略" />
                   )}
                   <span className={`text-sm font-bold truncate ${selectedId === t.id ? 'text-emerald-700' : 'text-slate-600'}`}>{t.name}</span>
@@ -643,17 +723,14 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                     <Lock className="w-3.5 h-3.5 text-slate-300 shrink-0" />
                   )}
                   {t.group === 'ai' && t.aiTier && (
-                    <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE[t.aiTier]}`}>
+                    <span className={`shrink-0 whitespace-nowrap px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE[t.aiTier]}`}>
                       {AI_TIER_LABEL[t.aiTier]}
                     </span>
                   )}
-                  {/* 自动排程开着的自定义策略 = AI 策略【标准】。三档用同一种徽章，只是挂在不同行上 */}
-                  {t.group === 'custom' && t.autoSchedule && (
-                    <span
-                      title="天盈 AI · 已开启自动排程"
-                      className={`shrink-0 whitespace-nowrap px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE['标准']}`}
-                    >
-                      {AI_TIER_LABEL['标准']}
+                  {/* 智控版是入口，直接把里面配了几条策略带出来，不用点进去才知道 */}
+                  {t.isControlHub && (
+                    <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-slate-400">
+                      {templates.filter((c) => c.parentId === t.id).length} 条
                     </span>
                   )}
                 </div>
@@ -665,6 +742,19 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
       )}
 
       <div className="flex-1 flex flex-col gap-4 transition-all duration-300 min-w-0">
+        {/* 智控版入口：不进单条策略的详情视图，先给一张清单 */}
+        {currentTemplate.isControlHub && !aiLocked ? (
+          <ControlTierPanel
+            strategies={controlledTemplates.map((t) => ({ id: t.id, name: t.name }))}
+            onCreate={() => handleCreateControlled(currentTemplate.id)}
+            onOpen={(id) => {
+              setSelectedId(id);
+              setIsEditing(false);
+            }}
+            onCopy={(id) => handleCopyTemplate(id)}
+            onDelete={handleDeleteControlled}
+          />
+        ) : (
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-50 flex-1 relative">
           
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-50">
@@ -675,22 +765,31 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                 </button>
               )}
               <div>
+                {/* 智控版下的策略：给一条回到清单的路，不然改完就找不回入口了 */}
+                {parentHub && !isEditing && (
+                  <button
+                    onClick={() => {
+                      setSelectedId(parentHub.id);
+                      setIsEditing(false);
+                    }}
+                    className="flex items-center gap-1 mb-1 text-[11px] font-bold text-violet-500 hover:text-violet-600 transition-colors"
+                  >
+                    <ArrowLeft className="w-3 h-3" />
+                    返回 天盈AI{AI_TIER_LABEL['标准']}
+                  </button>
+                )}
                 <h2 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2 whitespace-nowrap">
-                  {!isEditing && (isAiTemplate || currentTemplate.autoSchedule) && (
+                  {!isEditing && isAiTemplate && (
                     <Sparkles className="w-4 h-4 shrink-0 text-violet-500" aria-label="天盈 AI 策略" />
                   )}
                   {isEditing
                     ? `编辑: ${currentTemplate.name}`
                     : isAiTemplate
-                      // 三档现在分别叫 AI Lite / AI / AI Pro，档位名里已经带 AI，不再拼「AI 策略」
-                      ? `天盈 ${AI_TIER_LABEL[currentTemplate.aiTier!]}`
+                      ? `天盈AI${AI_TIER_LABEL[currentTemplate.aiTier!]}`
                       : currentTemplate.name}
-                  {/* 自动排程开着的自定义策略，进来也要能看到自己正被 AI 标准接管 */}
-                  {!isEditing && !isAiTemplate && currentTemplate.autoSchedule && (
-                    <span
-                      title="天盈 AI · 已开启自动排程"
-                      className={`shrink-0 whitespace-nowrap px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE['标准']}`}
-                    >
+                  {/* 智控版里的一条，标题上带档位徽章，和列表里的读法保持一致 */}
+                  {!isEditing && parentHub && (
+                    <span className={`shrink-0 whitespace-nowrap px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${AI_TIER_STYLE['标准']}`}>
                       {AI_TIER_LABEL['标准']}
                     </span>
                   )}
@@ -739,13 +838,13 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
             </div>
             
             <div className="flex items-center flex-wrap gap-3">
-              {/* AI 策略按日期模拟：默认 T 日，最远 T+1；未开通态置灰不可选（轻智能是按天气配置，无日期维度） */}
+              {/* AI 策略按日期模拟：默认 T 日，最远 T+1；未开通态置灰不可选（轻量版是按天气配置，无日期维度） */}
               {isAiTemplate && !isBasicAi && (
                 <div
                   className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
                     aiLocked ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'
                   }`}
-                  title={aiLocked ? '开通后可选择模拟日期' : 'AI 策略按所选日期进行模拟'}
+                  title={aiLocked ? '开通后可选择模拟日期' : '天盈AI策略按所选日期进行模拟'}
                 >
                   <Calendar className={`w-4 h-4 ${aiLocked ? 'text-slate-300' : 'text-slate-400'}`} />
                   <span className="text-[11px] font-bold text-slate-500">模拟日期</span>
@@ -792,7 +891,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                 开通入口统一在左侧列表区的引导卡，这里不再挂按钮。 */}
             {aiLocked && currentTemplate.aiTier && <AiTierPromo tier={currentTemplate.aiTier} />}
 
-            {/* AI 策略【基础】= 轻智能：按天气配置自定义策略（未开通态已被上方整块锁定） */}
+            {/* 基础档 = 轻量版：按天气配置自定义策略（未开通态已被上方整块锁定） */}
             {!aiLocked && isBasicAi && (
               <LightIntelligencePanel
                 weatherTypes={weatherTypes}
@@ -807,7 +906,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
               />
             )}
 
-            {/* AI 策略【PRO】· AI 需量调整：开关与两个基准值都取自公共配置那份数据 */}
+            {/* 天盈AI专业版 · AI 需量调整：开关与两个基准值都取自公共配置那份数据 */}
             {!aiLocked && isAiTemplate && currentTemplate.aiTier === 'PRO' && (
               <AiDemandAdjustCard />
             )}
@@ -827,7 +926,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
                   )}
                 </div>
                 <h3 className="text-base font-black text-slate-800 tracking-tight">
-                  天盈 {AI_TIER_LABEL[currentTemplate.aiTier!]}
+                  天盈AI{AI_TIER_LABEL[currentTemplate.aiTier!]}
                 </h3>
                 <p className="text-sm text-slate-400 font-medium max-w-md leading-relaxed">
                   {lifecycle === 'trial'
@@ -1215,6 +1314,7 @@ const StrategyConfigPage: React.FC<StrategyConfigPageProps> = ({
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
       )}

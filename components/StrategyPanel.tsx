@@ -46,7 +46,7 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({ strategy }) => {
                       <div className="text-sm font-bold text-slate-800 leading-tight">{mainStrategy.name}</div>
                       <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-0.5 shadow-sm shadow-emerald-50">
                         <Bot className="w-2.5 h-2.5" />
-                        AI 调度
+                        专业版
                       </span>
                     </div>
                     <div className="text-[8px] text-indigo-400 font-bold uppercase tracking-wider mt-0.5">{mainStrategy.englishName}</div>
@@ -114,7 +114,7 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({ strategy }) => {
                 {item.name === '余电上网' && (
                   <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-0.5 shadow-sm shadow-indigo-50">
                     <Sparkles className="w-2.5 h-2.5" />
-                    AI 排程
+                    智控版
                   </span>
                 )}
               </div>

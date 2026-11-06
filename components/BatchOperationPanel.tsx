@@ -21,14 +21,14 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  HelpCircle,
   Minus,
   Plus,
   X,
 } from 'lucide-react';
+import { readControlTierNames, subscribeControlTierNames } from './controlTierData';
 
 export type BatchAction = '批量新增' | '批量移除' | '批量生效' | '批量失效';
-type StrategyMode = 'AI 策略【PRO】' | 'AI 策略【标准】' | 'AI 策略【基础】' | '自定义';
+type StrategyMode = '天盈AI专业版' | '天盈AI智控版' | '天盈AI轻量版' | '自定义';
 type EffectState = '立即生效' | '暂不生效';
 type CycleKind = '每天' | '按周';
 
@@ -100,12 +100,7 @@ const ACTION_HINT: Record<BatchAction, string> = {
   批量失效: '让区间内已排的策略暂停执行',
 };
 
-const MODE_HINT: Record<StrategyMode, string> = {
-  'AI 策略【PRO】': '由天盈 AI 按电价与负荷自动寻优，逐 15 分钟下发',
-  'AI 策略【标准】': '由天盈 AI 提前排出充放电排程，按排程计划执行',
-  'AI 策略【基础】': '按天气与日期绑定固定策略，不走 AI 寻优',
-  自定义: '选择已配置好的策略组合，按循环方式铺到每一天',
-};
+const MODE_OPTIONS: StrategyMode[] = ['天盈AI专业版', '天盈AI智控版', '天盈AI轻量版', '自定义'];
 
 const COMBO_OPTIONS = ['工作日储能套利', '周末光伏全额消纳', '需量控制优先'];
 
@@ -125,7 +120,7 @@ const EXISTING_STRATEGIES: {
 }[] = [
   {
     id: 'std',
-    name: 'AI 策略【标准】',
+    name: '天盈AI智控版',
     tone: 'indigo',
     dates: [
       '2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17',
@@ -135,7 +130,7 @@ const EXISTING_STRATEGIES: {
   },
   {
     id: 'pro',
-    name: 'AI 策略【PRO】',
+    name: '天盈AI专业版',
     tone: 'emerald',
     dates: ['2026-07-07', '2026-07-08', '2026-07-13', '2026-07-14'],
   },
@@ -147,7 +142,7 @@ const EXISTING_STRATEGIES: {
   },
   {
     id: 'light',
-    name: 'AI 策略【基础】',
+    name: '天盈AI轻量版',
     tone: 'amber',
     dates: ['2026-07-01', '2026-07-02', '2026-07-03'],
   },
@@ -187,13 +182,17 @@ export default function BatchOperationPanel({
   onSubmit,
   onClose,
 }: Props) {
-  const [mode, setMode] = useState<StrategyMode>('AI 策略【PRO】');
+  const [mode, setMode] = useState<StrategyMode>('天盈AI专业版');
   const [combo, setCombo] = useState('');
+  /* 智控版里可能挂了好几条策略，批量新增得指明铺哪一条 */
+  const [ctlStrategy, setCtlStrategy] = useState('');
+  const [ctlNames, setCtlNames] = useState<string[]>(readControlTierNames);
   const [effect, setEffect] = useState<EffectState>('立即生效');
   const [cycle, setCycle] = useState<CycleRule>(DEFAULT_CYCLE);
   const [picked, setPicked] = useState<string[]>([]);
   const [error, setError] = useState('');
-  const [hoveredHelp, setHoveredHelp] = useState<StrategyMode | null>(null);
+
+  useEffect(() => subscribeControlTierNames(() => setCtlNames(readControlTierNames())), []);
 
   /* 只点了起始日时按单日算，免得「共 0 天」卡住确认 */
   const effEnd = end || start;
@@ -235,6 +234,14 @@ export default function BatchOperationPanel({
       : `区间 ${range.length} 天，按周命中 ${hit.length} 天`
     : `选中 ${picked.length} 个策略，命中 ${hit.length} 天`;
 
+  /** 提交摘要里显示的模式名：自定义带组合名，智控版带选中的那条策略名 */
+  const modeLabel =
+    mode === '自定义'
+      ? `${mode}·${combo}`
+      : mode === '天盈AI智控版' && ctlStrategy
+        ? `${mode}·${ctlStrategy}`
+        : mode;
+
   const togglePick = (id: string) => {
     setPicked(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
     setError('');
@@ -247,6 +254,10 @@ export default function BatchOperationPanel({
     }
     if (isCreate && mode === '自定义' && !combo) {
       setError('请选择策略组合');
+      return;
+    }
+    if (isCreate && mode === '天盈AI智控版' && !ctlStrategy) {
+      setError('请选择一条智控版策略');
       return;
     }
     if (!isCreate && picked.length === 0) {
@@ -263,7 +274,7 @@ export default function BatchOperationPanel({
       end,
       dates: hit,
       detail: isCreate
-        ? `${mode === '自定义' ? `${mode}·${combo}` : mode} · ${cycleText(cycle)} · ${effect} · 命中 ${hit.length} 天`
+        ? `${modeLabel} · ${cycleText(cycle)} · ${effect} · 命中 ${hit.length} 天`
         : `${pickedNames.join('、')} · 命中 ${hit.length} 天`,
     });
     /* 提交完把勾选清掉，免得下一次操作带着上次的策略 */
@@ -433,12 +444,10 @@ export default function BatchOperationPanel({
                 <div>
                   <p className="mb-1.5 text-[13px] font-bold text-slate-700">策略模式</p>
                   <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
-                    {(Object.keys(MODE_HINT) as StrategyMode[]).map(m => (
+                    {MODE_OPTIONS.map(m => (
                       <label
                         key={m}
                         className="flex items-center gap-1.5 cursor-pointer select-none"
-                        onMouseEnter={() => setHoveredHelp(m)}
-                        onMouseLeave={() => setHoveredHelp(null)}
                       >
                         <span
                           className={`w-[15px] h-[15px] rounded-full border flex items-center justify-center ${
@@ -447,17 +456,22 @@ export default function BatchOperationPanel({
                         >
                           {mode === m && <span className="w-[7px] h-[7px] rounded-full bg-emerald-500" />}
                         </span>
-                        <input type="radio" className="sr-only" checked={mode === m} onChange={() => setMode(m)} />
+                        <input
+                          type="radio"
+                          className="sr-only"
+                          checked={mode === m}
+                          onChange={() => {
+                            setMode(m);
+                            /* 换了模式，上一条模式留下的报错就不作数了 */
+                            setError('');
+                          }}
+                        />
                         <span className={`text-[13px] ${mode === m ? 'text-slate-800 font-bold' : 'text-slate-600'}`}>
                           {m}
                         </span>
-                        <HelpCircle className="w-3.5 h-3.5 text-slate-300" />
                       </label>
                     ))}
                   </div>
-                  {hoveredHelp && (
-                    <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">{MODE_HINT[hoveredHelp]}</p>
-                  )}
                 </div>
 
                 {mode === '自定义' && (
@@ -473,6 +487,27 @@ export default function BatchOperationPanel({
                         setError('');
                       }}
                     />
+                  </div>
+                )}
+
+                {/* 智控版是个入口，里面挂了好几条策略，铺排期前得指明是哪一条 */}
+                {mode === '天盈AI智控版' && (
+                  <div>
+                    <p className="mb-1.5 text-[13px] font-bold text-slate-700">
+                      <span className="text-rose-500 mr-0.5">*</span>智控版策略
+                    </p>
+                    <ComboSelect
+                      value={ctlStrategy}
+                      options={ctlNames}
+                      placeholder="请选择一条智控版策略"
+                      onChange={c => {
+                        setCtlStrategy(c);
+                        setError('');
+                      }}
+                    />
+                    <p className="mt-1.5 text-[11px] text-slate-400">
+                      智控版可以配多条策略，这里选中的那条才会铺到区间里的每一天
+                    </p>
                   </div>
                 )}
 
@@ -830,10 +865,12 @@ function ComboSelect({
   value,
   options,
   onChange,
+  placeholder = '请选择策略组合',
 }: {
   value: string;
   options: string[];
   onChange: (v: string) => void;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -857,7 +894,7 @@ function ComboSelect({
         }`}
       >
         <span className={value ? 'text-slate-800 font-medium' : 'text-slate-400'}>
-          {value || '请选择策略组合'}
+          {value || placeholder}
         </span>
         <ChevronDown
           className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}

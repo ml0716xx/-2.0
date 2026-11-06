@@ -902,9 +902,9 @@ export const StrategySimulationConfigPage: React.FC<StrategySimulationConfigPage
             </div>
           </div>
 
-          {/* 2 Big Cards: 选择已创建的非 AI 策略 vs 在本页面手动配置 */}
+          {/* 2 Big Cards: 选择已创建的自定义策略 vs 在本页面手动配置 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Card 1: 选择已创建的非 AI 策略 */}
+            {/* Card 1: 选择已创建的自定义策略 */}
             <div
               onClick={() => {
                 setWeatherStrategyMap(prev => ({
@@ -928,7 +928,7 @@ export const StrategySimulationConfigPage: React.FC<StrategySimulationConfigPage
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold text-slate-900">
-                    选择已创建的非 AI 策略模版
+                    选择已创建的自定义策略模版
                   </h3>
                   {currentActiveSelectionType === "template" && (
                     <span className="w-4 h-4 rounded-full bg-[#00B06B] text-white flex items-center justify-center">
@@ -1032,7 +1032,7 @@ export const StrategySimulationConfigPage: React.FC<StrategySimulationConfigPage
                 基础策略时段配置详情 ({currentActiveSelectionType === "manual" ? "可编辑" : "只读"})
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                当前所选非 AI 策略的运行时间及充放参数详情
+                当前所选自定义策略的运行时间及充放参数详情
               </p>
             </div>
 

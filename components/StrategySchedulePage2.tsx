@@ -33,7 +33,7 @@ const EventPill = ({
   let borderClass = "border-transparent";
 
   switch (type) {
-    case "blue": // AI 策略【标准】
+    case "blue": // 天盈AI智控版
       bgClass = "bg-indigo-50/95 border-indigo-200 text-indigo-700 font-black";
       textClass = "text-indigo-700";
       borderClass = "border-indigo-200";
@@ -85,9 +85,9 @@ const EventPill = ({
       break;
   }
 
-  /** 策略名称已统一为 AI 策略【标准】/【PRO】，判定同时兼容旧命名 */
-  const isAiSchedule = title.includes("AI 策略【PRO】") || title.includes("AI调度") || title.includes("AI 调度");
-  const isAiPlan = title.includes("AI 策略【标准】") || title.includes("AI运行") || title.includes("AI排程") || title.includes("AI策略") || title.includes("AI周日");
+  /** 策略名称已统一为 天盈AI智控版 / 天盈AI专业版，判定同时兼容旧命名 */
+  const isAiSchedule = title.includes("天盈AI专业版") || title.includes("AI调度") || title.includes("AI 调度");
+  const isAiPlan = title.includes("天盈AI智控版") || title.includes("AI运行") || title.includes("AI排程") || title.includes("AI策略") || title.includes("AI周日");
 
   let borderLeftStyle = "";
   let iconNode = null;
@@ -351,10 +351,8 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
   ];
 
   const strategyData = {
-    e_airun: { name: "AI 策略【标准】", dateStr: "2026-07-10", isActive: true },
-    e_aischedule: { name: "AI 策略【PRO】", dateStr: "2026-07-10", isActive: true },
-    e_test1: { name: "AI策略测试1", dateStr: "2026-06-29", isActive: false },
-    e_test2: { name: "AI策略测试2", dateStr: "2026-06-29", isActive: false },
+    e_airun: { name: "天盈AI智控版", dateStr: "2026-07-10", isActive: true },
+    e_aischedule: { name: "天盈AI专业版", dateStr: "2026-07-10", isActive: true },
     e_template6: { name: "六月策略模板", dateStr: "2026-06-29", isActive: false },
     e_temp0701: { name: "临时_0701", dateStr: "2026-07-01", isActive: false },
     e_template7: { name: "七月策略模板", dateStr: "2026-07-01", isActive: false },
@@ -396,7 +394,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
             <>
               <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-full text-xs font-black flex items-center gap-1 shadow-sm shadow-emerald-50 shrink-0">
                 <Bot className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-                AI 调度
+                天盈AI【专业版】
               </span>
               <div className="flex items-center gap-2 border border-slate-200 bg-white rounded-lg px-3 py-1.5 shadow-sm">
                 <Calendar className="w-4 h-4 text-slate-400" />
@@ -477,14 +475,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
 
               {/* Row 1 events */}
               <div className="col-span-7 grid grid-cols-7 gap-x-4 mt-1 z-10">
-                <EventPill
-                  type="light-green"
-                  span={5}
-                  title="AI策略测试1 连续策略(06/29-07/03)"
-                  isActive={true}
-                  isSelected={selectedEventId === "e_test1"}
-                  onClick={() => setSelectedEventId("e_test1")}
-                />
+                <div className="col-span-5"></div>
                 <EventPill
                   type="dashed-blue"
                   span={2}
@@ -497,14 +488,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
 
               {/* Row 2 events */}
               <div className="col-span-7 grid grid-cols-7 gap-x-4 z-10">
-                <EventPill
-                  type="light-orange"
-                  span={2}
-                  title="AI策略测试2 连续策略(06/29-06/30)"
-                  isActive={true}
-                  isSelected={selectedEventId === "e_test2"}
-                  onClick={() => setSelectedEventId("e_test2")}
-                />
+                <div className="col-span-2"></div>
                 <EventPill
                   type="dashed-blue"
                   span={1}
@@ -565,18 +549,11 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
 
               {/* Row 1 events */}
               <div className="col-span-7 grid grid-cols-7 gap-x-4 mt-1 z-10">
-                <EventPill
-                  type="green"
-                  span={1}
-                  title="AI策略测试1"
-                  isActive={true}
-                  isSelected={selectedEventId === "e_test1"}
-                  onClick={() => setSelectedEventId("e_test1")}
-                />
+                <div className="col-span-1"></div>
                 <EventPill
                   type="blue"
                   span={4}
-                  title="AI 策略【标准】 连续策略(07/07-07/10)"
+                  title="天盈AI智控版 连续策略(07/07-07/10)"
                   isActive={true}
                   isSelected={selectedEventId === "e_airun"}
                   onClick={() => {
@@ -600,7 +577,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
                 <EventPill
                   type="dashed-purple"
                   span={2}
-                  title="AI 策略【PRO】 连续策略(07/07-07/08)"
+                  title="天盈AI专业版 连续策略(07/07-07/08)"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -619,7 +596,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
                 <EventPill
                   type="dashed-purple"
                   span={1}
-                  title="AI 策略【PRO】 (07/10)"
+                  title="天盈AI专业版 (07/10)"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -636,7 +613,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
                 <EventPill
                   type="dashed-purple"
                   span={1}
-                  title="AI 策略【PRO】"
+                  title="天盈AI专业版"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -647,7 +624,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
                 <EventPill
                   type="dashed-purple"
                   span={1}
-                  title="AI 策略【PRO】"
+                  title="天盈AI专业版"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -692,7 +669,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
                 <EventPill
                   type="blue"
                   span={5}
-                  title="AI 策略【标准】 连续策略(07/13-07/17)"
+                  title="天盈AI智控版 连续策略(07/13-07/17)"
                   isActive={true}
                   isSelected={selectedEventId === "e_airun"}
                   onClick={() => {
@@ -715,7 +692,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
                 <EventPill
                   type="dashed-purple"
                   span={5}
-                  title="AI 策略【PRO】 连续策略(07/13-07/17)"
+                  title="天盈AI专业版 连续策略(07/13-07/17)"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -760,7 +737,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
                 <EventPill
                   type="blue"
                   span={5}
-                  title="AI 策略【标准】 连续策略(07/20-07/24)"
+                  title="天盈AI智控版 连续策略(07/20-07/24)"
                   isActive={true}
                   isSelected={selectedEventId === "e_airun"}
                   onClick={() => {
@@ -783,7 +760,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
                 <EventPill
                   type="dashed-purple"
                   span={5}
-                  title="AI 策略【PRO】 连续策略(07/20-07/24)"
+                  title="天盈AI专业版 连续策略(07/20-07/24)"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -828,7 +805,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
                 <EventPill
                   type="blue"
                   span={5}
-                  title="AI 策略【标准】 连续策略(07/27-07/31)"
+                  title="天盈AI智控版 连续策略(07/27-07/31)"
                   isActive={true}
                   isSelected={selectedEventId === "e_airun"}
                   onClick={() => {
@@ -851,7 +828,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
                 <EventPill
                   type="dashed-purple"
                   span={5}
-                  title="AI 策略【PRO】 连续策略(07/27-07/31)"
+                  title="天盈AI专业版 连续策略(07/27-07/31)"
                   isActive={true}
                   isSelected={selectedEventId === "e_aischedule"}
                   onClick={() => {
@@ -878,11 +855,11 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
             <span className="text-slate-400">策略来源标注：</span>
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100/50 rounded-lg text-indigo-700">
               <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
-              <span>AI 策略【标准】</span>
+              <span>天盈AI智控版</span>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-100/50 rounded-lg text-emerald-700">
               <Bot className="w-3.5 h-3.5 text-emerald-500" />
-              <span>AI 策略【PRO】</span>
+              <span>天盈AI专业版</span>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200/50 rounded-lg text-slate-600">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
@@ -982,7 +959,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
                 }`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                AI 策略【标准】
+                天盈AI智控版
               </button>
               <button
                 onClick={() => setConfigTab("ai-schedule")}
@@ -992,7 +969,7 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
                     : "border-transparent text-slate-400 hover:text-slate-600"
                 }`}
               >
-                AI 策略【PRO】
+                天盈AI专业版
               </button>
               <div className="ml-auto pb-3 flex items-center">
                 <button className="w-6 h-6 border border-slate-200 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors">

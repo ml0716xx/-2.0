@@ -63,9 +63,9 @@ const StrategyConfigModal: React.FC<StrategyConfigModalProps> = ({ isOpen, onClo
   };
 
   const availableAiStrategies = [
-    { id: "ai_scheduling", name: "AI 调度" },
-    { id: "ai_schedule_1", name: "AI 排程1" },
-    { id: "ai_schedule_2", name: "AI 排程2" }
+    { id: "ai_scheduling", name: "天盈AI专业版" },
+    { id: "ai_schedule_1", name: "天盈AI智控版 1" },
+    { id: "ai_schedule_2", name: "天盈AI智控版 2" }
   ];
 
   const addPeriod = () => {
@@ -134,7 +134,7 @@ const StrategyConfigModal: React.FC<StrategyConfigModalProps> = ({ isOpen, onClo
               <Settings className="w-5 h-5 text-indigo-600" />
               策略模拟配置与下发
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">选择对比基准基础策略，并选择用于模拟的 AI 策略核心</p>
+            <p className="text-xs text-slate-400 mt-0.5">选择对比基准基础策略，并选择用于模拟的天盈AI策略核心</p>
           </div>
           <button 
             onClick={onClose}
@@ -195,7 +195,7 @@ const StrategyConfigModal: React.FC<StrategyConfigModalProps> = ({ isOpen, onClo
                   <div className="flex items-center gap-2 mb-1.5">
                     <Cpu className={`w-4 h-4 ${baselineType === "select" ? "text-blue-600" : "text-slate-400"}`} />
                     <span className={`text-xs font-bold ${baselineType === "select" ? "text-blue-700" : "text-slate-700"}`}>
-                      选择已创建的非 AI 策略
+                      选择已创建的自定义策略
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-400 leading-normal">
@@ -391,7 +391,7 @@ const StrategyConfigModal: React.FC<StrategyConfigModalProps> = ({ isOpen, onClo
                 <div className="flex items-center justify-between pb-1">
                   <div>
                     <h4 className="text-sm font-extrabold text-slate-800">2. 基础策略时段配置详情 (只读)</h4>
-                    <p className="text-[11px] text-slate-400">当前所选非 AI 策略的运行时间及充放参数详情</p>
+                    <p className="text-[11px] text-slate-400">当前所选自定义策略的运行时间及充放参数详情</p>
                   </div>
                   <span className="text-[10px] bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-1 rounded-md font-bold flex items-center gap-1">
                     <Lock className="w-3 h-3 text-slate-400" />
@@ -463,7 +463,7 @@ const StrategyConfigModal: React.FC<StrategyConfigModalProps> = ({ isOpen, onClo
                 2
               </div>
               <div>
-                <h4 className="text-sm font-extrabold text-slate-800">2. 选择进行模拟的 AI 策略</h4>
+                <h4 className="text-sm font-extrabold text-slate-800">2. 选择进行模拟的天盈AI策略</h4>
                 <p className="text-[11px] text-slate-400">选择用于与上述基础策略比对套利的 AI 智能托管算法</p>
               </div>
             </div>

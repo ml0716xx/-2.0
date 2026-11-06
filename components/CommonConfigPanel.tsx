@@ -85,7 +85,7 @@ const CommonConfigPanel: React.FC<CommonConfigPanelProps> = () => {
 
   const [showSaveToast, setShowSaveToast] = useState(false);
 
-  /* 策略详情页（AI 策略【PRO】）改了需量设置，这里同步刷新 */
+  /* 策略详情页（天盈AI专业版）改了需量设置，这里同步刷新 */
   useEffect(
     () =>
       subscribeDemandConfig(() => {

@@ -34,7 +34,7 @@ export const TY_META = {
   region: '上海市奉贤区',
   period: '2026-09',
   periodLabel: '2026年09月',
-  version: 'AI 策略仿真 V1.0',
+  version: '天盈AI策略仿真 V1.0',
   /** 报告口径说明，弹窗与页面共用 */
   caliberNote:
     '本报告基于站点历史实际负荷与光伏出力数据，在相同输入条件下回算 AI 调度策略，与实际运行结果逐项对比。两侧采用同一份负荷与光伏数据，差异可直接归因于策略本身。',
@@ -449,9 +449,9 @@ export const TY_CURVE_TEXT = {
   switchLabel: '案例日',
   legend: {
     realPower: '实际运行 · 储能功率',
-    simPower: 'AI 策略 · 储能功率',
+    simPower: '天盈AI策略 · 储能功率',
     realSoc: '实际运行 · SOC',
-    simSoc: 'AI 策略 · SOC',
+    simSoc: '天盈AI策略 · SOC',
   },
   axisPower: '储能功率 (kW)',
   axisSoc: 'SOC (%)',
@@ -459,7 +459,7 @@ export const TY_CURVE_TEXT = {
   powerNote: '（正充负放）',
   pwState: { charge: '充电', discharge: '放电', idle: '待机' },
   socNote: '两侧 SOC 全程落在 5%–95% 配置区间内。',
-  footLabels: { charge: '当日充电量', discharge: '当日放电量', real: '实际', sim: 'AI 策略' },
+  footLabels: { charge: '当日充电量', discharge: '当日放电量', real: '实际', sim: '天盈AI策略' },
   tierLine: '电价档位',
 } as const;
 
@@ -613,7 +613,7 @@ export const TY_TRIAL_META = {
   totalDays: 30,
   elapsedDays: 18,
   baselineName: '后台基线仿真（传统固定时段策略）',
-  realName: '实测 AI 策略轨迹',
+  realName: '实测天盈AI策略轨迹',
 } as const;
 
 /* ==========================================================================

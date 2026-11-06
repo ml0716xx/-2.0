@@ -29,7 +29,7 @@ const PROMO_ICON: Record<PromoIcon, React.ComponentType<{ className?: string }>>
 /** 档位阶梯上每档的一句话，用于让客户看清自己站在哪一级 */
 const TIER_LADDER: { tier: AiTier; note: string }[] = [
   { tier: '基础', note: '天气联动' },
-  { tier: '标准', note: '逐段排程' },
+  { tier: '标准', note: '多条策略 · 逐段排程' },
   { tier: 'PRO', note: '逐段排程 + 动态增容' },
 ];
 
@@ -55,7 +55,7 @@ export default function AiTierPromo({ tier }: { tier: AiTier; onActivate?: () =>
             className="px-2 py-0.5 rounded-md text-[10px] font-black border bg-white"
             style={{ color: P.accent.color, borderColor: P.accent.border }}
           >
-            天盈 {AI_TIER_LABEL[P.tier]}
+            天盈AI{AI_TIER_LABEL[P.tier]}
           </span>
           <span className="text-[10px] font-bold text-[#93A1B0]">
             未开通 · 开通后可查看本档调度参数并下发至站点

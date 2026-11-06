@@ -416,7 +416,7 @@ export default function TianyingSimReportBody({
   /** 收益构成对比柱图数据 */
   const barData = [
     { name: '实际运行', 储能: TY_SIM_KPI.storage.real, 光伏: TY_SIM_KPI.pv.real },
-    { name: 'AI 策略', 储能: TY_SIM_KPI.storage.sim, 光伏: TY_SIM_KPI.pv.sim },
+    { name: '天盈AI策略', 储能: TY_SIM_KPI.storage.sim, 光伏: TY_SIM_KPI.pv.sim },
   ];
 
   return (
@@ -458,7 +458,7 @@ export default function TianyingSimReportBody({
               <tr className="bg-[#FBFCFD]">
                 <th className="text-left px-3 py-2 text-[11px] font-bold text-[#8A98A6]">指标</th>
                 <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">实际运行</th>
-                <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">AI 策略</th>
+                <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">天盈AI策略</th>
                 <th className="text-right px-3 py-2 text-[11px] font-bold text-[#8A98A6]">绝对差</th>
               </tr>
             </thead>
@@ -593,7 +593,7 @@ export default function TianyingSimReportBody({
                     <tr className="bg-[#FBFCFD] border-b border-[#EAEDF2]">
                       <th className="text-left px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">指标</th>
                       <th className="text-right px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">实际运行</th>
-                      <th className="text-right px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">AI 策略</th>
+                      <th className="text-right px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">天盈AI策略</th>
                       <th className="text-right px-3 py-1.5 text-[10px] font-bold text-[#8A98A6]">绝对差</th>
                     </tr>
                   </thead>

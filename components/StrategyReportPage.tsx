@@ -1488,7 +1488,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
                             {isSimulated && (
                               <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                                AI 策略模拟
+                                天盈AI策略模拟
                               </span>
                             )}
                           </div>
@@ -1572,13 +1572,13 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
             </div>
           </div>
 
-          {/* Chart 2: AI策略光伏数据评估 (日消纳率对比 + 差值标记) */}
+          {/* Chart 2: 天盈AI策略光伏数据评估 (日消纳率对比 + 差值标记) */}
           <div className="bg-white p-6 rounded-2xl shadow-[0_2px_8px_rgba(26,42,58,0.06)] border border-[#EAEDF2] flex flex-col" id="chart-solar-and-curtailment">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-2 border-b border-[#EAEDF2]">
               <div className="flex items-center gap-2">
                 <Sun className="w-5 h-5 text-[#F59E0B]" />
                 <h3 className="text-lg font-bold text-[#1A2A3A]">
-                  AI策略光伏数据评估
+                  天盈AI策略光伏数据评估
                 </h3>
                 <span className="text-[10px] font-extrabold px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200">
                   日消纳率对比
@@ -1644,7 +1644,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
                               {isSimulated && (
                                 <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
                                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                  AI 策略模拟
+                                  天盈AI策略模拟
                                 </span>
                               )}
                             </div>
@@ -1872,7 +1872,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
                                 {isSimulated && (
                                   <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
                                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                                    AI 策略模拟
+                                    天盈AI策略模拟
                                   </span>
                                 )}
                               </div>
@@ -2191,7 +2191,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
                                 {isSimulated && (
                                   <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                    AI 策略模拟
+                                    天盈AI策略模拟
                                   </span>
                                 )}
                               </div>

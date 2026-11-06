@@ -1864,7 +1864,7 @@ const AlgorithmPredictionPage2: React.FC<AlgorithmPredictionPage2Props> = ({
                     yAxisId="left"
                     type="stepAfter"
                     dataKey="aiBess"
-                    name="AI 策略储能功率"
+                    name="天盈AI策略储能功率"
                     fill="url(#aiPattern)"
                     stroke="#8b5cf6"
                     strokeWidth={2}
@@ -1930,7 +1930,7 @@ const AlgorithmPredictionPage2: React.FC<AlgorithmPredictionPage2Props> = ({
                     传统模式
                   </th>
                   <th className="p-3 font-bold text-purple-600 text-xs bg-purple-50/50 w-48">
-                    AI 策略动作
+                    天盈AI策略动作
                   </th>
                   <th className="p-3 font-bold text-emerald-600 text-xs w-32">
                     优化效果预估

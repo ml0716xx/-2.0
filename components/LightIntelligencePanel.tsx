@@ -64,7 +64,7 @@ interface LightIntelligencePanelProps {
 }
 
 /**
- * 轻智能面板（AI 策略【基础】详情）：
+ * 轻量版面板（天盈AI轻量版详情）：
  *   说明条 → 天气概览条（切换选中）→ 详情卡（该天气配置哪个自定义策略）
  * 天气类型由后台维护，前端只做展示与配置；各天气的绑定状态实时回写到概览条状态点，
  * 配置即生效、无需保存。
@@ -105,11 +105,11 @@ const LightIntelligencePanel: React.FC<LightIntelligencePanelProps> = ({
 
   return (
     <div className="space-y-5">
-      {/* 说明条：说清轻智能干什么、开关在哪 */}
+      {/* 说明条：说清轻量版干什么、开关在哪 */}
       <div className="flex items-start gap-2.5 rounded-2xl border border-[#B7E4D3] bg-[#E8F7F1] px-4 py-3">
         <Sparkles className="w-4 h-4 text-[#17705A] mt-0.5 shrink-0" />
         <p className="text-[12px] text-[#17705A] leading-relaxed">
-          轻智能按站点所在地天气，自动切换对应的自定义策略；自动切换开关在「策略运行」中配置。
+          轻量版按站点所在地天气，自动切换对应的自定义策略；自动切换开关在「策略运行」中配置。
         </p>
       </div>
 
@@ -158,7 +158,7 @@ const LightIntelligencePanel: React.FC<LightIntelligencePanelProps> = ({
 
       {/* 详情卡：选中天气绑定哪个策略 */}
       <div>
-        <div className="text-[12px] font-black text-slate-500 tracking-wide mb-3">自定义轻智能</div>
+        <div className="text-[12px] font-black text-slate-500 tracking-wide mb-3">天气策略绑定</div>
         <div className="rounded-2xl border border-slate-100 bg-white p-5">
           <div className="flex items-center gap-3 pb-4 border-b border-slate-50">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${boundTemplate ? 'bg-emerald-50' : 'bg-slate-50'}`}>
