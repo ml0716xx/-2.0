@@ -177,7 +177,7 @@ const NodeGroup = ({ x, y, icon, color, label, value, tooltip }: { x: number, y:
           {icon}
         </div>
       </foreignObject>
-      <text y="82" textAnchor="middle" className="text-[15px] font-black fill-slate-800">{label}</text>
+      <text y="82" textAnchor="middle" className="text-[16px] font-black fill-slate-800">{label}</text>
       {values.map((v, i) => (
         <text key={i} y={102 + i * 16} textAnchor="middle" className="text-[12px] fill-slate-400 font-black uppercase tracking-tight">{v}</text>
       ))}

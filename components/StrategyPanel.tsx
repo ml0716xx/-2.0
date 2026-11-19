@@ -23,7 +23,7 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({ strategy }) => {
           <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
             {strategy.startTime} – {strategy.endTime}
           </span>
-          <span className="px-1.5 py-0.5 border border-slate-100 text-slate-400 text-[8px] font-bold rounded uppercase bg-white">
+          <span className="px-1.5 py-0.5 border border-slate-100 text-slate-400 text-[9px] font-bold rounded uppercase bg-white">
             执行中
           </span>
         </div>
@@ -49,7 +49,7 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({ strategy }) => {
                         专业版
                       </span>
                     </div>
-                    <div className="text-[8px] text-indigo-400 font-bold uppercase tracking-wider mt-0.5">{mainStrategy.englishName}</div>
+                    <div className="text-[9px] text-indigo-400 font-bold uppercase tracking-wider mt-0.5">{mainStrategy.englishName}</div>
                   </div>
                 </div>
                 <div className="text-slate-400 font-mono text-[10px] font-bold bg-white/40 px-1.5 py-0.5 rounded">
@@ -59,16 +59,16 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({ strategy }) => {
 
               <div className="grid grid-cols-2 gap-2 relative z-10">
                 <div className="bg-white/80 backdrop-blur-sm border border-indigo-50/50 p-3 rounded-lg flex flex-col items-center gap-0.5 transition-all hover:shadow-sm">
-                  <div className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">充放电类型</div>
+                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">充放电类型</div>
                   <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-600">
                     <Zap className="w-3 h-3 fill-current" />
                     {mainStrategy.currentTask?.type}
                   </div>
                 </div>
                 <div className="bg-white/80 backdrop-blur-sm border border-indigo-50/50 p-3 rounded-lg flex flex-col items-center gap-0.5 transition-all hover:shadow-sm">
-                  <div className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">充放电功率</div>
+                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">充放电功率</div>
                   <div className="text-xs font-bold text-slate-800 font-mono">
-                    {mainStrategy.currentTask?.power.toFixed(1)} <span className="text-[8px] font-bold text-indigo-400 ml-0.5">kW</span>
+                    {mainStrategy.currentTask?.power.toFixed(1)} <span className="text-[9px] font-bold text-indigo-400 ml-0.5">kW</span>
                   </div>
                 </div>
               </div>
@@ -124,7 +124,7 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({ strategy }) => {
                     {param.label}
                   </div>
                   <div className="border border-slate-200 p-3 rounded-lg flex items-center justify-center text-sm font-bold text-slate-800 font-mono bg-white shadow-sm transition-all hover:border-slate-300">
-                    {param.value}<span className="text-[8px] font-bold text-slate-400 ml-1 uppercase">{param.unit}</span>
+                    {param.value}<span className="text-[9px] font-bold text-slate-400 ml-1 uppercase">{param.unit}</span>
                   </div>
                 </div>
               ))}

@@ -1795,7 +1795,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-bold text-slate-700 group-hover:text-indigo-900">{item.name}</div>
-                      <div className="text-[9.5px] text-slate-400 truncate mt-0.5">{item.desc}</div>
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5">{item.desc}</div>
                     </div>
                   </button>
                 );
@@ -2238,7 +2238,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
                                 <div className="text-xs font-bold text-indigo-900 truncate">
                                   {getPointDisplayName(selectedElement.powerPointKey)}
                                 </div>
-                                <div className="text-[9.5px] font-mono text-slate-400 truncate">
+                                <div className="text-[10px] font-mono text-slate-400 truncate">
                                   Key: {selectedElement.powerPointKey}
                                 </div>
                               </>
@@ -2288,7 +2288,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
 
                       {/* Detailed Mode Settings */}
                       {(selectedElement.directionRule?.mode || 'sign') === 'sign' && (
-                        <p className="text-[9.5px] text-slate-500 leading-normal">
+                        <p className="text-[10px] text-slate-500 leading-normal">
                           💡 正负模式：测点值 &gt; 0 时正向流动，值 &lt; 0 时反向流动，值 = 0 时潮流静止。
                         </p>
                       )}
@@ -2441,7 +2441,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
 
                               {/* Single Point Selector Trigger (Prompt 10) */}
                               <div>
-                                <label className="text-[9.5px] text-slate-400 font-bold block mb-0.5">绑定测点项目</label>
+                                <label className="text-[10px] text-slate-400 font-bold block mb-0.5">绑定测点项目</label>
                                 <div className="flex items-center gap-1.5">
                                   <div className="flex-1 p-1.5 border border-slate-200 rounded-lg bg-white min-w-0">
                                     {row.pointKey ? (
@@ -2449,7 +2449,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
                                         {getPointDisplayName(row.pointKey)}
                                       </div>
                                     ) : (
-                                      <div className="text-[10.5px] font-semibold text-slate-400">-- 静态默认值模式 --</div>
+                                      <div className="text-[10px] font-semibold text-slate-400">-- 静态默认值模式 --</div>
                                     )}
                                   </div>
                                   <button
@@ -2457,7 +2457,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
                                       setPointModalTarget({ type: 'databox_row', rowIndex: idx });
                                       setShowPointModal(true);
                                     }}
-                                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-[10.5px] px-2.5 py-1.5 rounded-lg transition-all cursor-pointer shrink-0 flex items-center gap-1"
+                                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-[10px] px-2.5 py-1.5 rounded-lg transition-all cursor-pointer shrink-0 flex items-center gap-1"
                                   >
                                     <Sliders className="w-3 h-3" />
                                     {row.pointKey ? '更换' : '绑定测点'}
@@ -2532,7 +2532,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                       <span className="text-[10px] text-emerald-600 font-bold">在线监控正常</span>
-                      <span className="text-[9.5px] text-slate-400 font-mono">({inspectedEl.type})</span>
+                      <span className="text-[10px] text-slate-400 font-mono">({inspectedEl.type})</span>
                     </div>
                   </div>
                 </div>
@@ -3070,7 +3070,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
                               <span className="text-xs font-bold text-slate-800 truncate">{dev.name}</span>
                               {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
                             </div>
-                            <div className="flex flex-wrap items-center gap-1.5 text-[9.5px]">
+                            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                               <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200 font-mono font-bold">
                                 SN: {dev.sn}
                               </span>
@@ -3116,7 +3116,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
                                 <div className="space-y-0.5">
                                   <div className="flex items-center gap-2">
                                     <span className="text-xs font-bold text-slate-800">{pt.name}</span>
-                                    <span className="text-[9.5px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded">
+                                    <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded">
                                       Key: {pt.key}
                                     </span>
                                   </div>
@@ -3185,7 +3185,7 @@ const MainWiringDiagramPage: React.FC<MainWiringDiagramPageProps> = ({ isEmbedde
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-slate-800">{metric.name}</span>
-                                <span className="text-[9.5px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded border border-amber-200">
+                                <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded border border-amber-200">
                                   {metric.category}
                                 </span>
                               </div>

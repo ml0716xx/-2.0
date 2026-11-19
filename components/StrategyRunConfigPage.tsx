@@ -707,7 +707,7 @@ const StrategyRunConfigPage: React.FC<StrategyRunConfigPageProps> = ({
                               <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-rose-400" title={`已被「${occupier}」占用`} />
                             )}
                             <span className="text-[11px] font-bold leading-none">{d}</span>
-                            <span className={`text-[8px] leading-tight mt-0.5 max-w-full truncate ${
+                            <span className={`text-[9px] leading-tight mt-0.5 max-w-full truncate ${
                               on ? "text-white/80" : occupier ? "text-rose-400/90" : "text-slate-400"
                             }`}>
                               {occupier ? occupier.slice(0, 3) : `周${WEEKDAY_SHORT[(d - 1) % 7]}`}

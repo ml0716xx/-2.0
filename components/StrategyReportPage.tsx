@@ -844,7 +844,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
           <div className="flex items-center gap-2.5 shrink-0">
             <div className="rounded-lg bg-white/70 border border-[#FFE0A3] px-3.5 py-2 text-center">
               <div className="text-[10px] text-[#8A6D3B]">试用期剩余</div>
-              <div className="text-[15px] font-black font-mono text-[#B7791F]">
+              <div className="text-[16px] font-black font-mono text-[#B7791F]">
                 {TY_TRIAL_META.remainingDays} 天
               </div>
             </div>

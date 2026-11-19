@@ -136,7 +136,7 @@ const PowerStrategySection: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">需量门限</div>
               {demandMode === 'ai' && (
-                <span className="bg-indigo-50 text-indigo-600 px-1 py-0.5 rounded font-black text-[8px] border border-indigo-100 animate-pulse">AI 调整</span>
+                <span className="bg-indigo-50 text-indigo-600 px-1 py-0.5 rounded font-black text-[9px] border border-indigo-100 animate-pulse">AI 调整</span>
               )}
             </div>
             <div className="mt-2 flex items-baseline gap-1">

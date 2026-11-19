@@ -377,7 +377,7 @@ function AiHeroPresale({
             <Sparkles size={13} />
             天盈 AI · 本站收益测算
           </div>
-          <div className="mt-2 text-[15px] font-bold leading-snug">
+          <div className="mt-2 text-[16px] font-bold leading-snug">
             按本站点历史运行数据回算，AI 智能调度每月可多创收
           </div>
           <div className="mt-1.5 flex items-baseline gap-2.5 flex-wrap">
@@ -596,7 +596,7 @@ function AiWings() {
         </div>
         <div className="text-right">
           <div className="text-[10px] text-[#93A1B0]">当月收益</div>
-          <div className="text-[15px] font-black font-mono" style={{ color: tone }}>
+          <div className="text-[16px] font-black font-mono" style={{ color: tone }}>
             {(revenue / 10000).toFixed(2)}
             <span className="text-[10px] font-normal text-[#8A98A6] ml-0.5">万元</span>
           </div>
@@ -617,7 +617,7 @@ function AiWings() {
                 {it.delta}
               </span>
             </div>
-            <div className="mt-1.5 text-[15px] font-black font-mono text-[#1A2A3A]">
+            <div className="mt-1.5 text-[16px] font-black font-mono text-[#1A2A3A]">
               {it.value}
               {it.unit && <span className="text-[10px] font-normal text-[#8A98A6] ml-0.5">{it.unit}</span>}
             </div>

@@ -90,7 +90,7 @@ const PhaseImbalanceValueAdd: React.FC = () => {
 
             <div className="pb-1">
               <div className="text-[10px] text-white/60">当月累计释放电量</div>
-              <div className="mt-0.5 text-[17px] font-black font-mono leading-none">
+              <div className="mt-0.5 text-[16px] font-black font-mono leading-none">
                 {month.totalEnergy.toFixed(0)}
                 <span className="text-[10px] font-normal text-white/60 ml-1">kWh</span>
               </div>
@@ -98,7 +98,7 @@ const PhaseImbalanceValueAdd: React.FC = () => {
 
             <div className="pb-1">
               <div className="text-[10px] text-white/60">释放功率裕量</div>
-              <div className="mt-0.5 text-[17px] font-black font-mono leading-none">
+              <div className="mt-0.5 text-[16px] font-black font-mono leading-none">
                 {release.toFixed(0)}
                 <span className="text-[10px] font-normal text-white/60 ml-1">kW</span>
               </div>
@@ -106,7 +106,7 @@ const PhaseImbalanceValueAdd: React.FC = () => {
 
             <div className="pb-1">
               <div className="text-[10px] text-white/60">有效治理</div>
-              <div className="mt-0.5 text-[17px] font-black font-mono leading-none">
+              <div className="mt-0.5 text-[16px] font-black font-mono leading-none">
                 {month.activeDays}
                 <span className="text-[10px] font-normal text-white/60 ml-1">天</span>
               </div>

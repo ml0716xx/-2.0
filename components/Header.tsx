@@ -183,7 +183,7 @@ const Header: React.FC<HeaderProps> = ({ lifecycle, onNavigate, onOpenSimReport 
                               {notifyTimeLabel(n.at)}
                             </span>
                           </div>
-                          <p className="text-[10.5px] text-slate-500 leading-relaxed mt-0.5">{n.body}</p>
+                          <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">{n.body}</p>
                           <div className="flex items-center gap-1.5 mt-1.5">
                             <span
                               className="text-[9px] font-bold px-1.5 py-0.5 rounded"

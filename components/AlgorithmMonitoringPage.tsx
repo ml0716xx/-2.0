@@ -615,7 +615,7 @@ const CustomTooltip = ({ active, payload, label, calibrationDots, hoveredCalibra
           <span>时段: {label}</span>
         </span>
         {activeDot && (
-          <span className="text-[8px] font-bold text-indigo-600 font-mono uppercase tracking-wider bg-indigo-50 border border-indigo-100 px-1 py-0.5 rounded">
+          <span className="text-[9px] font-bold text-indigo-600 font-mono uppercase tracking-wider bg-indigo-50 border border-indigo-100 px-1 py-0.5 rounded">
             标定激活
           </span>
         )}
@@ -626,7 +626,7 @@ const CustomTooltip = ({ active, payload, label, calibrationDots, hoveredCalibra
           <div className="flex items-center gap-1 text-[10px] font-bold">
             <div className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: info.color }} />
             <span style={{ color: info.color }}>{info.title}</span>
-            <span className="text-[8.5px] text-slate-400 font-mono ml-auto">{activeDot.start}-{activeDot.end}</span>
+            <span className="text-[9px] text-slate-400 font-mono ml-auto">{activeDot.start}-{activeDot.end}</span>
           </div>
           <div className="text-[9px] text-slate-500 font-medium pl-2.5 leading-tight">
             {info.desc}
@@ -661,7 +661,7 @@ const CustomTooltip = ({ active, payload, label, calibrationDots, hoveredCalibra
                 </div>
                 <span className={`font-mono ${isItemHighlighted ? 'font-heavy text-indigo-700' : 'font-bold text-slate-700'}`}>
                   {typeof item.value === 'number' ? item.value.toFixed(2) : item.value}
-                  <span className="text-[8px] text-slate-400 font-normal ml-0.5">{unit}</span>
+                  <span className="text-[9px] text-slate-400 font-normal ml-0.5">{unit}</span>
                 </span>
               </div>
             );
@@ -1810,7 +1810,7 @@ const AlgorithmMonitoringPage: React.FC = () => {
                                           <span className={`text-[10px] ${cat.isCore || isHovered ? 'font-bold text-slate-800' : isVisible ? 'text-slate-600' : 'text-slate-400'}`}>
                                             {itemName}
                                           </span>
-                                          {isHovered && <span className="text-[8px] text-indigo-500 font-bold ml-0.5">高亮</span>}
+                                          {isHovered && <span className="text-[9px] text-indigo-500 font-bold ml-0.5">高亮</span>}
                                         </div>
                                       );
                                     })}

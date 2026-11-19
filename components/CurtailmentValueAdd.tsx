@@ -105,7 +105,7 @@ export default function CurtailmentValueAdd() {
                   微电网负电价 / 限电调控场景
                 </span>
               </div>
-              <div className="mt-2 text-[15px] font-bold">本月为您减少限电损失</div>
+              <div className="mt-2 text-[16px] font-bold">本月为您减少限电损失</div>
               <div className="mt-1.5 flex items-baseline gap-2.5 flex-wrap">
                 <span className="text-[32px] font-black font-mono leading-none tracking-tight">
                   +¥{curtailmentTotalSaved.toLocaleString()}

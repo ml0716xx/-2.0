@@ -7,11 +7,44 @@
  * 原型要能在没有外网的现场直接用，CDN 一挂整页就没有布局。
  */
 
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
-    'Helvetica Neue', Arial, sans-serif;
-  background-color: #f8fafc;
-  overflow-x: hidden;
+@layer base {
+  html {
+    /* 中英混排时统一字号基准；不要让系统字体缩放在不同机器上把版式带偏 */
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
+      'Helvetica Neue', Arial, sans-serif;
+    background-color: #f8fafc;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    color: #1e293b;
+  }
+
+  /* 标题统一收一点字距，中文大字号不收会显得散 */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
+
+  /* 数字等宽：表格和读数上下对齐，扫起来才不跳 */
+  table,
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 表单控件继承字体，避免 input 回落到系统默认 */
+  input,
+  select,
+  textarea,
+  button {
+    font-family: inherit;
+  }
 }
 
 @keyframes pulse-slow {

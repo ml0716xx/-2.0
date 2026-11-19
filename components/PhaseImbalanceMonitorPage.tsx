@@ -359,7 +359,7 @@ const PhaseImbalanceMonitorPage: React.FC = () => {
               ].map((it) => (
                 <div key={it.label} className="rounded-xl bg-slate-50/70 border border-slate-100 px-3 py-2.5">
                   <div className="text-[10px] font-bold text-slate-400">{it.label}</div>
-                  <div className="mt-1 text-[15px] font-black font-mono text-slate-800">
+                  <div className="mt-1 text-[16px] font-black font-mono text-slate-800">
                     {it.value}
                     {it.unit && <span className="text-[10px] font-normal text-slate-400 ml-1">{it.unit}</span>}
                   </div>
