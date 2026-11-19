@@ -60,6 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate, activePage }) => {
       subItems: [
         '监控概览',
         '策略监控',
+        '设备监控',
         '算法监控',
         '组态监控',
         '算法推理',

@@ -11,6 +11,7 @@ import Header from './components/Header';
 import WeatherPanel from './components/WeatherPanel';
 import EnergyRevenueSection from './components/EnergyRevenueSection';
 import StrategyMonitorPage from './components/StrategyMonitorPage';
+import DeviceMonitorPage from './components/DeviceMonitorPage';
 import PhaseImbalanceMonitorPage from './components/PhaseImbalanceMonitorPage';
 import SocialContributionSection from './components/SocialContributionSection';
 import StrategyConfigPage from './components/StrategyConfigPage';
@@ -212,6 +213,9 @@ const App: React.FC = () => {
     }
     if (currentPage === '拓扑管理') {
       return <TopologyManagementPage onNavigate={setCurrentPage} />;
+    }
+    if (currentPage === '设备监控') {
+      return <DeviceMonitorPage />;
     }
     if (currentPage === '策略监控') {
       return <StrategyMonitorPage />;
