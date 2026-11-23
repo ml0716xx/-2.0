@@ -5,7 +5,6 @@ import {
   Target,
   Calendar,
   Zap,
-  ArrowUpRight,
   BarChart3,
   PieChart as PieChartIcon,
   Clock,
@@ -26,7 +25,7 @@ import {
   Battery,
   ExternalLink,
   Maximize2,
-  Rocket,
+  QrCode,
 } from "lucide-react";
 
 import {
@@ -827,8 +826,8 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
               onClick={onActivate}
               className="flex items-center gap-1.5 px-4 py-2 rounded-md text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors"
             >
-              <Rocket className="w-3.5 h-3.5" />
-              一键开通 30 天试用
+              <QrCode className="w-3.5 h-3.5" />
+              扫码开通 30 天试用
             </button>
           </div>
         </div>
@@ -852,8 +851,8 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
               onClick={onConvert}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-md text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors"
             >
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              一键升级正式版
+              <QrCode className="w-3.5 h-3.5" />
+              扫码升级正式版
             </button>
           </div>
         </div>

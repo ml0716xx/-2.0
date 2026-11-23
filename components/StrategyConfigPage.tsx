@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Plus, Edit, Trash2, ChevronRight, Clock, 
   Zap, Save, ArrowLeft, ChevronDown, HelpCircle, Info, Calendar, X, Copy, ChevronUp,
-  TrendingUp, Sparkles, Lock, Rocket, ArrowUpRight, ShieldCheck
+  TrendingUp, Sparkles, Lock, QrCode, ShieldCheck
 } from 'lucide-react';
 import CommonConfigPanel from './CommonConfigPanel';
 import AiDemandAdjustCard from './AiDemandAdjustCard';
@@ -134,10 +134,11 @@ const LifecycleBadge: React.FC<{ lifecycle: ConfigLifecycle }> = ({ lifecycle })
 
 /**
  * 策略列表区的开通引导卡：三种状态各一套文案与 CTA
- *   未开通  → 说明 AI 策略需开通后使用，主 CTA「一键开通 30 天试用」
- *   试运行中 → 说明 AI 正按实测数据校准，主 CTA「一键升级正式版」
+ *   未开通  → 说明 AI 策略需开通后使用，主 CTA「扫码开通 30 天试用」
+ *   试运行中 → 说明 AI 正按实测数据校准，主 CTA「扫码升级正式版」
  *   正式运行 → 无引导
  * 开通与升级入口只保留在列表区，策略详情内不再重复展示。
+ * 两个 CTA 都不在页内直接改状态，统一弹零碳云管家二维码，由顾问开通。
  */
 const AiActivationGuide: React.FC<{
   lifecycle: ConfigLifecycle;
@@ -177,8 +178,8 @@ const AiActivationGuide: React.FC<{
             onClick={onActivate}
             className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors w-full"
           >
-            <Rocket className="w-3.5 h-3.5" />
-            一键开通 30 天试用
+            <QrCode className="w-3.5 h-3.5" />
+            扫码开通 30 天试用
           </button>
         )}
         {lifecycle === 'trial' && onConvert && (
@@ -186,8 +187,8 @@ const AiActivationGuide: React.FC<{
             onClick={onConvert}
             className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors w-full"
           >
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            一键升级正式版
+            <QrCode className="w-3.5 h-3.5" />
+            扫码升级正式版
           </button>
         )}
       </div>

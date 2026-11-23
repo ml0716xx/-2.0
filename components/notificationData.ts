@@ -75,7 +75,7 @@ export const NOTIFY_ITEMS: NotifyItem[] = [
     id: 'trial-expiring',
     kind: 'expiry',
     title: '试用期即将到期',
-    body: `试用期剩余 ${TY_TRIAL_META.remainingDays} 天，${TRIAL_EXPIRE_DATE} 到期。到期后天盈AI策略将回退至固定时段基线策略，可一键升级正式版。`,
+    body: `试用期剩余 ${TY_TRIAL_META.remainingDays} 天，${TRIAL_EXPIRE_DATE} 到期。到期后天盈AI策略将回退至固定时段基线策略，可扫码升级正式版。`,
     at: `${TODAY}T09:00`,
     defaultUnread: true,
     lifecycles: ['trial'],

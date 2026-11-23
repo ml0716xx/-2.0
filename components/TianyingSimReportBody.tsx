@@ -21,6 +21,7 @@ import {
   Sparkles,
   ArrowRight,
   CheckCircle2,
+  QrCode,
   Rocket,
 } from 'lucide-react';
 import {
@@ -652,7 +653,7 @@ export default function TianyingSimReportBody({
                   数字全部来自站点实际运行；试用期内可随时退出。
                 </p>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[10px] text-[#2C7A6E]">
-                  {['免审批自动开通', '无需改造设备', '试用期随时退出'].map(t => (
+                  {['扫码由顾问开通', '无需改造设备', '试用期随时退出'].map(t => (
                     <span key={t} className="flex items-center gap-1">
                       <CheckCircle2 size={11} className="text-[#1E9C7E]" />
                       {t}
@@ -679,8 +680,8 @@ export default function TianyingSimReportBody({
                   onClick={onActivate}
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors shadow-sm"
                 >
-                  <Rocket size={14} />
-                  一键免费开通 30 天试用
+                  <QrCode size={14} />
+                  扫码免费开通 30 天试用
                   <ArrowRight size={13} />
                 </button>
               )}

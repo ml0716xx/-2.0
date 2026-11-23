@@ -3,7 +3,7 @@
    --------------------------------------------------------------------------
    用户旅程位置：售前推广阶段（潜在客户 / 未开通）
    触达方式：Web 端自动弹出，支持「本月不再提示」
-   目标动作：读完体检结论 → 点击【一键免费开通 30 天 AI 智能调度】
+   目标动作：读完体检结论 → 点击【扫码开通 30 天 AI 智能调度】
 
    正文四段（典型日 → 这个月能多赚多少 → 九项指标 → 体检结论）与运营端
    「推送体检报告」同源，区别在于：本弹窗是客户侧看到的报告正文，不再有章节勾选
@@ -17,9 +17,8 @@ import {
   TrendingUp,
   Battery,
   ArrowRight,
-  Zap,
   CheckCircle2,
-  Rocket,
+  QrCode,
 } from 'lucide-react';
 import {
   TY_META,
@@ -32,7 +31,7 @@ import TianyingSimReportBody from './TianyingSimReportBody';
 interface TianyingSimReportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** 点击【一键免费开通 30 天 AI 智能调度】 */
+  /** 点击【扫码开通 30 天 AI 智能调度】 */
   onActivate: () => void;
   /** 勾选「本月不再提示」并关闭时触发 */
   onDismissThisMonth: () => void;
@@ -56,7 +55,6 @@ export default function TianyingSimReportModal({
   onDismissThisMonth,
 }: TianyingSimReportModalProps) {
   const [dontRemind, setDontRemind] = useState(false);
-  const [activating, setActivating] = useState(false);
 
   if (!isOpen) return null;
 
@@ -68,13 +66,9 @@ export default function TianyingSimReportModal({
     onClose();
   };
 
+  /** 开通改由零碳云管家顾问办理，这里只把扫码层顶出来 */
   const handleActivate = () => {
-    if (activating) return;
-    setActivating(true);
-    window.setTimeout(() => {
-      setActivating(false);
-      onActivate();
-    }, 900);
+    onActivate();
   };
 
   return (
@@ -167,32 +161,18 @@ export default function TianyingSimReportModal({
               <button
                 type="button"
                 onClick={handleActivate}
-                disabled={activating}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-bold text-white shadow-sm transition-all ${
-                  activating
-                    ? 'bg-[#1E9C7E]/70 cursor-not-allowed'
-                    : 'bg-[#1E9C7E] hover:bg-[#17705A] hover:shadow-md'
-                }`}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-bold text-white shadow-sm transition-all bg-[#1E9C7E] hover:bg-[#17705A] hover:shadow-md"
               >
-                {activating ? (
-                  <>
-                    <Zap size={15} className="animate-pulse" />
-                    正在开通...
-                  </>
-                ) : (
-                  <>
-                    <Rocket size={15} />
-                    一键免费开通 30 天 AI 智能调度
-                    <ArrowRight size={14} />
-                  </>
-                )}
+                <QrCode size={15} />
+                扫码开通 30 天 AI 智能调度
+                <ArrowRight size={14} />
               </button>
             </div>
           </div>
 
           <div className="flex items-center gap-2 mt-2.5 text-[10px] text-[#9AA7B4]">
             <CheckCircle2 size={11} className="text-[#1E9C7E]" />
-            开通后自动完成权限配置与 AI 托管，试用期内可随时退出，无需人工审批
+            扫码添加顾问，由顾问完成权限配置与开通，试用期内可随时退出
             <span className="text-[#D5DBE2]">·</span>
             <TrendingUp size={11} className="text-[#3B82F6]" />
             试用期结束后按实际增益决定是否转正式版

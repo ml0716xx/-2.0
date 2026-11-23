@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Database, ChevronRight, ChevronLeft, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Database, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import EnergyFlowDiagram from './components/EnergyFlowDiagram';
 import StatsCard from './components/StatsCard';
@@ -28,6 +28,7 @@ import ElectricityReportPage from './components/ElectricityReportPage';
 import RevenueReportPage from './components/RevenueReportPage';import TopologyManagementPage from './components/TopologyManagementPage';
 import BusinessReportPage, { type Lifecycle } from './components/BusinessReportPage';
 import TianyingSimReportModal from './components/TianyingSimReportModal';
+import ZeroCarbonQrModal, { type QrActivateMode } from './components/ZeroCarbonQrModal';
 import { EnergyStat, RevenueStat, AlarmItem, StrategyGroup } from './types';
 
 /** 「本月不再提示」的本地存储键；值存当前月份 key（YYYY-MM） */
@@ -52,8 +53,8 @@ const App: React.FC = () => {
   const [lifecycle, setLifecycle] = useState<Lifecycle>('presale');
   /** 《天盈 AI 站点策略&收益体检报告》弹窗 */
   const [isSimReportOpen, setIsSimReportOpen] = useState(false);
-  /** 状态流转提示 */
-  const [lifecycleToast, setLifecycleToast] = useState<string | null>(null);
+  /** 开通 / 升级的扫码弹层：null 关闭，否则是这次要办的事 */
+  const [qrMode, setQrMode] = useState<QrActivateMode | null>(null);
 
   const currentMonthKey = new Date().toISOString().slice(0, 7);
 
@@ -70,22 +71,19 @@ const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const showToast = (msg: string) => {
-    setLifecycleToast(msg);
-    window.setTimeout(() => setLifecycleToast(null), 4200);
-  };
-
-  /** 开通试运行（弹窗 CTA） */
+  /**
+   * 开通 / 升级不再在系统内一键完成 —— 权限由零碳云管家顾问配，
+   * 所以 CTA 只负责弹二维码。生命周期状态本身仍保留，
+   * 演示时用「策略配置」右上角的三态切换核对各状态的样式。
+   */
   const handleActivateTrial = () => {
-    setLifecycle('trial');
     setIsSimReportOpen(false);
-    showToast('AI 智能调度试用已开通：30 天试用期已开始，策略运行报告与经营分析报告已切换为试运行口径。');
+    setQrMode('trial');
   };
 
-  /** 试运行 → 正式运行 */
+  /** 试运行 → 正式运行：同样走扫码，由顾问确认后升级 */
   const handleConvertToFormal = () => {
-    setLifecycle('formal');
-    showToast('已升级为正式版：AI 智能调度进入常态化托管，试用期专项模块已替换为长期累积收益与模型迭代日志。');
+    setQrMode('formal');
   };
 
   // Mock data with yesterday values
@@ -407,13 +405,8 @@ const App: React.FC = () => {
         onDismissThisMonth={() => localStorage.setItem(SIM_DISMISS_KEY, currentMonthKey)}
       />
 
-      {/* 生命周期流转提示 */}
-      {lifecycleToast && (
-        <div className="fixed bottom-6 right-6 z-[70] max-w-[420px] bg-[#1A2A3A]/95 text-white px-5 py-3.5 rounded-xl shadow-2xl flex items-start gap-3 border border-[#2C3E50] backdrop-blur-xs">
-          <CheckCircle2 className="w-4 h-4 text-[#7BE0C0] mt-0.5 shrink-0" />
-          <span className="text-xs font-bold leading-relaxed">{lifecycleToast}</span>
-        </div>
-      )}
+      {/* 开通 / 升级：扫码由零碳云管家顾问办理，替代原来的「一键开通 / 一键升级」 */}
+      <ZeroCarbonQrModal mode={qrMode} onClose={() => setQrMode(null)} />
     </div>
   );
 };

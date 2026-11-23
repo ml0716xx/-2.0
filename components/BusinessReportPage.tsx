@@ -12,7 +12,7 @@
         以后再有增值服务，加「四、」即可，页面骨架不动。
         按客户生命周期分三态：
           · 未开通（售前）  不遮罩，直接铺《天翼 AI 站点策略&收益体检报告》正文，末尾引导开通
-          · 试运行          解锁 + 试运行成绩单 + 剩余天数 + 一键升级正式版
+          · 试运行          解锁 + 试运行成绩单 + 剩余天数 + 扫码升级正式版
           · 正式运行        解锁 + 本月运行成绩 + 无转化入口
 
    指标纪律：AI 段只使用 AI_GAIN 里那张指标表，集合严格等于策略运行报告已渲染的指标，
@@ -29,8 +29,7 @@ import {
   Sun,
   Zap,
   ArrowRight,
-  ArrowUpRight,
-  Rocket,
+  QrCode,
   Clock,
   PlugZap,
   Info,
@@ -426,8 +425,8 @@ function AiHeroPresale({
             onClick={onActivate}
             className="mt-3.5 w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] transition-colors"
           >
-            <Rocket size={14} />
-            一键免费开通
+            <QrCode size={14} />
+            扫码免费开通
           </button>
           <button
             type="button"
@@ -469,8 +468,8 @@ function TrialStrip({ onConvert }: { onConvert: () => void }) {
             onClick={onConvert}
             className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors"
           >
-            <ArrowUpRight size={14} />
-            一键升级正式版
+            <QrCode size={14} />
+            扫码升级正式版
           </button>
         </div>
       </div>
@@ -805,7 +804,7 @@ export default function BusinessReportPage({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* 页头不再放开通按钮：正文末尾的引导条已有「一键免费开通」，两处重复 */}
+          {/* 页头不再放开通按钮：正文末尾的引导条已有「扫码免费开通」，两处重复 */}
           <button
             type="button"
             className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-bold rounded-md border border-[#EAEDF2] text-[#2C3E50] hover:bg-[#F7F9FB] transition-colors"
