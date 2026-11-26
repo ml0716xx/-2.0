@@ -652,75 +652,143 @@ function CaliberNote() {
   );
 }
 
-/** tab2 主体：三块增值服务，按「一 / 二 / 三」往下排 */
-function ValueAddTab({
-  lifecycle,
-  onActivate,
-  onOpenSimReport,
-}: BusinessReportPageProps) {
-  /* 未开通（无权限）：把《天盈 AI 站点策略&收益体检报告》正文铺开展示，末尾引导扫码开通。
-     注意这里不做遮罩 —— 遮罩会让客户看不到价值，反而降低开通意愿。
-     体检报告本身就是「AI 相关内容」的预览形态，所以未开通态不再单独铺 AI 模块，
-     只在这套预览后面补一块三相不平衡指标；限电止损算 AI 的一部分，
-     开通前不展示，后面由权限控制是否可见。 */
-  if (lifecycle === 'presale') {
+/* ==========================================================================
+   增值服务 · 章节装配
+   --------------------------------------------------------------------------
+   章节顺序写死，哪几章出现由权限决定，章节编号按实际出现的顺序现算
+   —— 写死「一 / 二 / 三」的话，砍掉中间任一章号就断了。
+   AI 测算与 AI 正式运行是两个独立权限位，但展示上不并列：
+   有运行数据只出运行章，没有才出测算章。
+   ========================================================================== */
+
+export type VaChapterKey = 'ai_sim' | 'ai_run' | 'curtailment' | 'phase';
+
+/** 章节顺序唯一来源；权限只决定取舍，不改变顺序 */
+const VA_ORDER: VaChapterKey[] = ['ai_sim', 'ai_run', 'curtailment', 'phase'];
+
+/**
+ * 演示用权限位：?vaperm=ai_run,phase 直接指定给哪几章。
+ * 不传时按两态给默认组合（真实环境由后台按站点配权限位）。
+ */
+export function readVaPermissions(lifecycle: Lifecycle): VaChapterKey[] {
+  const raw = new URLSearchParams(window.location.search).get('vaperm');
+  /* ?vaperm= 留空即四章全无权限，用来看空态 */
+  let picked = raw !== null
+    ? (raw.split(',').map(x => x.trim()).filter(x => VA_ORDER.includes(x as VaChapterKey)) as VaChapterKey[])
+    : lifecycle === 'presale'
+      ? (['ai_sim', 'phase'] as VaChapterKey[])
+      : (['ai_run', 'curtailment', 'phase'] as VaChapterKey[]);
+
+  /* 两章权限都给时按数据可得性取其一：formal 有运行数据出运行章，否则出测算章 */
+  if (picked.includes('ai_sim') && picked.includes('ai_run')) {
+    picked = picked.filter(k => k !== (lifecycle === 'formal' ? 'ai_sim' : 'ai_run'));
+  }
+  return VA_ORDER.filter(k => picked.includes(k));
+}
+
+/** 页签合计：只累加当前展示的章节，无权限的章不进合计 */
+export function vaTotalOf(perms: VaChapterKey[], phaseSaving: number): number {
+  return (
+    (perms.includes('ai_run') || perms.includes('ai_sim') ? AI_GAIN.aiBoost : 0) +
+    (perms.includes('curtailment') ? curtailmentTotalSaved : 0) +
+    (perms.includes('phase') ? phaseSaving : 0)
+  );
+}
+
+/** 章节外壳：编号由调用方按展示顺序给，不写死在标题里 */
+function VaChapterHead({
+  no,
+  title,
+  hint,
+  tone,
+}: {
+  no: number;
+  title: string;
+  hint: string;
+  tone: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-1 h-3.5 rounded-full" style={{ background: tone }} />
+      <span className="text-[13px] font-bold text-[#1A2A3A]">
+        {no}、{title}
+      </span>
+      <span className="text-[11px] text-[#93A1B0]">{hint}</span>
+    </div>
+  );
+}
+
+/** tab2 主体：章节按权限拼装，编号按实际顺序现算 */
+function ValueAddTab({ lifecycle, onActivate, onOpenSimReport }: BusinessReportPageProps) {
+  const perms = readVaPermissions(lifecycle);
+
+  /* 未开通时顶部先给收益测算钩子，它不算章节，只是这一页的主视觉 */
+  const showPresaleHero = perms.includes('ai_sim');
+
+  const defs: Record<VaChapterKey, { title: string; hint: string; tone: string; body: React.ReactNode }> = {
+    ai_sim: {
+      title: 'AI 测算结果',
+      hint: '《天盈 AI 站点策略&收益体检报告》· 售前测算口径',
+      tone: '#1E9C7E',
+      /* 不传 onOpenSimReport：顶部主视觉已有「查看体检报告」，
+         底部引导条再挂一个就成了同一页两个入口 */
+      body: <TianyingSimReportBody showActivateHint onActivate={onActivate} />,
+    },
+    ai_run: {
+      title: 'AI 正式运行的分析报告',
+      hint: '策略运行报告 · 精简视图',
+      tone: '#1E9C7E',
+      body: (
+        <>
+          <AiCoreCards />
+          <AiWings />
+          <AiDailyChart />
+          <CaliberNote />
+        </>
+      ),
+    },
+    curtailment: {
+      title: '限电止损',
+      hint: '增值特性',
+      tone: '#D97706',
+      /* 与「策略运行报告 · 增值特性」同一个组件，展示效果完全一致 */
+      body: <CurtailmentValueAdd />,
+    },
+    phase: {
+      title: '三相不平衡治理',
+      hint: '增值服务 · 防逆流边界收益',
+      tone: '#D946EF',
+      body: <PhaseImbalanceValueAdd />,
+    },
+  };
+
+  /* 一章都没有：页签还在，正文给空态，不显示空占位标题 */
+  if (perms.length === 0) {
     return (
-      <div className="space-y-4">
-        <AiHeroPresale onActivate={onActivate} onOpenSimReport={onOpenSimReport} />
-
-        <div className="flex items-center gap-2">
-          <span className="w-1 h-3.5 rounded-full bg-[#1E9C7E]" />
-          <span className="text-[13px] font-bold text-[#1A2A3A]">站点策略与收益体检</span>
-          <span className="text-[11px] text-[#93A1B0]">《天盈 AI 站点策略&收益体检报告》· 售前测算口径</span>
+      <div className="rounded-xl border border-[#EAEDF2] bg-white px-5 py-12 flex flex-col items-center gap-2">
+        <div className="text-[13px] font-bold text-[#8A98A6]">增值服务未开通</div>
+        <div className="text-[11px] text-[#9AA7B4] text-center leading-relaxed max-w-[420px]">
+          开通后可在此查看 AI 调度增益、限电止损与三项不平衡治理的收益。
         </div>
-
-        {/* 不再传 onOpenSimReport：顶部主视觉已有「查看体检报告」，
-            底部引导条再挂一个就成了同一页两个入口 */}
-        <TianyingSimReportBody showActivateHint onActivate={onActivate} />
-
-        <div className="flex items-center gap-2 pt-2">
-          <span className="w-1 h-3.5 rounded-full bg-[#D946EF]" />
-          <span className="text-[13px] font-bold text-[#1A2A3A]">三相不平衡治理</span>
-          <span className="text-[11px] text-[#93A1B0]">增值服务 · 防逆流边界收益</span>
-        </div>
-
-        <PhaseImbalanceValueAdd />
       </div>
     );
   }
 
-  /* 有权限：三块增值服务整段读完。
-     开通走权限，增值服务只有「有权限 / 没权限」两种，不存在体验期。 */
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <span className="w-1 h-3.5 rounded-full bg-[#1E9C7E]" />
-        <span className="text-[13px] font-bold text-[#1A2A3A]">一、AI 智能调度效益分析</span>
-        <span className="text-[11px] text-[#93A1B0]">策略运行报告 · 精简视图</span>
-      </div>
+      {showPresaleHero && <AiHeroPresale onActivate={onActivate} onOpenSimReport={onOpenSimReport} />}
 
-      <AiCoreCards />
-      <AiWings />
-      <AiDailyChart />
-
-      <CaliberNote />
-
-      <div className="flex items-center gap-2 pt-2">
-        <span className="w-1 h-3.5 rounded-full bg-[#D97706]" />
-        <span className="text-[13px] font-bold text-[#1A2A3A]">二、限电止损</span>
-        <span className="text-[11px] text-[#93A1B0]">增值特性</span>
-      </div>
-
-      {/* 与「策略运行报告 · 增值特性」同一个组件，展示效果完全一致 */}
-      <CurtailmentValueAdd />
-
-      <div className="flex items-center gap-2 pt-2">
-        <span className="w-1 h-3.5 rounded-full bg-[#D946EF]" />
-        <span className="text-[13px] font-bold text-[#1A2A3A]">三、三相不平衡治理</span>
-        <span className="text-[11px] text-[#93A1B0]">增值服务 · 防逆流边界收益</span>
-      </div>
-
-      <PhaseImbalanceValueAdd />
+      {perms.map((key, i) => {
+        const d = defs[key];
+        return (
+          <div key={key} className="space-y-4">
+            <div className={i === 0 && showPresaleHero ? '' : 'pt-2'}>
+              <VaChapterHead no={i + 1} title={d.title} hint={d.hint} tone={d.tone} />
+            </div>
+            {d.body}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -743,11 +811,11 @@ export default function BusinessReportPage({
   /* 三相不平衡这块只要开关打开就计入——未开通时它也是可测算的 */
   const phaseSaving = phaseCfg.on ? phaseMonth(phaseReleaseMax(phaseCfg)).totalSaving : 0;
 
-  /* 已开通：三项都能兑现，合计三项 */
-  const valueAddTotal = AI_GAIN.aiBoost + curtailmentTotalSaved + phaseSaving;
-
-  /* 未开通：限电止损不展示，只测算「AI 多创收 + 三相不平衡治理」两块 */
-  const presaleTotal = AI_GAIN.aiBoost + phaseSaving;
+  /* 页签合计按权限算：只累加当前展示的章节，无权限的章不进合计 */
+  const vaPerms = readVaPermissions(lifecycle);
+  const vaTotal = vaTotalOf(vaPerms, phaseSaving);
+  /* 只给测算权限时用「测算」徽标，避免把回算值当成实收 */
+  const vaIsEstimate = vaPerms.includes('ai_sim') && !vaPerms.includes('ai_run');
 
   const TABS: { key: 'biz' | 'valueAdd'; label: string }[] = [
     { key: 'biz', label: '月度经营数据' },
@@ -804,22 +872,22 @@ export default function BusinessReportPage({
             >
               {t.label}
               {t.key === 'valueAdd' &&
-                (lifecycle === 'presale' ? (
-                  /* 未开通：还没有真实收益，报的是测算口径的两块 —— AI 多创收 + 三相不平衡治理 */
+                (vaPerms.length === 0 ? null : vaIsEstimate ? (
+                  /* 只给测算权限：报的是回算值，徽标必须带「测算」，不能与实收混用 */
                   <span
                     title="测算多创收 + 三相不平衡治理收益"
                     className="px-2 py-0.5 rounded-full bg-[#F4F6F9] text-[#5A6B7C] text-[11px] font-bold font-mono border border-[#E3E8EE]"
                   >
-                    测算 +¥{Math.round(presaleTotal).toLocaleString()}
+                    测算 +¥{Math.round(vaTotal).toLocaleString()}
                   </span>
                 ) : (
                   <>
                     <span className="px-1.5 py-0.5 rounded bg-[#E8F7F1] text-[#17705A] text-[10px] font-bold">
-                      3 项
+                      {vaPerms.length} 项
                     </span>
-                    {/* 已开通：AI 提升收益 + 限电止损减亏 + 边界收益 */}
+                    {/* 合计只加当前展示的章：AI 提升收益 + 限电止损减亏 + 边界收益 */}
                     <span className="px-2 py-0.5 rounded-full bg-[#E8F7F1] text-[#17705A] text-[11px] font-bold font-mono border border-[#B7E4D3]">
-                      合计 +¥{Math.round(valueAddTotal).toLocaleString()}
+                      合计 +¥{Math.round(vaTotal).toLocaleString()}
                     </span>
                   </>
                 ))}
