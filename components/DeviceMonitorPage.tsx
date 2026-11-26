@@ -49,6 +49,9 @@ import {
   Plus,
   Trash2,
   X,
+  BatteryCharging,
+  PlugZap,
+  CircleStop,
 } from 'lucide-react';
 
 import {
@@ -69,6 +72,7 @@ import {
   pathToDevice,
   pointUnit,
   valueAt,
+  type ChargerWorkState,
   type DeviceKind,
   type DeviceNode,
   type DevicePoint,
@@ -83,6 +87,7 @@ const KIND_ICON: Record<DeviceKind, React.ReactNode> = {
   sensor: <Thermometer size={26} />,
   cabinet: <Battery size={26} />,
   pcs: <Cpu size={26} />,
+  charger: <BatteryCharging size={26} />,
 };
 
 const KIND_ICON_SM: Record<DeviceKind, React.ReactNode> = {
@@ -92,6 +97,7 @@ const KIND_ICON_SM: Record<DeviceKind, React.ReactNode> = {
   sensor: <Thermometer size={12} />,
   cabinet: <Battery size={12} />,
   pcs: <Cpu size={12} />,
+  charger: <BatteryCharging size={12} />,
 };
 
 /* ---------- 小件 ---------- */
@@ -177,6 +183,198 @@ const EmptyState: React.FC<{ icon: React.ReactNode; title: string; hint?: string
   </div>
 );
 
+/* ---------- 充电桩 ---------- */
+
+/** 充/放电功率弹窗：留空 = 按额定功率全功率执行 */
+const PowerModal: React.FC<{
+  mode: 'charge' | 'discharge';
+  ratedKw: number;
+  onClose: () => void;
+  onSubmit: (kw: number | null) => void;
+}> = ({ mode, ratedKw, onClose, onSubmit }) => {
+  const [val, setVal] = useState('');
+  const [err, setErr] = useState('');
+  const title = mode === 'charge' ? '开始充电' : '开始放电';
+
+  const submit = () => {
+    const t = val.trim();
+    if (!t) {
+      onSubmit(null);
+      return;
+    }
+    const n = Number(t);
+    if (!Number.isFinite(n) || n <= 0) {
+      setErr('功率要大于 0');
+      return;
+    }
+    if (n > ratedKw) {
+      setErr(`不能超过额定功率 ${ratedKw} kW`);
+      return;
+    }
+    onSubmit(n);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/30 flex items-center justify-center p-6"
+      onClick={onClose}
+    >
+      <div
+        className="w-[400px] max-w-full bg-white rounded-2xl border border-slate-100 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-3 border-b border-slate-50 flex items-center justify-between">
+          <span className="text-title font-black text-slate-800">{title}</span>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3.5">
+          <div>
+            <label className="block text-label font-bold text-slate-500 mb-1">
+              {mode === 'charge' ? '充电' : '放电'}功率（kW）
+              <span className="ml-1.5 font-normal text-slate-300">选填</span>
+            </label>
+            <input
+              autoFocus
+              value={val}
+              onChange={(e) => {
+                setVal(e.target.value.replace(/[^\d.]/g, ''));
+                setErr('');
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder={`默认按额定功率 ${ratedKw} kW 执行`}
+              className="h-8 w-full px-2.5 rounded-md border border-slate-200 text-body text-slate-700 outline-none focus:border-emerald-400"
+            />
+            {err && <div className="mt-1.5 text-label font-bold text-amber-600">{err}</div>}
+          </div>
+          <div className="text-label text-slate-300">
+            不填则按额定功率全功率{mode === 'charge' ? '充电' : '放电'}；下发后可在工作状态里看实时功率
+          </div>
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-50 flex items-center justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="h-7 px-3 rounded-md border border-slate-200 text-label font-bold text-slate-600 hover:bg-slate-50"
+          >
+            取消
+          </button>
+          <button
+            onClick={submit}
+            className="h-7 px-3 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-label font-bold"
+          >
+            确认下发
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/** 充电桩操作条：开始充电 / 开始放电（都先弹功率）· 停止（充放电共用） */
+const ChargerControl: React.FC<{ device: DeviceNode; flash: (msg: string, tone?: 'ok' | 'warn') => void }> = ({
+  device,
+  flash,
+}) => {
+  const ratedKw = device.ratedPowerKw ?? 60;
+  /** idle / charging / discharging；初始 idle，工作状态测点跟着它变 */
+  const [workState, setWorkState] = useState<ChargerWorkState>('idle');
+  /** null = 弹层关着；'charge' / 'discharge' = 对应模式的功率输入 */
+  const [sheet, setSheet] = useState<'charge' | 'discharge' | null>(null);
+
+  const STATE_META: Record<ChargerWorkState, { text: string; cls: string }> = {
+    idle: { text: '待机', cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+    charging: { text: '充电中', cls: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+    discharging: { text: '放电中', cls: 'bg-sky-50 text-sky-600 border-sky-100' },
+  };
+
+  const submitPower = (mode: 'charge' | 'discharge', kw: number | null) => {
+    setWorkState(mode === 'charge' ? 'charging' : 'discharging');
+    setSheet(null);
+    const label = mode === 'charge' ? '充电' : '放电';
+    flash(kw ? `已下发「开始${label}」· 功率 ${kw} kW` : `已下发「开始${label}」· 默认全功率 ${ratedKw} kW`);
+  };
+
+  const stop = () => {
+    const prev =
+      workState === 'charging' ? '充电' : workState === 'discharging' ? '放电' : '';
+    setWorkState('idle');
+    flash(prev ? `已下发「停止」，结束${prev}` : '已下发「停止」');
+  };
+
+  const busy = workState !== 'idle';
+  const meta = STATE_META[workState];
+
+  return (
+    <div className="shrink-0 mx-4 mt-3 rounded-xl border border-slate-100 bg-slate-50/40 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-sub font-black text-slate-800 shrink-0">充放电控制</span>
+        <span className={`px-1.5 py-[1px] rounded text-label font-bold border ${meta.cls}`}>
+          {meta.text}
+        </span>
+        {workState !== 'idle' && (
+          <span className="text-label text-slate-400 truncate">
+            按上次下发功率运行（原型示意，数值不动）
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={() => setSheet('charge')}
+          disabled={busy}
+          className={`h-7 px-3 rounded-md text-label font-bold flex items-center gap-1 border transition-colors ${
+            busy
+              ? 'border-slate-200 text-slate-300 cursor-not-allowed bg-white'
+              : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+          }`}
+        >
+          <BatteryCharging size={12} />
+          开始充电
+        </button>
+        <button
+          onClick={() => setSheet('discharge')}
+          disabled={busy}
+          className={`h-7 px-3 rounded-md text-label font-bold flex items-center gap-1 border transition-colors ${
+            busy
+              ? 'border-slate-200 text-slate-300 cursor-not-allowed bg-white'
+              : 'border-sky-200 text-sky-700 hover:bg-sky-50'
+          }`}
+        >
+          <PlugZap size={12} />
+          开始放电
+        </button>
+        <button
+          onClick={stop}
+          disabled={!busy}
+          className={`h-7 px-3 rounded-md text-label font-bold flex items-center gap-1 border transition-colors ${
+            busy
+              ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
+              : 'border-slate-200 text-slate-300 cursor-not-allowed bg-white'
+          }`}
+        >
+          <CircleStop size={12} />
+          停止
+        </button>
+      </div>
+
+      {sheet && (
+        <PowerModal
+          mode={sheet}
+          ratedKw={ratedKw}
+          onClose={() => setSheet(null)}
+          onSubmit={(kw) => submitPower(sheet, kw)}
+        />
+      )}
+    </div>
+  );
+};
+
 /* ---------- 历史数据 / 最新数据 的悬停提示 ---------- */
 const ChartTooltip = ({ active, payload, label, points }: any) => {
   if (!active || !payload?.length) return null;
@@ -258,6 +456,13 @@ const DeviceDataPanel: React.FC = () => {
   const [innerTab, setInnerTab] = useState<'history' | 'latest' | 'control'>('history');
   const [date, setDate] = useState('2026-11-17');
 
+  /** 充电控制条的提示走页面级 flash，避免它自己再挂一套提示 DOM */
+  const [chargerHint, setChargerHint] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null);
+  const chargerFlash = (text: string, tone: 'ok' | 'warn' = 'ok') => {
+    setChargerHint({ text, tone });
+    window.setTimeout(() => setChargerHint(null), 2600);
+  };
+
   const handlePickDevice = (id: string) => {
     setDeviceId(id);
     setSelected(defaultPoints(id));
@@ -282,6 +487,19 @@ const DeviceDataPanel: React.FC = () => {
       <DeviceTreePanel activeId={deviceId} onSelect={handlePickDevice} />
 
       <div className="flex-1 min-w-0 min-h-0 flex flex-col gap-3">
+        {/* 充电桩操作提示：挂在设备卡片上方，跟其他页的 flash 一致 */}
+        {chargerHint && (
+          <div
+            className={`shrink-0 px-3 py-1.5 rounded-lg text-body font-bold ${
+              chargerHint.tone === 'warn'
+                ? 'bg-amber-500/90 text-white'
+                : 'bg-slate-900/90 text-white'
+            }`}
+          >
+            {chargerHint.text}
+          </div>
+        )}
+
         {/* 设备信息 */}
         <div className="shrink-0 bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 flex items-start gap-4">
           <DeviceThumb kind={device.kind} />
@@ -319,13 +537,18 @@ const DeviceDataPanel: React.FC = () => {
               </div>
             ))}
           </div>
-          <button
-            className="p-1.5 rounded-lg text-slate-300 hover:text-slate-500 hover:bg-slate-50 transition-colors shrink-0"
-            title="编辑设备信息"
-          >
-            <Pencil size={14} />
-          </button>
+          {device.kind !== 'charger' && (
+            <button
+              className="p-1.5 rounded-lg text-slate-300 hover:text-slate-500 hover:bg-slate-50 transition-colors shrink-0"
+              title="编辑设备信息"
+            >
+              <Pencil size={14} />
+            </button>
+          )}
         </div>
+
+        {/* 充电桩：设备卡片下方挂充放电控制条（开始充电/放电先弹功率，停止充放电共用） */}
+        {device.kind === 'charger' && <ChargerControl device={device} flash={chargerFlash} />}
 
         {/* 数据区 */}
         <div className="flex-1 min-h-0 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col">

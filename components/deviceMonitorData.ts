@@ -16,7 +16,7 @@
    分散到各页面写会不一致。
    ========================================================================== */
 
-export type DeviceKind = 'gateway' | 'transformer' | 'meter' | 'sensor' | 'cabinet' | 'pcs';
+export type DeviceKind = 'gateway' | 'transformer' | 'meter' | 'sensor' | 'cabinet' | 'pcs' | 'charger';
 
 export interface DevicePoint {
   key: string;
@@ -48,6 +48,8 @@ export interface DeviceNode {
   children?: DeviceNode[];
   /** 网关才有：DO（数字输出）口数量，由设备上报，不是用户填的 */
   doCount?: number;
+  /** 充电桩才有：额定功率，充/放电功率上限都按它算 */
+  ratedPowerKw?: number;
 }
 
 const pt = (
@@ -138,6 +140,22 @@ const PCS_POINTS: DevicePoint[] = [
   pt('dcVolt', '直流侧电压', 'V', 720, 8, 0),
 ];
 
+/* ---------- V2G 充电桩：工作状态之外，电压电流功率都是实时量 ---------- */
+export type ChargerWorkState = 'idle' | 'charging' | 'discharging';
+
+const CHARGER_POINTS: DevicePoint[] = [
+  pt('gunLink', '枪连接状态', '-', 0, 0, 0, { text: '已连接' }),
+  pt('workState', '工作状态', '-', 0, 0, 0, { text: '待机' }),
+  pt('chP', '输出功率', 'kW', 0, 0, 1),
+  pt('chVolt', '输出电压', 'V', 0, 0, 1),
+  pt('chCurr', '输出电流', 'A', 0, 0, 1),
+  pt('socNow', '当前 SOC', '%', 62, 0, 0),
+  pt('todayE', '本次充电桩计量电量', 'kWh', 0, 0, 1),
+  pt('todayChargeE', '本次充电桩累计充电电量', 'kWh', 0, 0, 1),
+  pt('todayDischargeE', '本次充电桩累计放电电量', 'kWh', 0, 0, 1),
+  pt('remainT', '剩余充放电时长', 'min', 0, 0, 0),
+];
+
 const device = (
   id: string,
   name: string,
@@ -171,6 +189,12 @@ export const DEVICE_TREE: DeviceNode[] = [
       device('tr-5', '5#变压器', 'transformer', 'TR-2024-0005', TRANSFORMER_POINTS),
       device('tr-1', '1#变压器', 'transformer', 'TR-2024-0003', TRANSFORMER_POINTS),
       device('tr-3', '3#变压器', 'transformer', 'TR-2024-0004', TRANSFORMER_POINTS),
+      device('v2g-2', 'V2G 充电桩 2#', 'charger', 'TCPA4007KQD2YQ2CN26109001-GUN-2', CHARGER_POINTS, {
+        ratedPowerKw: 60,
+      }),
+      device('v2g-1', 'V2G 充电桩 1#', 'charger', 'TCPA4007KQD2YQ2CN26109002-GUN-1', CHARGER_POINTS, {
+        ratedPowerKw: 60,
+      }),
     ],
   }),
 ];
@@ -329,6 +353,7 @@ export const KIND_TONE: Record<DeviceKind, { from: string; to: string; text: str
   sensor: { from: '#FFF1F2', to: '#FFE4E6', text: '#E11D48', label: '传感器' },
   cabinet: { from: '#ECFDF5', to: '#D1FAE5', text: '#059669', label: '储能柜' },
   pcs: { from: '#F5F3FF', to: '#EDE9FE', text: '#7C3AED', label: 'PCS' },
+  charger: { from: '#F0FDFA', to: '#CCFBF1', text: '#0D9488', label: '充电桩' },
 };
 
 /** 多条曲线的配色，按选中顺序取 */
