@@ -229,14 +229,12 @@ const DayCell = ({
 interface StrategySchedulePage2Props {
   lifecycle?: ConfigLifecycle;
   onActivate?: () => void;
-  onConvert?: () => void;
   onSwitchLifecycle?: (l: ConfigLifecycle) => void;
 }
 
 const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
   lifecycle = 'presale',
   onActivate,
-  onConvert,
   onSwitchLifecycle,
 }) => {
   /* 策略运行下两个 tab：排期 / 策略组合列表（后者从策略配置搬过来的） */
@@ -430,7 +428,6 @@ const StrategySchedulePage2: React.FC<StrategySchedulePage2Props> = ({
             view="comboList"
             lifecycle={lifecycle}
             onActivate={onActivate}
-            onConvert={onConvert}
             onSwitchLifecycle={onSwitchLifecycle}
           />
         </div>

@@ -245,7 +245,7 @@ const ValueAddPanel: React.FC = () => {
 
         {/* 说明：本期不做开通 */}
         <div className="pt-3 border-t border-slate-50 text-[11px] text-slate-400 leading-relaxed">
-          本页只管理已启用增值服务的开关与参数。增值服务的开通、试用与有效期由后台配置，不在本原型范围内。
+          本页只管理已启用增值服务的开关与参数。增值服务的开通与有效期由后台配置，不在本原型范围内。
         </div>
       </div>
     </div>

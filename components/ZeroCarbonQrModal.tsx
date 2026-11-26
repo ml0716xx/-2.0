@@ -2,44 +2,32 @@ import React from 'react';
 import { X, QrCode, CheckCircle2 } from 'lucide-react';
 
 /* ==========================================================================
-   开通 / 升级的扫码弹层
+   开通的扫码弹层
    --------------------------------------------------------------------------
-   开通不再是系统内的「一键」动作：站点要由运营侧的开通权限来配，
-   所以把原来的自我激活改成「扫码加零碳云管家，由顾问开通」。
-
-   三种生命周期状态（未开通 / 试运行 / 正式运行）以及各处的状态条样式都保留，
-   只是 CTA 点下去弹这个层，不再直接改状态。
+   开通不是系统内的自助动作：站点由运营侧配权限，
+   所以 CTA 点下去弹「扫码加零碳云管家，由顾问开通」。
+   生命周期只有两态（未开通 / 正式运行），没有试用期，开通即正式。
 
    ⚠️ 二维码是占位素材（编码内容为「零碳云管家」四个字），
       拿到真实的加好友 / 小程序码后，直接替换 public/qr-lingtan.svg 即可，
       尺寸和留白已经按 1:1 画好，替换后不用改样式。
    ========================================================================== */
 
-export type QrActivateMode = 'trial' | 'formal';
-
-const COPY: Record<QrActivateMode, { title: string; tag: string; desc: string; note: string }> = {
-  trial: {
-    title: '开通 AI 智能调度',
-    tag: '30 天试用',
-    desc: '扫码添加专属顾问，核对站点信息后为你开通 30 天试用。',
-    note: '开通完成后本页自动切换为「试运行」口径，试用期内可随时退出。',
-  },
-  formal: {
-    title: '升级正式版',
-    tag: 'AI 智能托管',
-    desc: '扫码添加专属顾问，顾问确认试用期成绩后完成正式版升级。',
-    note: '升级完成后本页切换为长期累积收益与模型迭代日志口径。',
-  },
+const COPY = {
+  title: '开通 AI 智能调度',
+  tag: 'AI 智能托管',
+  desc: '扫码添加专属顾问，核对站点信息后为你开通。',
+  note: '开通完成后本页切换为正式运行口径，收益按累积统计。',
 };
 
 const STEPS = ['扫码添加顾问', '报站点名称 / 编号', '顾问完成开通'];
 
-const ZeroCarbonQrModal: React.FC<{ mode: QrActivateMode | null; onClose: () => void }> = ({
-  mode,
+const ZeroCarbonQrModal: React.FC<{ open: boolean; onClose: () => void }> = ({
+  open,
   onClose,
 }) => {
-  if (!mode) return null;
-  const copy = COPY[mode];
+  if (!open) return null;
+  const copy = COPY;
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">

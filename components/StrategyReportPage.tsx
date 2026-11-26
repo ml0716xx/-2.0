@@ -53,7 +53,7 @@ import StrategyConfigModal from "./StrategyConfigModal";
 import StrategyRunConfigPage from "./StrategyRunConfigPage";
 import { MonthlyStrategyDayConfig } from "./StrategySimulationConfigPage";
 import { type Lifecycle } from "./BusinessReportPage";
-import { AI_GAIN, TY_TRIAL_META, fmt as fmtNum } from "./tianyingReportData";
+import { AI_GAIN, fmt as fmtNum } from "./tianyingReportData";
 import TianyingSimReportBody from "./TianyingSimReportBody";
 import CurtailmentValueAdd from "./CurtailmentValueAdd";
 import { curtailmentTotalSaved, curtailmentTotalEnergy } from "./curtailmentData";
@@ -134,14 +134,10 @@ const CustomXAxisTick = (props: any) => {
 };
 
 export interface StrategyReportPageProps {
-  /** 客户生命周期：未开通 / 试运行 / 正式运行 */
+  /** 客户生命周期：未开通 / 正式运行 */
   lifecycle: Lifecycle;
-  /** 未开通 → 试运行 */
+  /** 未开通 → 正式运行（扫码由顾问开通） */
   onActivate: () => void;
-  /** 试运行 → 正式运行 */
-  onConvert: () => void;
-  /** 演示用：直接切换生命周期 */
-  onSwitchLifecycle: (l: Lifecycle) => void;
   /** 打开《天盈 AI 仿真报告》弹窗 */
   onOpenSimReport: () => void;
 }
@@ -149,8 +145,6 @@ export interface StrategyReportPageProps {
 const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
   lifecycle,
   onActivate,
-  onConvert,
-  onSwitchLifecycle,
   onOpenSimReport,
 }) => {
   const [selectedMonth, setSelectedMonth] = useState("2026-07");
@@ -161,7 +155,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
 
   /**
    * tab 切换：策略运行报告 / 增值特性（限电止损专项）。
-   * 增值特性是面向已开通客户（试运行 / 正式运行）的付费增强能力，单独成 tab。
+   * 增值特性是面向已开通客户的付费增强能力，单独成 tab。
    */
   const [activeTab, setActiveTab] = useState<'report' | 'valueadd'>('report');
 
@@ -752,32 +746,6 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
         </div>
         
         <div className="flex items-center gap-2.5">
-          {/* 运行模式切换（演示用）：正式运行 / 试运行共用同一套报告模板 */}
-          {lifecycle !== 'presale' && (
-            <div className="flex items-center gap-1 bg-[#F4F6F9] p-1 rounded-lg border border-[#EAEDF2]">
-              <button
-                onClick={() => onSwitchLifecycle('trial')}
-                className={`px-3 py-1 rounded-md text-[12px] font-bold transition-all ${
-                  lifecycle === 'trial'
-                    ? 'bg-white text-[#B7791F] shadow-xs border border-[#FFE0A3]'
-                    : 'text-[#7F8C8D] hover:text-[#2C3E50]'
-                }`}
-              >
-                试运行
-              </button>
-              <button
-                onClick={() => onSwitchLifecycle('formal')}
-                className={`px-3 py-1 rounded-md text-[12px] font-bold transition-all ${
-                  lifecycle === 'formal'
-                    ? 'bg-white text-[#17705A] shadow-xs border border-[#B7E4D3]'
-                    : 'text-[#7F8C8D] hover:text-[#2C3E50]'
-                }`}
-              >
-                正式运行
-              </button>
-            </div>
-          )}
-
           <button 
             onClick={() => setIsConfigSubpageOpen(true)}
             disabled={isAnalyzing}
@@ -802,7 +770,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
         </div>
       </div>
 
-      {/* 生命周期专属模块：三种状态唯一的内容差异区（报告主体保持 90% 不变） */}
+      {/* 生命周期专属模块：未开通态挂一条引导，已开通直接进正文 */}
       {lifecycle === 'presale' && (
         <div className="rounded-xl border border-[#E3E8EE] bg-white px-5 py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
           <div className="flex items-start gap-3">
@@ -810,7 +778,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
             <div>
               <div className="text-[13px] font-bold text-[#1A2A3A]">尚未开通 AI 智能调度</div>
               <p className="text-[11px] text-[#7F8C8D] mt-0.5 leading-relaxed">
-                下方为《天盈 AI 站点策略&收益体检报告》的体检结果。开通 30 天试用后，本报告将自动切换为
+                下方为《天盈 AI 站点策略&收益体检报告》的体检结果。开通后，本报告将自动切换为
                 「实测 AI 轨迹 vs 后台基线仿真」的双轨迹口径。
               </p>
             </div>
@@ -827,32 +795,7 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
               className="flex items-center gap-1.5 px-4 py-2 rounded-md text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors"
             >
               <QrCode className="w-3.5 h-3.5" />
-              扫码开通 30 天试用
-            </button>
-          </div>
-        </div>
-      )}
-
-      {lifecycle === 'trial' && (
-        <div className="rounded-xl border border-[#FFE0A3] bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE] px-5 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
-          {/* 顶部条只承担状态与转化，核心数字统一由下方正文核心指标块承载，避免同一数字出现两次 */}
-          <div className="flex items-center gap-2 text-[12px] font-bold text-[#B7791F]">
-            <Clock className="w-3.5 h-3.5 shrink-0" />
-            试运行已运行 {TY_TRIAL_META.elapsedDays} / {TY_TRIAL_META.totalDays} 天 · 对比基线：{TY_TRIAL_META.baselineName}
-          </div>
-          <div className="flex items-center gap-2.5 shrink-0">
-            <div className="rounded-lg bg-white/70 border border-[#FFE0A3] px-3.5 py-2 text-center">
-              <div className="text-[10px] text-[#8A6D3B]">试用期剩余</div>
-              <div className="text-[16px] font-black font-mono text-[#B7791F]">
-                {TY_TRIAL_META.remainingDays} 天
-              </div>
-            </div>
-            <button
-              onClick={onConvert}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-md text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors"
-            >
-              <QrCode className="w-3.5 h-3.5" />
-              扫码升级正式版
+              扫码开通
             </button>
           </div>
         </div>
@@ -861,13 +804,9 @@ const StrategyReportPage: React.FC<StrategyReportPageProps> = ({
       {/* 正式态不挂状态条：直接进正文核心指标，与「经营分析报告 · AI 策略数据」同口径 */}
 
       {/* CORE STATS & ASSOCIATIVE VALUE DRIVERS DASHBOARD */}
-      {/* 未开通状态：报告主体替换为《天盈 AI 仿真报告》正文，不做遮罩，末尾引导开通试用 */}
+      {/* 未开通状态：报告主体替换为《天盈 AI 仿真报告》正文，不做遮罩，末尾引导开通 */}
       {lifecycle === 'presale' ? (
-        <TianyingSimReportBody
-          showActivateHint
-          onActivate={onActivate}
-          onOpenSimReport={onOpenSimReport}
-        />
+        <TianyingSimReportBody showActivateHint onActivate={onActivate} />
       ) : (
         <>
           {/* tab 栏：增值特性单独成 tab，并在标签上直接标出本月收益 */}

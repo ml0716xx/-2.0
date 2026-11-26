@@ -397,9 +397,9 @@ function Section({
 }
 
 export interface TianyingSimReportBodyProps {
-  /** 是否在正文末尾附「开通试用」引导条 */
+  /** 是否在正文末尾附「开通」引导条 */
   showActivateHint?: boolean;
-  /** 开通试用 */
+  /** 开通 */
   onActivate?: () => void;
   /** 打开完整体检报告弹窗 */
   onOpenSimReport?: () => void;
@@ -638,7 +638,7 @@ export default function TianyingSimReportBody({
         </div>
       </Section>
 
-      {/* ------------------------- 开通试用引导 ------------------------- */}
+      {/* ------------------------- 开通引导 ------------------------- */}
       {showActivateHint && (
         <div className="rounded-xl border border-[#B7E4D3] bg-gradient-to-br from-[#F1FBF7] to-[#E8F7F1] px-5 py-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -649,11 +649,11 @@ export default function TianyingSimReportBody({
                   以上为售前测算结果：同样的设备，一个月能多创收 {fmt(TY_SIM_DELTA.net, 0)} 元
                 </div>
                 <p className="text-[11px] text-[#5A6B7C] mt-1 leading-relaxed">
-                  开通 30 天试用后，本报告将切换为「实测 AI 轨迹 vs 后台基线」的对比口径，
-                  数字全部来自站点实际运行；试用期内可随时退出。
+                  开通后，本报告将切换为「实测 AI 轨迹 vs 后台基线」的对比口径，
+                  数字全部来自站点实际运行。
                 </p>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[10px] text-[#2C7A6E]">
-                  {['扫码由顾问开通', '无需改造设备', '试用期随时退出'].map(t => (
+                  {['扫码由顾问开通', '无需改造设备', '随时可停用'].map(t => (
                     <span key={t} className="flex items-center gap-1">
                       <CheckCircle2 size={11} className="text-[#1E9C7E]" />
                       {t}
@@ -681,7 +681,7 @@ export default function TianyingSimReportBody({
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-[12px] font-bold bg-[#1E9C7E] hover:bg-[#17705A] text-white transition-colors shadow-sm"
                 >
                   <QrCode size={14} />
-                  扫码免费开通 30 天试用
+                  扫码开通
                   <ArrowRight size={13} />
                 </button>
               )}

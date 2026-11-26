@@ -28,7 +28,7 @@ import ElectricityReportPage from './components/ElectricityReportPage';
 import RevenueReportPage from './components/RevenueReportPage';import TopologyManagementPage from './components/TopologyManagementPage';
 import BusinessReportPage, { type Lifecycle } from './components/BusinessReportPage';
 import TianyingSimReportModal from './components/TianyingSimReportModal';
-import ZeroCarbonQrModal, { type QrActivateMode } from './components/ZeroCarbonQrModal';
+import ZeroCarbonQrModal from './components/ZeroCarbonQrModal';
 import { EnergyStat, RevenueStat, AlarmItem, StrategyGroup } from './types';
 
 /** 「本月不再提示」的本地存储键；值存当前月份 key（YYYY-MM） */
@@ -49,12 +49,12 @@ const App: React.FC = () => {
   /** 监控概览默认展示能流图（原 3D 光储能流图） */
   const [overviewDiagramType, setOverviewDiagramType] = useState<'flow' | 'wiring'>('flow');
 
-  /** 客户生命周期：未开通（售前） → 试运行 → 正式运行 */
+  /** 客户生命周期：未开通（无权限） → 正式运行（有权限） */
   const [lifecycle, setLifecycle] = useState<Lifecycle>('presale');
   /** 《天盈 AI 站点策略&收益体检报告》弹窗 */
   const [isSimReportOpen, setIsSimReportOpen] = useState(false);
-  /** 开通 / 升级的扫码弹层：null 关闭，否则是这次要办的事 */
-  const [qrMode, setQrMode] = useState<QrActivateMode | null>(null);
+  /** 开通的扫码弹层 */
+  const [qrOpen, setQrOpen] = useState(false);
 
   const currentMonthKey = new Date().toISOString().slice(0, 7);
 
@@ -72,18 +72,12 @@ const App: React.FC = () => {
   }, []);
 
   /**
-   * 开通 / 升级不再在系统内一键完成 —— 权限由零碳云管家顾问配，
-   * 所以 CTA 只负责弹二维码。生命周期状态本身仍保留，
-   * 演示时用「策略配置」右上角的三态切换核对各状态的样式。
+   * 开通不在系统内自助完成 —— 权限由零碳云管家顾问配，CTA 只负责弹二维码。
+   * 生命周期只有两态（未开通 / 正式运行），没有试用期这一档。
    */
-  const handleActivateTrial = () => {
+  const handleActivate = () => {
     setIsSimReportOpen(false);
-    setQrMode('trial');
-  };
-
-  /** 试运行 → 正式运行：同样走扫码，由顾问确认后升级 */
-  const handleConvertToFormal = () => {
-    setQrMode('formal');
+    setQrOpen(true);
   };
 
   // Mock data with yesterday values
@@ -148,8 +142,7 @@ const App: React.FC = () => {
       return (
         <StrategyConfigPage
           lifecycle={lifecycle}
-          onActivate={handleActivateTrial}
-          onConvert={handleConvertToFormal}
+          onActivate={handleActivate}
           onSwitchLifecycle={setLifecycle}
         />
       );
@@ -158,8 +151,7 @@ const App: React.FC = () => {
       return (
         <StrategySchedulePage2
           lifecycle={lifecycle}
-          onActivate={handleActivateTrial}
-          onConvert={handleConvertToFormal}
+          onActivate={handleActivate}
           onSwitchLifecycle={setLifecycle}
         />
       );
@@ -183,9 +175,7 @@ const App: React.FC = () => {
       return (
         <StrategyReportPage
           lifecycle={lifecycle}
-          onActivate={handleActivateTrial}
-          onConvert={handleConvertToFormal}
-          onSwitchLifecycle={setLifecycle}
+          onActivate={handleActivate}
           onOpenSimReport={() => setIsSimReportOpen(true)}
         />
       );
@@ -195,8 +185,7 @@ const App: React.FC = () => {
         <BusinessReportPage
           lifecycle={lifecycle}
           onOpenSimReport={() => setIsSimReportOpen(true)}
-          onConvert={handleConvertToFormal}
-          onActivate={handleActivateTrial}
+          onActivate={handleActivate}
         />
       );
     }
@@ -381,6 +370,7 @@ const App: React.FC = () => {
           lifecycle={lifecycle}
           onNavigate={setCurrentPage}
           onOpenSimReport={() => setIsSimReportOpen(true)}
+          onSwitchLifecycle={setLifecycle}
         />
 
         {renderContent()}
@@ -401,12 +391,12 @@ const App: React.FC = () => {
       <TianyingSimReportModal
         isOpen={isSimReportOpen}
         onClose={() => setIsSimReportOpen(false)}
-        onActivate={handleActivateTrial}
+        onActivate={handleActivate}
         onDismissThisMonth={() => localStorage.setItem(SIM_DISMISS_KEY, currentMonthKey)}
       />
 
       {/* 开通 / 升级：扫码由零碳云管家顾问办理，替代原来的「一键开通 / 一键升级」 */}
-      <ZeroCarbonQrModal mode={qrMode} onClose={() => setQrMode(null)} />
+      <ZeroCarbonQrModal open={qrOpen} onClose={() => setQrOpen(false)} />
     </div>
   );
 };

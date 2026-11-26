@@ -7,7 +7,7 @@
 
    正文四段（典型日 → 这个月能多赚多少 → 九项指标 → 体检结论）与运营端
    「推送体检报告」同源，区别在于：本弹窗是客户侧看到的报告正文，不再有章节勾选
-   与推送预览，底部换成试用转化 CTA。数字全部取自 tianyingReportData.ts。
+   与推送预览，底部换成开通转化 CTA。数字全部取自 tianyingReportData.ts。
    ========================================================================== */
 
 import React, { useState } from 'react';
@@ -172,10 +172,10 @@ export default function TianyingSimReportModal({
 
           <div className="flex items-center gap-2 mt-2.5 text-[10px] text-[#9AA7B4]">
             <CheckCircle2 size={11} className="text-[#1E9C7E]" />
-            扫码添加顾问，由顾问完成权限配置与开通，试用期内可随时退出
+            扫码添加顾问，由顾问完成权限配置与开通
             <span className="text-[#D5DBE2]">·</span>
             <TrendingUp size={11} className="text-[#3B82F6]" />
-            试用期结束后按实际增益决定是否转正式版
+            开通后按实际增益评估服务价值
           </div>
         </div>
       </div>

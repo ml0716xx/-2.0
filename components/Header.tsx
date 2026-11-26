@@ -13,6 +13,7 @@ import {
   Check,
 } from 'lucide-react';
 import type { Lifecycle } from './BusinessReportPage';
+import LifecyclePreviewPanel from './LifecyclePreviewPanel';
 import {
   NOTIFY_KIND_META,
   visibleNotifications,
@@ -36,9 +37,16 @@ interface HeaderProps {
   onNavigate?: (page: string) => void;
   /** 点击「仿真报告推送」直接打开弹窗 */
   onOpenSimReport?: () => void;
+  /** 演示用：手动切生命周期。不传则不显示切换入口 */
+  onSwitchLifecycle?: (l: Lifecycle) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ lifecycle, onNavigate, onOpenSimReport }) => {
+const Header: React.FC<HeaderProps> = ({
+  lifecycle,
+  onNavigate,
+  onOpenSimReport,
+  onSwitchLifecycle,
+}) => {
   const [time, setTime] = useState(new Date());
   const [currentSite, setCurrentSite] = useState('站点 #0241 (上海总部)');
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
@@ -113,6 +121,13 @@ const Header: React.FC<HeaderProps> = ({ lifecycle, onNavigate, onOpenSimReport 
         </div>
 
         <div className="flex items-center gap-1">
+          {/* 演示用：手动切生命周期，核对三种状态下的页面形态 */}
+          {onSwitchLifecycle && (
+            <div className="mr-1.5">
+              <LifecyclePreviewPanel lifecycle={lifecycle} onSwitch={onSwitchLifecycle} />
+            </div>
+          )}
+
           {/* 消息通知：铃铛 + 下拉消息中心 */}
           <div className="relative" ref={notifyRef}>
             <button

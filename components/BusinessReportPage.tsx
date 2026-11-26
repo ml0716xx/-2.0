@@ -12,7 +12,6 @@
         以后再有增值服务，加「四、」即可，页面骨架不动。
         按客户生命周期分三态：
           · 未开通（售前）  不遮罩，直接铺《天翼 AI 站点策略&收益体检报告》正文，末尾引导开通
-          · 试运行          解锁 + 试运行成绩单 + 剩余天数 + 扫码升级正式版
           · 正式运行        解锁 + 本月运行成绩 + 无转化入口
 
    指标纪律：AI 段只使用 AI_GAIN 里那张指标表，集合严格等于策略运行报告已渲染的指标，
@@ -30,7 +29,6 @@ import {
   Zap,
   ArrowRight,
   QrCode,
-  Clock,
   PlugZap,
   Info,
   CheckCircle2,
@@ -67,7 +65,6 @@ import {
   BIZ_UNIT_COST,
   AI_GAIN,
   AI_DAILY,
-  TY_TRIAL_META,
   fmt,
 } from './tianyingReportData';
 import TianyingSimReportBody from './TianyingSimReportBody';
@@ -76,16 +73,17 @@ import PhaseImbalanceValueAdd from './PhaseImbalanceValueAdd';
 import { curtailmentTotalSaved } from './curtailmentData';
 import { phaseMonth, phaseReleaseMax, readPhaseConfig, subscribePhaseConfig } from './phaseImbalanceData';
 
-/** 生命周期：未开通 / 试运行 / 正式运行 */
-export type Lifecycle = 'presale' | 'trial' | 'formal';
+/**
+ * 生命周期只有两态：未开通（无权限）/ 正式运行（有权限）。
+ * 开通由零碳云管家顾问在后台配权限，系统内既没有自助开通、也没有 30 天试用这一档。
+ */
+export type Lifecycle = 'presale' | 'formal';
 
 interface BusinessReportPageProps {
   lifecycle: Lifecycle;
   /** 打开《天盈 AI 仿真报告》弹窗 */
   onOpenSimReport: () => void;
-  /** 试运行 → 正式运行 */
-  onConvert: () => void;
-  /** 未开通 → 试运行 */
+  /** 未开通 → 正式运行（扫码由顾问开通） */
   onActivate: () => void;
 }
 
@@ -409,7 +407,7 @@ function AiHeroPresale({
           </div>
           <ul className="mt-2.5 space-y-1.5 text-[11px] text-white/85">
             {[
-              '30 天 AI 智能调度试用',
+              'AI 智能调度全量能力',
               '11 项增益指标完整解锁',
               '策略运行报告全量视图',
               '专属顾问 1v1 收益解读',
@@ -435,41 +433,6 @@ function AiHeroPresale({
           >
             查看体检报告
             <ArrowRight size={12} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * 试运行期状态条：只在试运行态渲染，正式态不挂任何状态条，直接进核心指标。
- * 只承担「试运行进度 + 转化」——核心业务数字（全月综合运行总收益 / AI 提升收益 /
- * 综合度电成本 / AI 运行时长）统一由下方核心指标块承载，同一数字不出现两次。
- */
-function TrialStrip({ onConvert }: { onConvert: () => void }) {
-  return (
-    <div className="rounded-xl px-5 py-3.5 border bg-gradient-to-br from-[#FFF9EC] to-[#FFF4DE] border-[#FFE0A3]">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[12px] font-bold text-[#B7791F]">
-          <Clock size={13} className="shrink-0" />
-          试运行已运行 {TY_TRIAL_META.elapsedDays} / {TY_TRIAL_META.totalDays} 天 · 对比基线：{TY_TRIAL_META.baselineName}
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-          <div className="rounded-lg bg-white/70 border border-[#FFE0A3] px-3 py-1.5 text-center">
-            <span className="text-[10px] text-[#8A6D3B] mr-1.5">试用期剩余</span>
-            <span className="text-[14px] font-black font-mono text-[#B7791F]">
-              {TY_TRIAL_META.remainingDays} 天
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={onConvert}
-            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold bg-[#B7791F] hover:bg-[#96631A] text-white transition-colors"
-          >
-            <QrCode size={14} />
-            扫码升级正式版
           </button>
         </div>
       </div>
@@ -693,11 +656,13 @@ function CaliberNote() {
 function ValueAddTab({
   lifecycle,
   onActivate,
-  onConvert,
   onOpenSimReport,
 }: BusinessReportPageProps) {
-  /* 未开通（售前）：把《天盈 AI 站点策略&收益体检报告》正文铺开展示，末尾引导开通试用。
-     注意这里不做遮罩 —— 遮罩会让客户看不到价值，反而降低开通意愿。 */
+  /* 未开通（无权限）：把《天盈 AI 站点策略&收益体检报告》正文铺开展示，末尾引导扫码开通。
+     注意这里不做遮罩 —— 遮罩会让客户看不到价值，反而降低开通意愿。
+     体检报告本身就是「AI 相关内容」的预览形态，所以未开通态不再单独铺 AI 模块，
+     只在这套预览后面补一块三相不平衡指标；限电止损算 AI 的一部分，
+     开通前不展示，后面由权限控制是否可见。 */
   if (lifecycle === 'presale') {
     return (
       <div className="space-y-4">
@@ -709,20 +674,25 @@ function ValueAddTab({
           <span className="text-[11px] text-[#93A1B0]">《天盈 AI 站点策略&收益体检报告》· 售前测算口径</span>
         </div>
 
-        <TianyingSimReportBody
-          showActivateHint
-          onActivate={onActivate}
-          onOpenSimReport={onOpenSimReport}
-        />
+        {/* 不再传 onOpenSimReport：顶部主视觉已有「查看体检报告」，
+            底部引导条再挂一个就成了同一页两个入口 */}
+        <TianyingSimReportBody showActivateHint onActivate={onActivate} />
+
+        <div className="flex items-center gap-2 pt-2">
+          <span className="w-1 h-3.5 rounded-full bg-[#D946EF]" />
+          <span className="text-[13px] font-bold text-[#1A2A3A]">三相不平衡治理</span>
+          <span className="text-[11px] text-[#93A1B0]">增值服务 · 防逆流边界收益</span>
+        </div>
+
+        <PhaseImbalanceValueAdd />
       </div>
     );
   }
 
+  /* 有权限：三块增值服务整段读完。
+     开通走权限，增值服务只有「有权限 / 没权限」两种，不存在体验期。 */
   return (
     <div className="space-y-4">
-      {/* 试运行 / 正式运行：三块增值服务整段读完，不再分子 tab */}
-      {lifecycle === 'trial' && <TrialStrip onConvert={onConvert} />}
-
       <div className="flex items-center gap-2">
         <span className="w-1 h-3.5 rounded-full bg-[#1E9C7E]" />
         <span className="text-[13px] font-bold text-[#1A2A3A]">一、AI 智能调度效益分析</span>
@@ -761,7 +731,6 @@ function ValueAddTab({
 export default function BusinessReportPage({
   lifecycle,
   onOpenSimReport,
-  onConvert,
   onActivate,
 }: BusinessReportPageProps) {
   const [tab, setTab] = useState<'biz' | 'valueAdd'>('biz');
@@ -771,10 +740,14 @@ export default function BusinessReportPage({
   const [phaseCfg, setPhaseCfg] = useState(readPhaseConfig);
   React.useEffect(() => subscribePhaseConfig(() => setPhaseCfg(readPhaseConfig())), []);
 
-  const valueAddTotal =
-    AI_GAIN.aiBoost +
-    curtailmentTotalSaved +
-    (phaseCfg.on ? phaseMonth(phaseReleaseMax(phaseCfg)).totalSaving : 0);
+  /* 三相不平衡这块只要开关打开就计入——未开通时它也是可测算的 */
+  const phaseSaving = phaseCfg.on ? phaseMonth(phaseReleaseMax(phaseCfg)).totalSaving : 0;
+
+  /* 已开通：三项都能兑现，合计三项 */
+  const valueAddTotal = AI_GAIN.aiBoost + curtailmentTotalSaved + phaseSaving;
+
+  /* 未开通：限电止损不展示，只测算「AI 多创收 + 三相不平衡治理」两块 */
+  const presaleTotal = AI_GAIN.aiBoost + phaseSaving;
 
   const TABS: { key: 'biz' | 'valueAdd'; label: string }[] = [
     { key: 'biz', label: '月度经营数据' },
@@ -832,15 +805,19 @@ export default function BusinessReportPage({
               {t.label}
               {t.key === 'valueAdd' &&
                 (lifecycle === 'presale' ? (
-                  <span className="px-1.5 py-0.5 rounded bg-[#F1F4F7] text-[#5A6B7C] text-[10px] font-bold">
-                    体检
+                  /* 未开通：还没有真实收益，报的是测算口径的两块 —— AI 多创收 + 三相不平衡治理 */
+                  <span
+                    title="测算多创收 + 三相不平衡治理收益"
+                    className="px-2 py-0.5 rounded-full bg-[#F4F6F9] text-[#5A6B7C] text-[11px] font-bold font-mono border border-[#E3E8EE]"
+                  >
+                    测算 +¥{Math.round(presaleTotal).toLocaleString()}
                   </span>
                 ) : (
                   <>
                     <span className="px-1.5 py-0.5 rounded bg-[#E8F7F1] text-[#17705A] text-[10px] font-bold">
                       3 项
                     </span>
-                    {/* 三项增值服务的价值合计：AI 提升收益 + 限电止损减亏 + 边界收益 */}
+                    {/* 已开通：AI 提升收益 + 限电止损减亏 + 边界收益 */}
                     <span className="px-2 py-0.5 rounded-full bg-[#E8F7F1] text-[#17705A] text-[11px] font-bold font-mono border border-[#B7E4D3]">
                       合计 +¥{Math.round(valueAddTotal).toLocaleString()}
                     </span>
@@ -869,7 +846,6 @@ export default function BusinessReportPage({
             <ValueAddTab
               lifecycle={lifecycle}
               onOpenSimReport={onOpenSimReport}
-              onConvert={onConvert}
               onActivate={onActivate}
             />
           )}
